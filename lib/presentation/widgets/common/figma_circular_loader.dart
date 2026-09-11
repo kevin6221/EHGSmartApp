@@ -1,0 +1,61 @@
+import 'package:flutter/material.dart';
+
+import '../painters/figma_loader_painter.dart';
+
+/// Standalone animated circular loader widget matching Figma design specifications.
+class FigmaCircularLoader extends StatefulWidget {
+  final double size;
+  final Color trackColor;
+  final Color indicatorColor;
+  final double strokeWidth;
+  final Duration duration;
+
+  const FigmaCircularLoader({
+    super.key,
+    this.size = 56.0,
+    this.trackColor = const Color(0x33FFFFFF),
+    this.indicatorColor = Colors.white,
+    this.strokeWidth = 5.5,
+    this.duration = const Duration(milliseconds: 1200),
+  });
+
+  @override
+  State<FigmaCircularLoader> createState() => _FigmaCircularLoaderState();
+}
+
+class _FigmaCircularLoaderState extends State<FigmaCircularLoader>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: widget.duration)
+      ..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: widget.size,
+      height: widget.size,
+      child: RotationTransition(
+        turns: _controller,
+        child: CustomPaint(
+          size: Size(widget.size, widget.size),
+          painter: FigmaLoaderPainter(
+            trackColor: widget.trackColor,
+            indicatorColor: widget.indicatorColor,
+            strokeWidth: widget.strokeWidth,
+          ),
+        ),
+      ),
+    );
+  }
+}
