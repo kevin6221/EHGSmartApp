@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/responsive.dart';
 
 /// Decorative sky header gradient background used across all major tabs.
 class SkyHeaderBackground extends StatelessWidget {
@@ -16,7 +17,7 @@ class SkyHeaderBackground extends StatelessWidget {
     required this.height,
     this.begin = Alignment.topCenter,
     this.end = Alignment.bottomCenter,
-    this.stops = const [0.0, 0.85],
+    this.stops = const [0.0, 0.75],
   });
 
   @override
@@ -29,7 +30,7 @@ class SkyHeaderBackground extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: const [Color(0xFF5A9FE6), Color(0xFFF8FAFC)],
+            colors: const [AppColors.primarySky, AppColors.background],
             begin: begin,
             end: end,
             stops: stops,
@@ -41,6 +42,7 @@ class SkyHeaderBackground extends StatelessWidget {
 }
 
 /// Unified top screen header with title, optional date/subtitle, and user profile avatar.
+/// Responsive and dynamically sized according to device form factor.
 class ScreenHeader extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -63,6 +65,10 @@ class ScreenHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = context.responsive;
+    final avatarDim = (r.width * 0.115).clamp(38.0, 48.0);
+    final dotDim = (avatarDim * 0.25).clamp(9.0, 12.0);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -76,18 +82,18 @@ class ScreenHeader extends StatelessWidget {
                 Text(
                   subtitle!,
                   style: GoogleFonts.plusJakartaSans(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    fontSize: 13.0,
-                    fontWeight: FontWeight.w500,
+                    color: AppColors.white.withValues(alpha: 0.9),
+                    fontSize: r.font(13.0),
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
                 const SizedBox(height: 4.0),
               ],
               Text(
                 title,
-                style: GoogleFonts.funnelDisplay(
-                  color: Colors.white,
-                  fontSize: 26.0,
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppColors.white,
+                  fontSize: r.font(26.0),
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.3,
                 ),
@@ -105,13 +111,12 @@ class ScreenHeader extends StatelessWidget {
               clipBehavior: Clip.none,
               children: [
                 Container(
-                  width: 44.0,
-                  height: 44.0,
+                  width: avatarDim,
+                  height: avatarDim,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white, width: 2.0),
                     image: DecorationImage(
-                      image: AssetImage(avatarAsset),
+                       image: AssetImage(avatarAsset),
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -119,14 +124,14 @@ class ScreenHeader extends StatelessWidget {
                 if (showOnlineIndicator)
                   Positioned(
                     right: 0,
-                    bottom: 2,
+                    bottom: 1,
                     child: Container(
-                      width: 11.0,
-                      height: 11.0,
+                      width: dotDim,
+                      height: dotDim,
                       decoration: BoxDecoration(
                         color: AppColors.greenMetric,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2.0),
+                        border: Border.all(color: AppColors.white, width: 2.0),
                       ),
                     ),
                   ),

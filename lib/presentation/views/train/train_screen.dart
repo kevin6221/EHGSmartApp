@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
@@ -7,13 +8,11 @@ import '../../blocs/training/training_bloc.dart';
 import '../../blocs/training/training_event.dart';
 import '../../blocs/training/training_state.dart';
 import '../../widgets/common/screen_header.dart';
-import '../../widgets/common/section_header.dart';
 import 'widgets/train_active_workout_card.dart';
 import 'widgets/train_category_selector.dart';
 import 'widgets/train_recent_session_card.dart';
-import 'widgets/train_weight_selector.dart';
 
-/// Training and workout dashboard screen.
+/// Training and workout dashboard screen matching Figma Node 75:2261.
 class TrainScreen extends StatelessWidget {
   const TrainScreen({super.key});
 
@@ -34,9 +33,9 @@ class TrainScreen extends StatelessWidget {
           backgroundColor: AppColors.background,
           body: Stack(
             children: [
-              // Header Sky Gradient
+              // Header Sky Gradient (Figma Rectangle 127)
               SkyHeaderBackground(
-                height: screenHeight * 0.3,
+                height: screenHeight * 0.32,
                 stops: const [0.0, 0.85],
               ),
 
@@ -53,11 +52,15 @@ class TrainScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header Row
-                      const ScreenHeader(title: 'Train'),
-                      SizedBox(height: screenHeight * 0.022),
+                      // 1. Header Row with Online Avatar Indicator (Figma Node 75:2268-2271)
+                      const ScreenHeader(
+                        title: 'Train',
+                        showAvatar: true,
+                        showOnlineIndicator: true,
+                      ),
+                      SizedBox(height: (screenHeight * 0.020).clamp(16.0, 20.0)),
 
-                      // Workout Categories Pill Card
+                      // 2. Workout Categories Card (Figma Node 75:2570)
                       TrainCategorySelector(
                         currentCategory: data.selectedCategory,
                         onCategorySelected: (type) {
@@ -66,34 +69,31 @@ class TrainScreen extends StatelessWidget {
                           );
                         },
                       ),
-                      SizedBox(height: screenHeight * 0.024),
+                      SizedBox(height: (screenHeight * 0.022).clamp(16.0, 22.0)),
 
-                      // Active Workout Card
-                      TrainActiveWorkoutCard(data: data),
-                      SizedBox(height: screenHeight * 0.026),
-
-                      // Calorie Maths Section
-                      const SectionHeader(
-                        title: 'Calorie maths',
-                        padding: EdgeInsets.zero,
-                      ),
-                      SizedBox(height: screenHeight * 0.015),
-                      TrainWeightSelector(
-                        currentWeight: data.selectedWeightKg,
+                      // 3. Active Workout Card with Integrated Calorie maths (Figma Node 75:2580)
+                      TrainActiveWorkoutCard(
+                        data: data,
                         onWeightSelected: (weight) {
                           context.read<TrainingBloc>().add(
                             SelectWeightEvent(weight),
                           );
                         },
                       ),
-                      SizedBox(height: screenHeight * 0.026),
+                      SizedBox(height: (screenHeight * 0.024).clamp(18.0, 24.0)),
 
-                      // Recent Sessions Section
-                      const SectionHeader(
-                        title: 'Recent sessions',
-                        padding: EdgeInsets.zero,
+                      // 4. Recent Sessions Section Header (Figma Node 75:2659)
+                      Text(
+                        'Recent sessions',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: r.font(16.0),
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.secondary,
+                        ),
                       ),
-                      SizedBox(height: screenHeight * 0.015),
+                      SizedBox(height: (screenHeight * 0.014).clamp(10.0, 14.0)),
+
+                      // 5. Recent Session Statistics Card (Figma Node 75:2661)
                       TrainRecentSessionCard(
                         sessionTitle: data.recentSessionTitle,
                         duration: data.recentSessionDuration,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_colors.dart';
+
 /// Custom painter for the Figma-styled circular loader with a subtle track
 /// and a prominent rounded-cap arc.
 class FigmaLoaderPainter extends CustomPainter {
@@ -8,8 +10,8 @@ class FigmaLoaderPainter extends CustomPainter {
   final double strokeWidth;
 
   const FigmaLoaderPainter({
-    this.trackColor = const Color(0x33FFFFFF),
-    this.indicatorColor = Colors.white,
+    this.trackColor = AppColors.loaderTrack,
+    this.indicatorColor = AppColors.white,
     this.strokeWidth = 5.5,
   });
 

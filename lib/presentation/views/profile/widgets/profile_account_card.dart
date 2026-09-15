@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/constants/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/responsive.dart';
 import '../../../widgets/common/app_card.dart';
 
-/// Card showing profile inputs: username text field, age selector, and weight selector.
+/// Card showing profile inputs: username text field, age selector, and weight selector (Figma Node 75:2928).
 class ProfileAccountCard extends StatelessWidget {
   final TextEditingController usernameController;
   final int age;
@@ -23,46 +26,63 @@ class ProfileAccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = context.responsive;
+
     return AppCard(
-      padding: const EdgeInsets.all(18),
-      borderRadius: BorderRadius.circular(20),
+      padding: const EdgeInsets.all(15.0),
+      borderRadius: BorderRadius.circular(12.0),
+      border: const Border.fromBorderSide(BorderSide.none),
       boxShadow: [
         BoxShadow(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-          blurRadius: 14,
-          offset: const Offset(0, 3),
+          color: AppColors.shadowNavy.withValues(alpha: 0.03),
+          blurRadius: 8.0,
+          offset: const Offset(0, 4),
         ),
       ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 1. Username Label
           Text(
             'Username',
-            style: AppTypography.bodySmall.copyWith(
-              fontWeight: FontWeight.w600,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: r.font(12.0),
+              fontWeight: FontWeight.w400,
+              color: AppColors.tertiary,
             ),
           ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: usernameController,
-            style: AppTypography.bodyMedium.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: const Color(0xFFF8FAFC),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppColors.borderLight),
-              ),
-            ),
+          const SizedBox(height: 8.0),
+
+          // 2. Username Input (Figma Node 75:2929, h=40, cr=12, bg=#EFF3FF, stroke=#3E83C8 at 50%)
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: usernameController,
+            builder: (context, nameValue, _) {
+              final bool isTextEntered = nameValue.text.trim().isNotEmpty;
+
+              return TextFormField(
+                controller: usernameController,
+                style: GoogleFonts.plusJakartaSans(
+                  color: isTextEntered
+                      ? AppColors.primary
+                      : AppColors.secondary,
+                  fontSize: r.font(14.0),
+                  fontWeight: isTextEntered ? FontWeight.w600 : FontWeight.w400,
+                ),
+                cursorColor: AppColors.primary,
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  hintText: 'John',
+                  hintStyle: GoogleFonts.plusJakartaSans(
+                    color: AppColors.tertiary,
+                    fontSize: r.font(14.0),
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              );
+            },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14.0),
+
           Row(
             children: [
               Expanded(
@@ -71,28 +91,40 @@ class ProfileAccountCard extends StatelessWidget {
                   children: [
                     Text(
                       'Age',
-                      style: AppTypography.bodySmall.copyWith(
-                        fontWeight: FontWeight.w600,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: r.font(12.0),
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.tertiary,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    _buildSelectorPill('$age', onAgeTap),
+                    const SizedBox(height: 8.0),
+                    _buildSelectorPill(
+                      value: '$age',
+                      onTap: onAgeTap,
+                      fontSize: r.font(14.0),
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12.0),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Weight',
-                      style: AppTypography.bodySmall.copyWith(
-                        fontWeight: FontWeight.w600,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: r.font(12.0),
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.tertiary,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    _buildSelectorPill('${weight}kg', onWeightTap),
+                    const SizedBox(height: 8.0),
+                    _buildSelectorPill(
+                      value: '${weight}kg',
+                      onTap: onWeightTap,
+                      fontSize: r.font(14.0),
+                    ),
                   ],
                 ),
               ),
@@ -103,29 +135,38 @@ class ProfileAccountCard extends StatelessWidget {
     );
   }
 
-  Widget _buildSelectorPill(String value, VoidCallback? onTap) {
+  Widget _buildSelectorPill({
+    required String value,
+    required VoidCallback? onTap,
+    required double fontSize,
+  }) {
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        height: 40.0,
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.borderLight),
+          color: AppColors.profileInputFill,
+          borderRadius: BorderRadius.circular(12.0),
+          border: Border.all(color: AppColors.profileInputBorder, width: 0.8),
         ),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
               value,
-              style: AppTypography.bodyMedium.copyWith(
-                fontWeight: FontWeight.w600,
+              style: GoogleFonts.plusJakartaSans(
+                color: AppColors.tertiary,
+                fontSize: fontSize,
+                fontWeight: FontWeight.w400,
               ),
             ),
-            const Icon(
-              Icons.unfold_more_rounded,
-              size: 18,
-              color: AppColors.textMuted,
+            SvgPicture.asset(
+              AppIcons.selectorArrows,
+              width: 14.0,
+              height: 14.0,
+              fit: BoxFit.contain,
             ),
           ],
         ),

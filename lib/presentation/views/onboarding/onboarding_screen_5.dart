@@ -62,7 +62,7 @@ class _OnboardingScreen5State extends State<OnboardingScreen5> {
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
+        statusBarColor: AppColors.transparent,
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
       ),
@@ -117,7 +117,7 @@ class _OnboardingScreen5State extends State<OnboardingScreen5> {
                         textAlign: TextAlign.center,
                       ),
 
-                      SizedBox(height: 25),
+                      SizedBox(height: (r.height * 0.026).clamp(16.0, 26.0)),
 
                       _PlanCard(
                         title: 'Health Tracking',
@@ -157,7 +157,7 @@ class _OnboardingScreen5State extends State<OnboardingScreen5> {
                         onTap: () => _onPlanSelected('free'),
                       ),
 
-                      const SizedBox(height: 20.0),
+                      SizedBox(height: (r.height * 0.02).clamp(14.0, 22.0)),
 
                       // 5. Card 2: Connected Wellness (Figma Node 120:1809 - Filled Gradient Background, Blue Stars)
                       _PlanCard(
@@ -204,10 +204,7 @@ class _OnboardingScreen5State extends State<OnboardingScreen5> {
                         ],
                         buttonText: 'Explore the full system',
                         isFilled: true,
-                        // onTap: () => _onPlanSelected('premium'),
-                        onTap: () {
-
-                        },
+                        onTap: () => _onPlanSelected('premium'),
                       ),
 
                       const SizedBox(height: 15.0),
@@ -277,23 +274,12 @@ class _PlanCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12.0),
         // One is filled gradient background, one is pure white background per Figma
         color: isFilled ? null : AppColors.white,
-        gradient: isFilled
-            ? const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                stops: [0.0, 0.545, 1.0],
-                colors: [
-                  Color(0xFFB5D7F2),
-                  Color(0xFFD6EEF5),
-                  Color(0xFFFFFFFF),
-                ],
-              )
-            : null,
+        gradient: isFilled ? AppColors.onboardingCardGradient : null,
         border: Border.all(color: AppColors.primary, width: 0.5),
         boxShadow: isFilled
             ? [
                 BoxShadow(
-                  color: const Color(0xFF000000).withValues(alpha: 0.03),
+                  color: AppColors.black.withValues(alpha: 0.03),
                   blurRadius: 8.0,
                   offset: const Offset(0.0, 4.0),
                 ),
@@ -316,7 +302,7 @@ class _PlanCard extends StatelessWidget {
                   gradient: RadialGradient(
                     center: Alignment(-0.22, -0.39),
                     radius: 0.8,
-                    colors: [Color(0xFF01D5F1), Color(0xFF3E83C8)],
+                    colors: [AppColors.cyanActive, AppColors.primary],
                   ),
                 ),
                 alignment: Alignment.center,
@@ -371,7 +357,7 @@ class _PlanCard extends StatelessWidget {
           // Divider (Figma Line 10/11: #4B5563 with 30% opacity)
           Container(
             height: 1.0,
-            color: const Color(0xFF4B5563).withValues(alpha: 0.30),
+            color: AppColors.tertiary.withValues(alpha: 0.30),
           ),
 
           const SizedBox(height: 14.0),
@@ -410,20 +396,20 @@ class _PlanCard extends StatelessWidget {
 
           // Action Button
           if (isFilled)
-            // Premium: gradient filled button (Figma: primary gradient, 12 radius, 48 height, SVG arrow)
+            // Premium: gradient filled button (Figma: primary gradient, 12 radius, dynamic height, SVG arrow)
             AppButton(
               text: buttonText,
               onPressed: onTap,
-              height: 48.0,
+              height: (context.responsive.height * 0.058).clamp(44.0, 52.0),
               borderRadius: BorderRadius.circular(12.0),
               trailingSvg: AppIcons.arrowForward,
             )
           else
-            // Free: outlined white button (Figma: white fill, 8 radius, 40 height, #3E83C8 0.5 border)
+            // Free: outlined white button (Figma: white fill, 8 radius, dynamic height, #3E83C8 0.5 border)
             GestureDetector(
               onTap: onTap,
               child: Container(
-                height: 40.0,
+                height: (context.responsive.height * 0.048).clamp(38.0, 44.0),
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color: AppColors.white,

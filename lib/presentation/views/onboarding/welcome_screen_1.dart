@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../widgets/common/app_button.dart';
 
 /// Pixel-perfect implementation of Figma node 82:3063 (Welcome Screen 1 / Onboarding).
@@ -13,20 +14,20 @@ class WelcomeScreen1 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final screenWidth = media.size.width;
     final screenHeight = media.size.height;
-    final horizontalPad = (screenWidth * 0.0427).clamp(16.0, 24.0);
+    final screenWidth = media.size.width;
+    final horizontalPad = (screenWidth * 0.05).clamp(16.0, 24.0);
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
+        statusBarColor: AppColors.transparent,
         statusBarIconBrightness: Brightness.light,
         statusBarBrightness: Brightness.dark,
-        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarColor: AppColors.transparent,
         systemNavigationBarIconBrightness: Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.black,
         extendBodyBehindAppBar: true,
         extendBody: true,
         body: Stack(
@@ -51,8 +52,8 @@ class WelcomeScreen1 extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Colors.black.withValues(alpha: 0.35),
-                      Colors.transparent,
+                      AppColors.black.withValues(alpha: 0.35),
+                      AppColors.transparent,
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -71,10 +72,10 @@ class WelcomeScreen1 extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.30),
-                      Colors.black.withValues(alpha: 0.50),
-                      Colors.black.withValues(alpha: 0.50),
+                      AppColors.transparent,
+                      AppColors.black.withValues(alpha: 0.30),
+                      AppColors.black.withValues(alpha: 0.50),
+                      AppColors.black.withValues(alpha: 0.50),
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -99,7 +100,7 @@ class WelcomeScreen1 extends StatelessWidget {
                     Text(
                       'Understand Your Health.\nElevate Your Wellness.',
                       style: GoogleFonts.plusJakartaSans(
-                        color: Colors.white,
+                        color: AppColors.white,
                         fontSize: (screenWidth * 0.08).clamp(24.0, 30.0),
                         fontWeight: FontWeight.w700,
                         height: 40.0 / 30.0,

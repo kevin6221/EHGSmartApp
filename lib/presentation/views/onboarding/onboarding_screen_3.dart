@@ -50,7 +50,7 @@ class _OnboardingScreen3State extends State<OnboardingScreen3> {
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
+        statusBarColor: AppColors.transparent,
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
       ),
@@ -151,7 +151,7 @@ class _OnboardingScreen3State extends State<OnboardingScreen3> {
                                     filled: true,
                                     fillColor: isTextEntered
                                         ? AppColors.inputFilledBackground
-                                        : Colors.transparent,
+                                        : AppColors.transparent,
                                     hintStyle: GoogleFonts.plusJakartaSans(
                                       fontSize: 16.0,
                                       fontWeight: FontWeight.w400,
@@ -159,18 +159,6 @@ class _OnboardingScreen3State extends State<OnboardingScreen3> {
                                       color: AppColors.textSecondary,
                                     ),
                                     border: InputBorder.none,
-                                    suffixIcon: isTextEntered
-                                        ? GestureDetector(
-                                            onTap: () {
-                                              _nameController.clear();
-                                            },
-                                            child: const Icon(
-                                              Icons.cancel_rounded,
-                                              size: 18.0,
-                                              color: AppColors.textMuted,
-                                            ),
-                                          )
-                                        : null,
                                   ),
                                 ),
                               ),

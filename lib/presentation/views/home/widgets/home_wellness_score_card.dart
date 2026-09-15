@@ -1,90 +1,143 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:syncfusion_flutter_charts/charts.dart';
 
+import '../../../../core/constants/app_animations.dart';
 import '../../../../core/constants/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/responsive.dart';
+import '../../../helpers/wellness_card_calculator.dart';
 
 /// Card showing the overall wellness score with trend indicator, activity tags,
 /// and interactive full detailed expanded view matching Figma node 60:289 (Home >> Expanded).
-/// Implements zero setState using ValueNotifier and ValueListenableBuilder.
-class HomeWellnessScoreCard extends StatelessWidget {
+/// Fully dynamic layout using responsive scaling and zero memory leaks.
+class HomeWellnessScoreCard extends StatefulWidget {
   final int score;
+  final int moveScore;
+  final int recoverScore;
+  final int mindScore;
+  final int fuelScore;
   final String scoreChange;
   final bool isNegativeChange;
   final ValueNotifier<bool>? isExpandedNotifier;
   final VoidCallback? onTap;
 
-  HomeWellnessScoreCard({
+  const HomeWellnessScoreCard({
     super.key,
     required this.score,
-    this.scoreChange = '↓ 3',
-    this.isNegativeChange = true,
+    this.moveScore = 36,
+    this.recoverScore = 73,
+    this.mindScore = 30,
+    this.fuelScore = 31,
+    this.scoreChange = '3',
+    this.isNegativeChange = false,
     this.isExpandedNotifier,
     this.onTap,
-  }) : _internalExpanded = isExpandedNotifier ?? ValueNotifier<bool>(false);
+  });
 
-  final ValueNotifier<bool> _internalExpanded;
+  @override
+  State<HomeWellnessScoreCard> createState() => _HomeWellnessScoreCardState();
+}
+
+class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
+  ValueNotifier<bool>? _internalNotifier;
+
+  ValueNotifier<bool> get _effectiveNotifier =>
+      widget.isExpandedNotifier ??
+      (_internalNotifier ??= ValueNotifier<bool>(false));
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isExpandedNotifier == null) {
+      _internalNotifier = ValueNotifier<bool>(false);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeWellnessScoreCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isExpandedNotifier != oldWidget.isExpandedNotifier) {
+      if (widget.isExpandedNotifier == null && _internalNotifier == null) {
+        _internalNotifier = ValueNotifier<bool>(
+          oldWidget.isExpandedNotifier?.value ?? false,
+        );
+      } else if (widget.isExpandedNotifier != null &&
+          _internalNotifier != null) {
+        _internalNotifier!.dispose();
+        _internalNotifier = null;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _internalNotifier?.dispose();
+    super.dispose();
+  }
+
+  void _handleTap() {
+    final notifier = _effectiveNotifier;
+    notifier.value = !notifier.value;
+    widget.onTap?.call();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final r = context.responsive;
+    final dims = WellnessCardDimensions.compute(
+      screenWidth: r.width,
+      screenHeight: r.height,
+    );
+
     return ValueListenableBuilder<bool>(
-      valueListenable: _internalExpanded,
+      valueListenable: _effectiveNotifier,
       builder: (context, isExpanded, _) {
         return GestureDetector(
-          onTap: () {
-            _internalExpanded.value = !_internalExpanded.value;
-            onTap?.call();
-          },
+          onTap: _handleTap,
           behavior: HitTestBehavior.opaque,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeInOutCubic,
-            padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 14.0),
+            duration: AppDurations.cardExpand,
+            curve: AppCurves.cardExpand,
+            padding: EdgeInsets.all(r.isSmall ? 12.0 : 16.0),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(22.0),
-              gradient: const LinearGradient(
-                colors: [
-                  Color(0xFFB5D7F2),
-                  Color(0xFFEFFBFF),
-                  Colors.white,
-                ],
-                stops: [0.0, 0.54, 1.0],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              gradient: AppColors.wellnessCardGradient,
               border: Border.all(
                 color: AppColors.primary,
                 width: 0.5,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
+                  color: AppColors.black.withValues(alpha: 0.03),
                   blurRadius: 8.0,
                   offset: const Offset(0, 4),
                 ),
               ],
             ),
             child: isExpanded
-                ? _buildExpandedView(context)
-                : _buildCollapsedView(context),
+                ? _buildExpandedView(context, r, dims)
+                : _buildCollapsedView(context, r, dims),
           ),
         );
       },
     );
   }
 
-  // --- 1. Collapsed View (Figma 118:917 / Rectangle 126, height 84) ---
-  Widget _buildCollapsedView(BuildContext context) {
+  // --- 1. Collapsed View ---
+  Widget _buildCollapsedView(
+    BuildContext context,
+    Responsive r,
+    WellnessCardDimensions dims,
+  ) {
     return Row(
       children: [
-        // Score badge (56x56 with 12px radius)
         Container(
-          width: 56.0,
-          height: 56.0,
+          width: dims.badgeDim,
+          height: dims.badgeDim,
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12.0),
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(dims.badgeDim * 0.22),
             border: Border.all(
               color: AppColors.primary,
               width: 0.5,
@@ -92,16 +145,16 @@ class HomeWellnessScoreCard extends StatelessWidget {
           ),
           alignment: Alignment.center,
           child: Text(
-            '$score',
+            '${widget.score}',
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 28.0,
+              fontSize: dims.badgeFontSize,
               fontWeight: FontWeight.w700,
               color: AppColors.primary,
               height: 1.0,
             ),
           ),
         ),
-        const SizedBox(width: 14.0),
+        SizedBox(width: dims.detailsGap),
 
         // Details column
         Expanded(
@@ -109,25 +162,34 @@ class HomeWellnessScoreCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Top Row: "Wellness Score" + "↓ 3" + "from yesterday"
-              Row(
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
                     'Wellness Score',
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 15.0,
+                      fontSize: r.font(16.0),
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1F2937),
+                      color: AppColors.secondary,
                     ),
                   ),
                   const SizedBox(width: 6.0),
+                  Icon(
+                    widget.isNegativeChange
+                        ? Icons.arrow_downward_outlined
+                        : Icons.arrow_upward_outlined,
+                    size: 10.0,
+                    color: widget.isNegativeChange
+                        ? AppColors.scoreDownRed
+                        : AppColors.primary,
+                  ),
                   Text(
-                    scoreChange,
+                    widget.scoreChange,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12.0,
+                      fontSize: r.font(12.0),
                       fontWeight: FontWeight.w500,
-                      color: isNegativeChange
-                          ? const Color(0xFFFF383C)
+                      color: widget.isNegativeChange
+                          ? AppColors.scoreDownRed
                           : AppColors.primary,
                     ),
                   ),
@@ -135,9 +197,9 @@ class HomeWellnessScoreCard extends StatelessWidget {
                   Text(
                     'from yesterday',
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10.0,
+                      fontSize: r.font(10.0),
                       fontWeight: FontWeight.w500,
-                      color: const Color(0xFF4B5563).withValues(alpha: 0.7),
+                      color: AppColors.tertiary,
                     ),
                   ),
                 ],
@@ -148,53 +210,60 @@ class HomeWellnessScoreCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const AppSvgIcon(
-                        AppIcons.runner,
-                        size: 15.0,
-                        color: Color(0xFF0EA5E9),
-                      ),
-                      const SizedBox(width: 4.0),
-                      Text(
-                        'Move',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12.0,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF4B5563),
+                  Flexible(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const AppSvgIcon(
+                          AppIcons.runningMan,
+                          size: 15.0,
+                          color: AppColors.cyanAccent,
                         ),
-                      ),
-                      const SizedBox(width: 8.0),
-                      Container(
-                        width: 4.0,
-                        height: 4.0,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Color(0xFF94A3B8),
+                        const SizedBox(width: 4.0),
+                        Text(
+                          'Move',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: r.font(12.0),
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.tertiary,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8.0),
-                      const AppSvgIcon(
-                        AppIcons.vitals,
-                        size: 15.0,
-                        color: AppColors.primary,
-                      ),
-                      const SizedBox(width: 4.0),
-                      Text(
-                        'Recover',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12.0,
-                          fontWeight: FontWeight.w500,
-                          color: const Color(0xFF4B5563),
+                        const SizedBox(width: 8.0),
+                        Container(
+                          width: 4.0,
+                          height: 4.0,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.chartDotMuted,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8.0),
+                        const AppSvgIcon(
+                          AppIcons.heartPlus,
+                          size: 15.0,
+                        ),
+                        const SizedBox(width: 4.0),
+                        Flexible(
+                          child: Text(
+                            'Recover',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: r.font(12.0),
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.tertiary,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  const Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    size: 22.0,
-                    color: AppColors.primary,
+                  const RotatedBox(
+                    quarterTurns: 1,
+                    child: Icon(
+                      Icons.arrow_forward_ios_outlined,
+                      size: 16.0,
+                      color: AppColors.primarySkyAccent,
+                    ),
                   ),
                 ],
               ),
@@ -205,8 +274,19 @@ class HomeWellnessScoreCard extends StatelessWidget {
     );
   }
 
-  // --- 2. Expanded Detail View (Figma Node 60:289, height ~571) ---
-  Widget _buildExpandedView(BuildContext context) {
+  // --- 2. Expanded Detail View (Figma Node 60:289) ---
+  Widget _buildExpandedView(
+    BuildContext context,
+    Responsive r,
+    WellnessCardDimensions dims,
+  ) {
+    final chartSegments = WellnessCardCalculator.buildChartSegments(
+      recoverScore: widget.recoverScore,
+      fuelScore: widget.fuelScore,
+      mindScore: widget.mindScore,
+      moveScore: widget.moveScore,
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -216,24 +296,40 @@ class HomeWellnessScoreCard extends StatelessWidget {
           children: [
             // Concentric Rings Graphic with Center Score & Status
             SizedBox(
-              width: 140.0,
-              height: 140.0,
+              width: dims.ringsDim,
+              height: dims.ringsDim,
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  CustomPaint(
-                    size: const Size(140.0, 140.0),
-                    painter: _ConcentricRingsPainter(),
+                  RepaintBoundary(
+                    child: SfCircularChart(
+                      margin: EdgeInsets.zero,
+                      series: <CircularSeries<PillarChartSegment, String>>[
+                        DoughnutSeries<PillarChartSegment, String>(
+                          dataSource: chartSegments,
+                          xValueMapper: (PillarChartSegment data, _) => data.label,
+                          yValueMapper: (PillarChartSegment data, _) => data.value,
+                          pointColorMapper: (PillarChartSegment data, _) =>
+                              data.color,
+                          radius: '100%',
+                          innerRadius: '80%',
+                          cornerStyle: CornerStyle.bothCurve,
+                          startAngle: 270,
+                          endAngle: 270,
+                          animationDuration: 600,
+                        ),
+                      ],
+                    ),
                   ),
                   Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '$score',
+                        '${widget.score}',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 28.0,
+                          fontSize: dims.ringsFontSize,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF1F2937),
+                          color: AppColors.secondary,
                           height: 1.0,
                         ),
                       ),
@@ -241,9 +337,9 @@ class HomeWellnessScoreCard extends StatelessWidget {
                       Text(
                         'Depleted',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12.0,
+                          fontSize: r.font(12.0),
                           fontWeight: FontWeight.w500,
-                          color: const Color(0xFF4B5563),
+                          color: AppColors.tertiary,
                         ),
                       ),
                     ],
@@ -251,121 +347,121 @@ class HomeWellnessScoreCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 14.0),
+            SizedBox(width: (r.width * 0.03).clamp(8.0, 14.0)),
 
-            // Right: 2x2 Pillar Legend + Chevron
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Wellness Score',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14.0,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF1F2937),
-                        ),
-                      ),
-                      const Icon(
-                        Icons.keyboard_arrow_up_rounded,
-                        size: 22.0,
-                        color: AppColors.primary,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12.0),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildLegendItem(
-                          color: const Color(0xFF3E50C8),
+                  // Column 1: Move & Mind
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLegendItem(
+                          color: AppColors.movePillar,
                           label: 'Move',
-                          score: 36,
+                          score: widget.moveScore,
+                          r: r,
                         ),
-                      ),
-                      Expanded(
-                        child: _buildLegendItem(
-                          color: const Color(0xFF3E83C8),
-                          label: 'Recover',
-                          score: 73,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10.0),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildLegendItem(
-                          color: const Color(0xFF1CB6E3),
+                        SizedBox(height: dims.rowSpacing * 1.5),
+                        _buildLegendItem(
+                          color: AppColors.mindPillar,
                           label: 'Mind',
-                          score: 30,
+                          score: widget.mindScore,
+                          r: r,
                         ),
-                      ),
-                      Expanded(
-                        child: _buildLegendItem(
-                          color: const Color(0xFF861CE3),
+                      ],
+                    ),
+                  ),
+
+                  // Column 2: Recover & Fuel
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLegendItem(
+                          color: AppColors.recoverPillar,
+                          label: 'Recover',
+                          score: widget.recoverScore,
+                          r: r,
+                        ),
+                        SizedBox(height: dims.rowSpacing * 1.5),
+                        _buildLegendItem(
+                          color: AppColors.fuelPillar,
                           label: 'Fuel',
-                          score: 31,
+                          score: widget.fuelScore,
+                          r: r,
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                  ),
+
+                  // Chevron indicator
+                  const RotatedBox(
+                    quarterTurns: 3,
+                    child: Icon(
+                      Icons.arrow_forward_ios_outlined,
+                      size: 16.0,
+                      color: AppColors.primarySkyAccent,
+                    ),
                   ),
                 ],
               ),
             ),
           ],
         ),
-        const SizedBox(height: 14.0),
+        SizedBox(height: dims.rowSpacing),
 
         // Divider (Line 11 in Figma)
         Container(
           height: 1.0,
-          color: const Color(0xFF4B5563).withValues(alpha: 0.15),
+          color: AppColors.tertiary.withValues(alpha: 0.15),
         ),
-        const SizedBox(height: 14.0),
+        SizedBox(height: dims.rowSpacing),
 
         // 4 Pillar Breakdown Rows (Figma 60:289)
         _buildPillarRow(
-          score: 36,
-          scoreColor: const Color(0xFF3E50C8),
+          score: widget.moveScore,
+          scoreColor: AppColors.movePillar,
           title: 'Move',
-          fraction: 0.36,
+          fraction: WellnessCardCalculator.computeFraction(widget.moveScore),
           insight: 'Movement is your weakest pillar today.',
+          r: r,
         ),
-        const SizedBox(height: 12.0),
+        SizedBox(height: dims.rowSpacing * 0.85),
         _buildPillarRow(
-          score: 73,
-          scoreColor: const Color(0xFF3E83C8),
+          score: widget.recoverScore,
+          scoreColor: AppColors.recoverPillar,
           title: 'Recover',
-          fraction: 0.73,
+          fraction: WellnessCardCalculator.computeFraction(widget.recoverScore),
           insight: 'Short sleep is holding this down.',
+          r: r,
         ),
-        const SizedBox(height: 12.0),
+        SizedBox(height: dims.rowSpacing * 0.85),
         _buildPillarRow(
-          score: 30,
-          scoreColor: const Color(0xFF1CB6E3),
+          score: widget.mindScore,
+          scoreColor: AppColors.mindPillar,
           title: 'Mind',
-          fraction: 0.30,
+          fraction: WellnessCardCalculator.computeFraction(widget.mindScore),
           insight: 'Stress load is elevated. Five minutes of breathing moves this.',
+          r: r,
         ),
-        const SizedBox(height: 12.0),
+        SizedBox(height: dims.rowSpacing * 0.85),
         _buildPillarRow(
-          score: 31,
-          scoreColor: const Color(0xFF861CE3),
+          score: widget.fuelScore,
+          scoreColor: AppColors.fuelPillar,
           title: 'Fuel',
-          fraction: 0.31,
+          fraction: WellnessCardCalculator.computeFraction(widget.fuelScore),
           insight: 'Hydration is the quickest win available to you.',
+          r: r,
         ),
-        const SizedBox(height: 14.0),
+        SizedBox(height: dims.rowSpacing),
 
         // Divider (Line 31 in Figma)
         Container(
           height: 1.0,
-          color: const Color(0xFF4B5563).withValues(alpha: 0.15),
+          color: AppColors.tertiary.withValues(alpha: 0.15),
         ),
         const SizedBox(height: 10.0),
 
@@ -373,9 +469,9 @@ class HomeWellnessScoreCard extends StatelessWidget {
         Text(
           'Your Wellness Score is the average of the four systems, recalculated as the day goes on. Drink water, finish a session or log a breathing exercise and watch it move.',
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 10.0,
+            fontSize: r.font(10.0),
             fontWeight: FontWeight.w400,
-            color: const Color(0xFF4B5563),
+            color: AppColors.tertiary,
             height: 1.4,
           ),
         ),
@@ -387,34 +483,43 @@ class HomeWellnessScoreCard extends StatelessWidget {
     required Color color,
     required String label,
     required int score,
+    required Responsive r,
   }) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 8.0,
-          height: 8.0,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8.0,
+              height: 8.0,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6.0),
+            Text(
+              label,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: r.font(12.0),
+                fontWeight: FontWeight.w400,
+                color: AppColors.secondary,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 5.0),
-        Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 12.0,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF1F2937),
-          ),
-        ),
-        const SizedBox(width: 4.0),
-        Text(
-          '$score',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 14.0,
-            fontWeight: FontWeight.w600,
-            color: color,
+        Padding(
+          padding: const EdgeInsets.only(left: 14.0),
+          child: Text(
+            '$score',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: r.font(14.0),
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
           ),
         ),
       ],
@@ -427,6 +532,7 @@ class HomeWellnessScoreCard extends StatelessWidget {
     required String title,
     required double fraction,
     required String insight,
+    required Responsive r,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -438,7 +544,7 @@ class HomeWellnessScoreCard extends StatelessWidget {
             Text(
               '$score',
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 18.0,
+                fontSize: r.font(18.0),
                 fontWeight: FontWeight.w700,
                 color: scoreColor,
               ),
@@ -447,9 +553,9 @@ class HomeWellnessScoreCard extends StatelessWidget {
             Text(
               title,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 14.0,
+                fontSize: r.font(14.0),
                 fontWeight: FontWeight.w500,
-                color: const Color(0xFF1F2937),
+                color: AppColors.secondary,
               ),
             ),
           ],
@@ -464,7 +570,7 @@ class HomeWellnessScoreCard extends StatelessWidget {
             color: scoreColor.withValues(alpha: 0.15),
             alignment: Alignment.centerLeft,
             child: FractionallySizedBox(
-              widthFactor: fraction.clamp(0.0, 1.0),
+              widthFactor: fraction,
               child: Container(
                 height: 3.0,
                 color: scoreColor,
@@ -476,71 +582,12 @@ class HomeWellnessScoreCard extends StatelessWidget {
         Text(
           insight,
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 11.0,
+            fontSize: r.font(11.0),
             fontWeight: FontWeight.w400,
-            color: const Color(0xFF4B5563),
+            color: AppColors.tertiary,
           ),
         ),
       ],
     );
   }
-}
-
-/// Custom painter for the 4 concentric donut arcs matching Figma 60:289.
-class _ConcentricRingsPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-
-    const rings = [
-      // 1. Move (Outer-most: #3E50C8, score 36)
-      _RingSpec(radius: 64.0, strokeWidth: 5.0, color: Color(0xFF3E50C8), sweepPercent: 0.36, startAngle: -math.pi / 2),
-      // 2. Recover (#3E83C8, score 73)
-      _RingSpec(radius: 54.0, strokeWidth: 5.0, color: Color(0xFF3E83C8), sweepPercent: 0.73, startAngle: -math.pi / 2),
-      // 3. Mind (#1CB6E3, score 30)
-      _RingSpec(radius: 44.0, strokeWidth: 5.0, color: Color(0xFF1CB6E3), sweepPercent: 0.30, startAngle: -math.pi / 2),
-      // 4. Fuel (Inner-most: #861CE3, score 31)
-      _RingSpec(radius: 34.0, strokeWidth: 5.0, color: Color(0xFF861CE3), sweepPercent: 0.31, startAngle: -math.pi / 2),
-    ];
-
-    for (final ring in rings) {
-      // Background track
-      final trackPaint = Paint()
-        ..color = ring.color.withValues(alpha: 0.15)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = ring.strokeWidth;
-
-      canvas.drawCircle(center, ring.radius, trackPaint);
-
-      // Active arc
-      final activePaint = Paint()
-        ..color = ring.color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = ring.strokeWidth
-        ..strokeCap = StrokeCap.round;
-
-      final rect = Rect.fromCircle(center: center, radius: ring.radius);
-      final sweepAngle = 2 * math.pi * ring.sweepPercent;
-      canvas.drawArc(rect, ring.startAngle, sweepAngle, false, activePaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-class _RingSpec {
-  final double radius;
-  final double strokeWidth;
-  final Color color;
-  final double sweepPercent;
-  final double startAngle;
-
-  const _RingSpec({
-    required this.radius,
-    required this.strokeWidth,
-    required this.color,
-    required this.sweepPercent,
-    required this.startAngle,
-  });
 }

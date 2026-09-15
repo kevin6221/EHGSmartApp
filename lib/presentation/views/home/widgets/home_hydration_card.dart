@@ -3,12 +3,14 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/constants/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/responsive.dart';
+import '../../../helpers/metric_card_calculator.dart';
 import '../../../widgets/charts/capsule_bar_chart.dart';
 import '../../../widgets/common/app_card.dart';
 import '../../../widgets/common/card_section_header.dart';
 
 /// Card showing daily hydration progress and weekly capsule bar chart.
-/// Pixel-perfect implementation matching Figma node 118:917 specs.
+/// Fully dynamic layout using responsive proportions.
 class HomeHydrationCard extends StatelessWidget {
   final int currentMl;
   final int goalMl;
@@ -27,12 +29,19 @@ class HomeHydrationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = context.responsive;
+    final dims = MetricCardDimensions.compute(
+      screenWidth: r.width,
+      screenHeight: r.height,
+    );
+
     return AppCard(
-      padding: const EdgeInsets.all(16.0),
+      padding: EdgeInsets.all(r.isSmall ? 12.0 : 16.0),
       borderRadius: BorderRadius.circular(22.0),
+      border: Border.all(color: AppColors.borderLight, width: 0.8),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.03),
+          color: AppColors.black.withValues(alpha: 0.03),
           blurRadius: 8.0,
           offset: const Offset(0, 4),
         ),
@@ -42,16 +51,16 @@ class HomeHydrationCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
-          const CardSectionHeader(
+          CardSectionHeader(
             title: 'Hydration',
-            iconSvg: AppIcons.water,
-            iconColor: Color(0xFF0072CE),
+            iconSvg: AppIcons.waterGlass,
+            iconColor: AppColors.primary,
             iconSize: 18.0,
-            titleFontSize: 15.0,
+            titleFontSize: r.font(15.0),
             actionText: 'Today',
-            actionFontSize: 12.0,
+            actionFontSize: r.font(12.0),
           ),
-          const SizedBox(height: 14.0),
+          SizedBox(height: dims.verticalSpacing),
 
           // Body: Metric on left, 7-day capsule bar chart on right
           Row(
@@ -70,17 +79,17 @@ class HomeHydrationCard extends StatelessWidget {
                         Text(
                           '$currentMl',
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 22.0,
+                            fontSize: r.font(22.0),
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFF1F2937),
+                            color: AppColors.secondary,
                           ),
                         ),
                         Text(
                           ' / $goalMl ml',
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12.0,
+                            fontSize: r.font(12.0),
                             fontWeight: FontWeight.w500,
-                            color: AppColors.textMuted,
+                            color: AppColors.tertiary,
                           ),
                         ),
                       ],
@@ -89,9 +98,9 @@ class HomeHydrationCard extends StatelessWidget {
                     Text(
                       'On Track',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12.0,
+                        color: AppColors.tertiary,
+                        fontWeight: FontWeight.w400,
+                        fontSize: r.font(14.0),
                       ),
                     ),
                   ],
@@ -102,10 +111,11 @@ class HomeHydrationCard extends StatelessWidget {
                 flex: 5,
                 child: CapsuleBarChart(
                   values: weeklyHydration,
-                  activeColor: const Color(0xFF0072CE),
-                  trackColor: const Color(0xFFE2F0FD),
-                  height: 56.0,
-                  barWidth: 8.9,
+                  activeColor: AppColors.primary,
+                  middleColor: AppColors.hydrationMiddle,
+                  lightColor: AppColors.hydrationLight,
+                  height: dims.chartHeight,
+                  barWidth: dims.barWidth,
                 ),
               ),
             ],

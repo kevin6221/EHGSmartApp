@@ -3,12 +3,14 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/constants/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/responsive.dart';
+import '../../../helpers/metric_card_calculator.dart';
 import '../../../widgets/charts/capsule_bar_chart.dart';
 import '../../../widgets/common/app_card.dart';
 import '../../../widgets/common/card_section_header.dart';
 
 /// Card showing energy burned, active minutes, and weekly capsule bar chart.
-/// Pixel-perfect implementation matching Figma node 118:917 specs.
+/// Fully dynamic layout using responsive proportions.
 class HomeEnergyCard extends StatelessWidget {
   final int energyBurned;
   final int activeMins;
@@ -29,12 +31,18 @@ class HomeEnergyCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = context.responsive;
+    final dims = MetricCardDimensions.compute(
+      screenWidth: r.width,
+      screenHeight: r.height,
+    );
+
     return AppCard(
-      padding: const EdgeInsets.all(16.0),
+      padding: EdgeInsets.all(r.isSmall ? 12.0 : 16.0),
       borderRadius: BorderRadius.circular(22.0),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.03),
+          color: AppColors.black.withValues(alpha: 0.03),
           blurRadius: 8.0,
           offset: const Offset(0, 4),
         ),
@@ -46,15 +54,15 @@ class HomeEnergyCard extends StatelessWidget {
           // Header
           CardSectionHeader(
             title: 'Energy burned',
-            iconSvg: AppIcons.train,
-            iconColor: const Color(0xFF0EA5E9),
+            iconSvg: AppIcons.energyBurn,
+            iconColor: AppColors.cyanAccent,
             iconSize: 18.0,
-            titleFontSize: 15.0,
+            titleFontSize: r.font(15.0),
             actionText: 'Start a session',
-            actionFontSize: 12.0,
+            actionFontSize: r.font(12.0),
             onActionTap: onStartSession,
           ),
-          const SizedBox(height: 14.0),
+          SizedBox(height: dims.verticalSpacing),
 
           // Body: Metric on left, 7-day capsule bar chart on right
           Row(
@@ -73,17 +81,17 @@ class HomeEnergyCard extends StatelessWidget {
                         Text(
                           '$energyBurned',
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 22.0,
+                            fontSize: r.font(22.0),
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFF1F2937),
+                            color: AppColors.secondary,
                           ),
                         ),
                         Text(
                           ' kcal',
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12.0,
+                            fontSize: r.font(12.0),
                             fontWeight: FontWeight.w500,
-                            color: AppColors.textMuted,
+                            color: AppColors.tertiary,
                           ),
                         ),
                       ],
@@ -92,9 +100,9 @@ class HomeEnergyCard extends StatelessWidget {
                     Text(
                       'Active $activeMins / $goalMins',
                       style: GoogleFonts.plusJakartaSans(
-                        color: const Color(0xFF4B5563),
+                        color: AppColors.tertiary,
                         fontWeight: FontWeight.w500,
-                        fontSize: 12.0,
+                        fontSize: r.font(12.0),
                       ),
                     ),
                   ],
@@ -105,17 +113,11 @@ class HomeEnergyCard extends StatelessWidget {
                 flex: 5,
                 child: CapsuleBarChart(
                   values: weeklyEnergy,
-                  activeGradient: const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0xFF00F2FE),
-                      Color(0xFF4FACFE),
-                    ],
-                  ),
-                  trackColor: const Color(0xFFE0F7FA),
-                  height: 56.0,
-                  barWidth: 8.9,
+                  activeColor: AppColors.cyanAccent,
+                  middleColor: AppColors.energyMiddle,
+                  lightColor: AppColors.energyLight,
+                  height: dims.chartHeight,
+                  barWidth: dims.barWidth,
                 ),
               ),
             ],

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/responsive.dart';
 import 'app_card.dart';
 
 /// Reusable metric tile displaying an icon, title, value/unit, and optional status badge or trailing widget.
@@ -36,21 +37,26 @@ class MetricTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = context.responsive;
+    final iconBoxDim = (r.width * 0.105).clamp(36.0, 44.0);
+    final iconDim = (iconBoxDim * 0.5).clamp(18.0, 22.0);
+    final verticalPad = (r.height * 0.016).clamp(10.0, 16.0);
+
     return AppCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+      padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: verticalPad),
       onTap: onTap,
       child: Row(
         children: [
           // Metric Icon in rounded container
           Container(
-            width: 40.0,
-            height: 40.0,
+            width: iconBoxDim,
+            height: iconBoxDim,
             decoration: BoxDecoration(
               color: iconBackgroundColor ?? iconColor.withValues(alpha: 0.10),
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: AppSvgIcon(iconPath, size: 20.0, color: iconColor),
+            child: AppSvgIcon(iconPath, size: iconDim, color: iconColor),
           ),
           const SizedBox(width: 14.0),
 

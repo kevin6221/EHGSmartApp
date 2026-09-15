@@ -90,7 +90,7 @@ class AppBrandLogo extends StatelessWidget {
         boxShadow: variant == AppBrandLogoVariant.white
             ? [
                 BoxShadow(
-                  color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                  color: AppColors.shadowNavy.withValues(alpha: 0.04),
                   blurRadius: 4,
                   offset: const Offset(0, 1),
                 ),

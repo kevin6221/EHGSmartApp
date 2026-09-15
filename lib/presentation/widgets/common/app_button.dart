@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/theme/responsive.dart';
 
 /// 4 Core Button Variants defined in Figma Brand Guide (Node 2:575).
 enum AppButtonVariant {
@@ -241,7 +242,8 @@ class AppButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveHeight = height ?? 48.0;
+    final effectiveHeight =
+        height ?? (context.responsive.height * 0.058).clamp(44.0, 52.0);
     final effectiveRadius = borderRadius ?? BorderRadius.circular(12.0);
     final bool isEnabled = onPressed != null && !isLoading;
 
@@ -264,7 +266,7 @@ class AppButton extends StatelessWidget {
         if (hasShadow && isEnabled) {
           resolvedShadow = [
             BoxShadow(
-              color: const Color(0xFF1E93EF).withValues(alpha: 0.40),
+              color: AppColors.primaryElectric.withValues(alpha: 0.40),
               blurRadius: 18,
               offset: const Offset(0, 4),
             ),
@@ -280,7 +282,7 @@ class AppButton extends StatelessWidget {
         if (hasShadow && isEnabled) {
           resolvedShadow = [
             BoxShadow(
-              color: const Color(0xFF0F172A).withValues(alpha: 0.05),
+              color: AppColors.shadowNavy.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
@@ -294,7 +296,7 @@ class AppButton extends StatelessWidget {
         break;
 
       case AppButtonVariant.outlined:
-        resolvedBg = backgroundColor ?? Colors.transparent;
+        resolvedBg = backgroundColor ?? AppColors.transparent;
         resolvedText = textColor ?? AppColors.primary;
         resolvedBorder =
             border ?? Border.all(color: AppColors.primary, width: 1.5);
@@ -322,7 +324,7 @@ class AppButton extends StatelessWidget {
         boxShadow: resolvedShadow,
       ),
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.transparent,
         child: InkWell(
           borderRadius: effectiveRadius is BorderRadius
               ? effectiveRadius

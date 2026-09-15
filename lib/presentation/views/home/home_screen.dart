@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/constants/app_animations.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
 import '../../blocs/wellness/wellness_bloc.dart';
@@ -17,7 +18,7 @@ import 'widgets/home_vitals_summary_row.dart';
 import 'widgets/home_wellness_score_card.dart';
 
 /// Main Dashboard Home Screen displaying wellness score, daily waves, vitals, readiness, and habits.
-/// Pixel-perfect match to Figma node 118:917 / 121:2016 with senior-level architecture and zero setState.
+/// Fully dynamic responsive layout adhering to senior developer architecture and zero setState.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -35,11 +36,11 @@ class _HomeScreenState extends State<HomeScreen>
     super.initState();
     _chartAnimController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: AppDurations.chartDraw,
     );
     _chartAnim = CurvedAnimation(
       parent: _chartAnimController,
-      curve: Curves.easeOutCubic,
+      curve: AppCurves.chartEase,
     );
     _chartAnimController.forward();
   }
@@ -53,6 +54,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   Widget build(BuildContext context) {
     final r = context.responsive;
+    final itemSpacing = (r.height * 0.018).clamp(12.0, 20.0);
 
     return BlocBuilder<WellnessBloc, WellnessState>(
       builder: (context, state) {
@@ -65,8 +67,7 @@ class _HomeScreenState extends State<HomeScreen>
           backgroundColor: AppColors.background,
           body: Stack(
             children: [
-              // 1. Sky Header Gradient Background (Figma Rectangle 127: height 310)
-              const SkyHeaderBackground(height: 310.0),
+              SkyHeaderBackground(height: r.hp(0.36)),
 
               // 2. Main Scrollable Dashboard Content
               SafeArea(
@@ -75,38 +76,45 @@ class _HomeScreenState extends State<HomeScreen>
                   physics: const BouncingScrollPhysics(),
                   padding: EdgeInsets.fromLTRB(
                     r.horizontalPadding,
-                    12.0,
+                    r.verticalPadding,
                     r.horizontalPadding,
                     r.hp(0.12),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header: Date & Greeting + User Avatar with Online Indicator
                       const HomeHeaderGreeting(),
-                      const SizedBox(height: 16.0),
+                      SizedBox(height: itemSpacing),
 
                       // Wellness Score Banner Card
-                      HomeWellnessScoreCard(score: data.wellnessScore),
-                      const SizedBox(height: 16.0),
+                      HomeWellnessScoreCard(
+                        score: data.wellnessScore,
+                        moveScore: data.moveScore,
+                        recoverScore: data.recoverScore,
+                        mindScore: data.mindScore,
+                        fuelScore: data.fuelScore,
+                        scoreChange: '${data.scoreDiff.abs()}',
+                        isNegativeChange: data.scoreDiff < 0,
+                      ),
+                      SizedBox(height: itemSpacing),
 
                       // Mode Selector Tabs (Recover / Steady / Push)
                       HomeModeSelector(
                         currentMode: data.activeMode,
                         onModeChanged: (mode) {
                           context.read<WellnessBloc>().add(
-                                ChangeWellnessModeEvent(mode),
-                              );
+                            ChangeWellnessModeEvent(mode),
+                          );
                         },
                       ),
-                      const SizedBox(height: 16.0),
+                      SizedBox(height: itemSpacing),
 
                       // "Your day so far" Chart Section (No Card Wrapper)
                       HomeDayWaveSection(
                         points: data.dayChartPoints,
                         animation: _chartAnim,
                       ),
-                      const SizedBox(height: 16.0),
+                      // SizedBox(height: itemSpacing),
 
                       // Quick-Glance Vitals Carousel (Heart Rate & Sleep)
                       HomeVitalsSummaryRow(
@@ -114,11 +122,11 @@ class _HomeScreenState extends State<HomeScreen>
                         weeklyHeartRate: data.weeklyHeartRate,
                         sleepHours: data.sleepHours,
                       ),
-                      const SizedBox(height: 16.0),
+                      SizedBox(height: itemSpacing),
 
                       // Readiness Detail Section Card
                       HomeReadinessCard(data: data),
-                      const SizedBox(height: 16.0),
+                      SizedBox(height: itemSpacing),
 
                       // Hydration Card
                       HomeHydrationCard(
@@ -127,11 +135,11 @@ class _HomeScreenState extends State<HomeScreen>
                         weeklyHydration: data.weeklyHydration,
                         onAddMl: () {
                           context.read<WellnessBloc>().add(
-                                const AddHydrationEvent(250),
-                              );
+                            const AddHydrationEvent(250),
+                          );
                         },
                       ),
-                      const SizedBox(height: 16.0),
+                      SizedBox(height: itemSpacing),
 
                       // Energy Burned Card
                       HomeEnergyCard(

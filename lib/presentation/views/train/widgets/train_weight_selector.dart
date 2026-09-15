@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/responsive.dart';
 
 /// Weight selector row for calorie calculations (60kg, 70kg, 80kg, 90kg).
+/// Exact match to Figma Node 75:2658.
 class TrainWeightSelector extends StatelessWidget {
   final int currentWeight;
   final ValueChanged<int> onWeightSelected;
@@ -18,41 +20,36 @@ class TrainWeightSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = context.responsive;
+    final pillHeight = (r.height * 0.048).clamp(36.0, 42.0);
+
     return Row(
       children: _weights.map((w) {
         final isSelected = w == currentWeight;
         return Expanded(
           child: GestureDetector(
             onTap: () => onWeightSelected(w),
+            behavior: HitTestBehavior.opaque,
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              height: pillHeight,
+              margin: const EdgeInsets.symmetric(horizontal: 4.0),
               decoration: BoxDecoration(
-                color: isSelected ? AppColors.surface : const Color(0xFFF3F4F6),
-                borderRadius: BorderRadius.circular(14),
+                color: isSelected
+                    ? AppColors.trainWeightSelectedBg
+                    : AppColors.trainWeightUnselectedBg,
+                borderRadius: BorderRadius.circular(12.0),
                 border: Border.all(
-                  color: isSelected ? AppColors.primary : Colors.transparent,
-                  width: 1.5,
+                  color: isSelected ? AppColors.primary : AppColors.transparent,
+                  width: 1.0,
                 ),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xFF0F172A)
-                              .withValues(alpha: 0.04),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ]
-                    : null,
               ),
               alignment: Alignment.center,
               child: Text(
                 '${w}kg',
-                style: AppTypography.titleMedium.copyWith(
-                  color: isSelected
-                      ? AppColors.primary
-                      : AppColors.textSecondary,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                style: GoogleFonts.plusJakartaSans(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: r.font(14.0),
                 ),
               ),
             ),

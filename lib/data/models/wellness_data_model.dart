@@ -41,6 +41,11 @@ class WellnessDataModel extends Equatable {
   final int goalMins;
   final List<double> weeklyEnergy;
 
+  final int moveScore;
+  final int recoverScore;
+  final int mindScore;
+  final int fuelScore;
+
   const WellnessDataModel({
     required this.wellnessScore,
     required this.scoreDiff,
@@ -62,6 +67,10 @@ class WellnessDataModel extends Equatable {
     required this.activeMins,
     required this.goalMins,
     required this.weeklyEnergy,
+    required this.moveScore,
+    required this.recoverScore,
+    required this.mindScore,
+    required this.fuelScore,
   });
 
   WellnessDataModel copyWith({
@@ -85,6 +94,10 @@ class WellnessDataModel extends Equatable {
     int? activeMins,
     int? goalMins,
     List<double>? weeklyEnergy,
+    int? moveScore,
+    int? recoverScore,
+    int? mindScore,
+    int? fuelScore,
   }) {
     return WellnessDataModel(
       wellnessScore: wellnessScore ?? this.wellnessScore,
@@ -107,6 +120,10 @@ class WellnessDataModel extends Equatable {
       activeMins: activeMins ?? this.activeMins,
       goalMins: goalMins ?? this.goalMins,
       weeklyEnergy: weeklyEnergy ?? this.weeklyEnergy,
+      moveScore: moveScore ?? this.moveScore,
+      recoverScore: recoverScore ?? this.recoverScore,
+      mindScore: mindScore ?? this.mindScore,
+      fuelScore: fuelScore ?? this.fuelScore,
     );
   }
 
@@ -132,5 +149,9 @@ class WellnessDataModel extends Equatable {
     activeMins,
     goalMins,
     weeklyEnergy,
+    moveScore,
+    recoverScore,
+    mindScore,
+    fuelScore,
   ];
 }

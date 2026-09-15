@@ -1,8 +1,43 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/constants/app_animations.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/responsive.dart';
 import '../../../../data/models/wellness_data_model.dart';
+
+/// Precomputed geometry for HomeModeSelector sliding indicator.
+class ModeSelectorGeometry {
+  final double tabWidth;
+  final double indicatorWidth;
+  final double indicatorLeft;
+  final double inset;
+
+  const ModeSelectorGeometry({
+    required this.tabWidth,
+    required this.indicatorWidth,
+    required this.indicatorLeft,
+    required this.inset,
+  });
+
+  factory ModeSelectorGeometry.compute({
+    required double totalWidth,
+    required int tabCount,
+    required int activeIndex,
+  }) {
+    final double tabWidth = tabCount > 0 ? totalWidth / tabCount : totalWidth;
+    final double indicatorWidth = tabWidth * 0.98;
+    final double inset = (tabWidth - indicatorWidth) / 2.0;
+    final double indicatorLeft = (activeIndex * tabWidth) + inset;
+
+    return ModeSelectorGeometry(
+      tabWidth: tabWidth,
+      indicatorWidth: indicatorWidth,
+      indicatorLeft: indicatorLeft,
+      inset: inset,
+    );
+  }
+}
 
 /// Tab bar selector for wellness modes: Recover, Steady, Push.
 /// Features a continuous baseline divider with a sliding active indicator bar matching Figma specs.
@@ -24,6 +59,7 @@ class HomeModeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = context.responsive;
     final int activeIndex = _modes.indexWhere((m) => m['mode'] == currentMode);
     final effectiveIndex = activeIndex >= 0 ? activeIndex : 0;
 
@@ -40,18 +76,19 @@ class HomeModeSelector extends StatelessWidget {
               child: GestureDetector(
                 onTap: () => onModeChanged(mode),
                 behavior: HitTestBehavior.opaque,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: SizedBox(
+                  height: (r.height * 0.045).clamp(36.0, 44.0),
                   child: Center(
                     child: Text(
                       label,
                       style: GoogleFonts.plusJakartaSans(
                         color: isSelected
                             ? AppColors.primary
-                            : const Color(0xFF4B5563),
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w400,
-                        fontSize: 14.0,
+                            : AppColors.textMuted,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                        fontSize: r.font(14.0),
                       ),
                     ),
                   ),
@@ -61,42 +98,48 @@ class HomeModeSelector extends StatelessWidget {
           }).toList(),
         ),
         const SizedBox(height: 4.0),
-
-        // Baseline divider with sliding active indicator
         LayoutBuilder(
           builder: (context, constraints) {
-            final double totalWidth = constraints.maxWidth;
-            final double tabWidth = totalWidth / _modes.length;
-            final double indicatorWidth = tabWidth * 0.85;
+            final geo = ModeSelectorGeometry.compute(
+              totalWidth: constraints.maxWidth,
+              tabCount: _modes.length,
+              activeIndex: effectiveIndex,
+            );
 
-            return Stack(
-              children: [
-                // Full width baseline (Line 10 in Figma)
-                Container(
-                  width: totalWidth,
-                  height: 2.0,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(1.0),
-                  ),
-                ),
-
-                // Animated Active Indicator (Line 9 in Figma)
-                AnimatedPositioned(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  left: effectiveIndex * tabWidth +
-                      ((tabWidth - indicatorWidth) / 2),
-                  width: indicatorWidth,
-                  height: 2.0,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.circular(1.0),
+            return SizedBox(
+              height: 2.0,
+              child: Stack(
+                children: [
+                  // Full background track divider
+                  Positioned(
+                    left: geo.inset,
+                    right: geo.inset,
+                    top: 0,
+                    child: Container(
+                      height: 2.0,
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(1.0),
+                      ),
                     ),
                   ),
-                ),
-              ],
+
+                  // Blue active indicator
+                  AnimatedPositioned(
+                    duration: AppDurations.medium,
+                    curve: AppCurves.standard,
+                    left: geo.indicatorLeft,
+                    width: geo.indicatorWidth,
+                    height: 2.0,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(1.0),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             );
           },
         ),

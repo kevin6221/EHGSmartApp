@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/constants/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
 import '../../../../core/theme/responsive.dart';
-import '../../../widgets/charts/sparkline_chart.dart';
+import '../../../helpers/vitals_card_calculator.dart';
 import '../../../widgets/common/app_card.dart';
+import '../../../widgets/painters/trend_wave_painter.dart';
 
-/// Row containing the twin trend cards: Blood Pressure Trend and Skin Temperature.
+/// Single unified card containing Blood Pressure Trend and Skin Temperature rows
+/// with smooth sine waves and open circular beads matching Figma Node 75:1819 / 119:1654.
 class VitalsTwinTrendCards extends StatelessWidget {
   final String bloodPressure;
   final double skinTempDiff;
@@ -24,85 +28,159 @@ class VitalsTwinTrendCards extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = context.responsive;
-    final spacing = (r.width * 0.035).clamp(8.0, 16.0);
+    final dims = VitalsCardDimensions.fromResponsive(r);
+    final waveWidth = (r.width * 0.26).clamp(80.0, 110.0);
+    final waveHeight = (r.height * 0.05).clamp(38.0, 50.0);
 
-    return Row(
-      children: [
-        Expanded(
-          child: _buildTrendCard(
-            title: 'Blood pressure trend',
-            value: bloodPressure,
-            icon: Icons.arrow_upward_rounded,
-            iconColor: AppColors.primary,
-            waveColor: AppColors.primary,
-            onTap: onBloodPressureTap,
-          ),
-        ),
-        SizedBox(width: spacing),
-        Expanded(
-          child: _buildTrendCard(
-            title: 'Skin temperature',
-            value: '$skinTempDiff°C',
-            icon: Icons.arrow_downward_rounded,
-            iconColor: AppColors.energy,
-            waveColor: AppColors.energy,
-            onTap: onSkinTempTap,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTrendCard({
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color iconColor,
-    required Color waveColor,
-    VoidCallback? onTap,
-  }) {
     return AppCard(
-      padding: const EdgeInsets.all(14),
-      borderRadius: BorderRadius.circular(20),
+      padding: EdgeInsets.symmetric(
+        horizontal: dims.cardPadding,
+        vertical: (r.height * 0.02).clamp(16.0, 22.0),
+      ),
+      borderRadius: BorderRadius.circular(dims.cardRadius),
       boxShadow: [
         BoxShadow(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-          blurRadius: 12,
-          offset: const Offset(0, 3),
+          color: AppColors.shadowNavy.withValues(alpha: 0.04),
+          blurRadius: 16.0,
+          offset: const Offset(0, 4),
         ),
       ],
-      onTap: onTap,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Flexible(
-                child: Text(
-                  value,
-                  style: AppTypography.titleLarge.copyWith(
-                    fontWeight: FontWeight.w700,
+          // 1. Blood Pressure Trend Row
+          InkWell(
+            onTap: onBloodPressureTap,
+            borderRadius: BorderRadius.circular(12.0),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: waveWidth,
+                  height: waveHeight,
+                  child: const RepaintBoundary(
+                    child: CustomPaint(
+                      painter: TrendWavePainter(
+                        waveColor: AppColors.primary,
+                        isUpTrend: true,
+                      ),
+                    ),
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              const SizedBox(width: 4),
-              Icon(icon, size: 16, color: iconColor),
-            ],
+                SizedBox(width: (r.width * 0.05).clamp(14.0, 24.0)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              bloodPressure,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: r.font(25.0),
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.secondary,
+                                height: 1.1,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6.0),
+                          SvgPicture.asset(
+                            AppIcons.downArrowBlue,
+                            fit: BoxFit.contain,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4.0),
+                      Text(
+                        'Blood pressure trend',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: r.font(13.0),
+                          fontWeight: FontWeight.w400,
+                          color: AppColors.tertiary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            title,
-            style: AppTypography.bodySmall,
-            overflow: TextOverflow.ellipsis,
+
+          // Divider Line
+          Padding(
+            padding: EdgeInsets.symmetric(
+              vertical: (r.height * 0.018).clamp(12.0, 18.0),
+            ),
+            child: Container(
+              height: 1.0,
+              color: AppColors.tertiary.withValues(alpha: 0.15),
+            ),
           ),
-          const SizedBox(height: 12),
-          SparklineChart(
-            values: const [10, 14, 11, 16, 12, 18, 15],
-            lineColor: waveColor,
-            height: 28,
-            width: double.infinity,
-            showFill: false,
+
+          // 2. Skin Temperature Row
+          InkWell(
+            onTap: onSkinTempTap,
+            borderRadius: BorderRadius.circular(12.0),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: waveWidth,
+                  height: waveHeight,
+                  child: const RepaintBoundary(
+                    child: CustomPaint(
+                      painter: TrendWavePainter(
+                        waveColor: AppColors.cyanAccent,
+                        isUpTrend: false,
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: (r.width * 0.05).clamp(14.0, 24.0)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              '${skinTempDiff > 0 ? '+' : ''}$skinTempDiff°C',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: r.font(25.0),
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.secondary,
+                                height: 1.1,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6.0),
+                          SvgPicture.asset(
+                            AppIcons.upArrowBlue,
+                            fit: BoxFit.contain,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4.0),
+                      Text(
+                        'Skin temperature',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: r.font(13.0),
+                          fontWeight: FontWeight.w400,
+                          color: AppColors.tertiary,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_animations.dart';
 import '../../../core/theme/app_colors.dart';
 
 /// 3 Progress Bar Variants defined in Figma Brand Guide (Node 2:575).
@@ -28,13 +29,13 @@ class AppProgressBar extends StatelessWidget {
   /// Track background color (defaults to pure white / subtle track).
   final Color? trackColor;
 
-  /// Bar height (defaults to 6.0).
+  /// Bar height in logical pixels.
   final double height;
 
-  /// Corner radius (defaults to full capsule 100.0).
+  /// Corner radius for fully-rounded ends.
   final double borderRadius;
 
-  /// Duration of progress transition animation.
+  /// Duration for progress value changes.
   final Duration animationDuration;
 
   const AppProgressBar({
@@ -45,7 +46,7 @@ class AppProgressBar extends StatelessWidget {
     this.trackColor,
     this.height = 6.0,
     this.borderRadius = 100.0,
-    this.animationDuration = const Duration(milliseconds: 300),
+    this.animationDuration = AppDurations.cardExpand,
   });
 
   /// Factory constructor for Primary variant (#3E83C8).
@@ -56,7 +57,7 @@ class AppProgressBar extends StatelessWidget {
     this.trackColor,
     this.height = 6.0,
     this.borderRadius = 100.0,
-    this.animationDuration = const Duration(milliseconds: 300),
+    this.animationDuration = AppDurations.cardExpand,
   }) : variant = AppProgressBarVariant.primary;
 
   /// Factory constructor for Secondary variant (#1F2937).
@@ -67,7 +68,7 @@ class AppProgressBar extends StatelessWidget {
     this.trackColor,
     this.height = 6.0,
     this.borderRadius = 100.0,
-    this.animationDuration = const Duration(milliseconds: 300),
+    this.animationDuration = AppDurations.cardExpand,
   }) : variant = AppProgressBarVariant.secondary;
 
   /// Factory constructor for Tertiary variant (#4B5563).
@@ -78,7 +79,7 @@ class AppProgressBar extends StatelessWidget {
     this.trackColor,
     this.height = 6.0,
     this.borderRadius = 100.0,
-    this.animationDuration = const Duration(milliseconds: 300),
+    this.animationDuration = AppDurations.cardExpand,
   }) : variant = AppProgressBarVariant.tertiary;
 
   @override
@@ -112,7 +113,7 @@ class AppProgressBar extends StatelessWidget {
             borderRadius: effectiveRadius,
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+                color: AppColors.shadowNavy.withValues(alpha: 0.04),
                 blurRadius: 2,
                 offset: const Offset(0, 1),
               ),

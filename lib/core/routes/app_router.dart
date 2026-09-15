@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../constants/app_animations.dart';
 import '../../presentation/views/dashboard/main_screen.dart';
 import '../../presentation/views/onboarding/onboarding_screen_1.dart';
 import '../../presentation/views/onboarding/onboarding_screen_2.dart';
@@ -36,7 +37,7 @@ abstract class AppRouter {
           page: const WelcomeScreen1(),
           settings: settings,
           transitionType: TransitionType.fade,
-          duration: const Duration(milliseconds: 400),
+          duration: AppDurations.pageTransition,
         );
 
       case AppRoutes.welcome2:
@@ -44,7 +45,7 @@ abstract class AppRouter {
           page: const WelcomeScreen2(),
           settings: settings,
           transitionType: TransitionType.slideRight,
-          duration: const Duration(milliseconds: 400),
+          duration: AppDurations.pageTransition,
         );
 
       case AppRoutes.onboarding1:
@@ -52,7 +53,7 @@ abstract class AppRouter {
           page: const OnboardingScreen1(),
           settings: settings,
           transitionType: TransitionType.slideRight,
-          duration: const Duration(milliseconds: 400),
+          duration: AppDurations.pageTransition,
         );
 
       case AppRoutes.onboarding2:
@@ -60,7 +61,7 @@ abstract class AppRouter {
           page: const OnboardingScreen2(),
           settings: settings,
           transitionType: TransitionType.slideRight,
-          duration: const Duration(milliseconds: 400),
+          duration: AppDurations.pageTransition,
         );
 
       case AppRoutes.onboarding3:
@@ -68,7 +69,7 @@ abstract class AppRouter {
           page: const OnboardingScreen3(),
           settings: settings,
           transitionType: TransitionType.slideRight,
-          duration: const Duration(milliseconds: 400),
+          duration: AppDurations.pageTransition,
         );
 
       case AppRoutes.onboarding4:
@@ -76,7 +77,7 @@ abstract class AppRouter {
           page: const OnboardingScreen4(),
           settings: settings,
           transitionType: TransitionType.slideRight,
-          duration: const Duration(milliseconds: 400),
+          duration: AppDurations.pageTransition,
         );
 
       case AppRoutes.onboarding5:
@@ -84,7 +85,7 @@ abstract class AppRouter {
           page: const OnboardingScreen5(),
           settings: settings,
           transitionType: TransitionType.slideRight,
-          duration: const Duration(milliseconds: 400),
+          duration: AppDurations.pageTransition,
         );
 
       case AppRoutes.dashboard:
@@ -92,7 +93,7 @@ abstract class AppRouter {
           page: const MainScreen(),
           settings: settings,
           transitionType: TransitionType.fade,
-          duration: const Duration(milliseconds: 450),
+          duration: AppDurations.pageTransitionSlow,
         );
 
       default:
@@ -111,7 +112,7 @@ abstract class AppRouter {
     required Widget page,
     required RouteSettings settings,
     TransitionType transitionType = TransitionType.fade,
-    Duration duration = const Duration(milliseconds: 300),
+    Duration duration = AppDurations.cardExpand,
   }) {
     return PageRouteBuilder<dynamic>(
       settings: settings,
@@ -132,7 +133,7 @@ abstract class AppRouter {
                   ).animate(
                     CurvedAnimation(
                       parent: animation,
-                      curve: Curves.easeOutCubic,
+                      curve: AppCurves.slideIn,
                     ),
                   ),
               child: child,
@@ -147,7 +148,7 @@ abstract class AppRouter {
                   ).animate(
                     CurvedAnimation(
                       parent: animation,
-                      curve: Curves.easeOutCubic,
+                      curve: AppCurves.slideIn,
                     ),
                   ),
               child: child,

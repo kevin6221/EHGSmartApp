@@ -35,3 +35,20 @@ class ToggleNotificationEvent extends ProfileEvent {
   @override
   List<Object?> get props => [key, value];
 }
+
+class UpdateAgeEvent extends ProfileEvent {
+  final int age;
+  const UpdateAgeEvent(this.age);
+
+  @override
+  List<Object?> get props => [age];
+}
+
+class UpdateWeightEvent extends ProfileEvent {
+  final int weight;
+  const UpdateWeightEvent(this.weight);
+
+  @override
+  List<Object?> get props => [weight];
+}
+

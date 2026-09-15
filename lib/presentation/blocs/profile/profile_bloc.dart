@@ -63,5 +63,17 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
         emit(state.copyWith(data: updated));
       }
     });
+
+    on<UpdateAgeEvent>((event, emit) {
+      if (state.data != null) {
+        emit(state.copyWith(data: state.data!.copyWith(age: event.age)));
+      }
+    });
+
+    on<UpdateWeightEvent>((event, emit) {
+      if (state.data != null) {
+        emit(state.copyWith(data: state.data!.copyWith(weight: event.weight)));
+      }
+    });
   }
 }

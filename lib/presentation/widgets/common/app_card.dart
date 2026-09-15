@@ -24,7 +24,7 @@ class AppCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(16.0),
     this.margin,
     this.borderRadius,
-    this.backgroundColor = Colors.white,
+    this.backgroundColor = AppColors.surface,
     this.border,
     this.boxShadow,
     this.gradient,
@@ -43,7 +43,7 @@ class AppCard extends StatelessWidget {
         boxShadow ??
         [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: AppColors.black.withValues(alpha: 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -54,7 +54,7 @@ class AppCard extends StatelessWidget {
       height: height,
       margin: margin,
       decoration: BoxDecoration(
-        color: gradient == null ? (backgroundColor ?? Colors.white) : null,
+        color: gradient == null ? (backgroundColor ?? AppColors.surface) : null,
         gradient: gradient,
         borderRadius: effectiveRadius,
         border: effectiveBorder,
@@ -66,7 +66,7 @@ class AppCard extends StatelessWidget {
 
     if (onTap != null) {
       content = Material(
-        color: Colors.transparent,
+        color: AppColors.transparent,
         borderRadius: effectiveRadius,
         child: InkWell(
           onTap: onTap,

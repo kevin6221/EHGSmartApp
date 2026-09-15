@@ -63,7 +63,7 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
+        statusBarColor: AppColors.transparent,
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
       ),
@@ -187,7 +187,7 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
                                         text: 'Find My band',
                                         trailingIcon: const Icon(
                                           Icons.search_rounded,
-                                          color: Colors.white,
+                                          color: AppColors.white,
                                           size: 20,
                                         ),
                                         onPressed: _onFindBandPressed,
@@ -197,7 +197,7 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
                                         text: 'Connect',
                                         trailingIcon: const Icon(
                                           Icons.arrow_forward_rounded,
-                                          color: Colors.white,
+                                          color: AppColors.white,
                                           size: 20,
                                         ),
                                         onPressed: _onConnectPressed,

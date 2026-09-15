@@ -69,7 +69,8 @@ class WaveChartPainter extends CustomPainter {
         textDirection: TextDirection.ltr,
       )..layout();
 
-      textPainter.paint(canvas, Offset(x - (textPainter.width / 2), 4));
+      final double labelX = (x - (textPainter.width / 2)).clamp(0.0, width - textPainter.width);
+      textPainter.paint(canvas, Offset(labelX, 4));
     }
 
     // 2. Determine Pin Index
@@ -164,16 +165,39 @@ class WaveChartPainter extends CustomPainter {
 
     // 6. Draw Projected Dashed Segment
     if (dashedOffsets.isNotEmpty) {
-      final double startX = solidOffsets.last.dx;
-      final double endX = width;
-      final double projY = solidOffsets.last.dy;
+      // Build smooth bezier path through projected points
+      final List<Offset> projPoints = [solidOffsets.last, ...dashedOffsets];
+      final Path projPath = Path();
+      projPath.moveTo(projPoints[0].dx, projPoints[0].dy);
+
+      for (int i = 0; i < projPoints.length - 1; i++) {
+        final p0 = projPoints[i];
+        final p1 = projPoints[i + 1];
+        final controlX1 = p0.dx + (p1.dx - p0.dx) / 2;
+        final controlY1 = p0.dy;
+        final controlX2 = p0.dx + (p1.dx - p0.dx) / 2;
+        final controlY2 = p1.dy;
+        projPath.cubicTo(
+            controlX1, controlY1, controlX2, controlY2, p1.dx, p1.dy);
+      }
 
       final Paint projPaint = Paint()
-        ..color = AppColors.primary.withValues(alpha: 0.8)
+        ..color = AppColors.primary.withValues(alpha: 0.5)
         ..strokeWidth = 2.0
         ..style = PaintingStyle.stroke;
 
-      _drawDashedHorizontalLine(canvas, startX, endX, projY, projPaint);
+      // Draw dashed path using PathMetrics
+      const double dashWidth = 6.0;
+      const double dashSpace = 4.0;
+      for (final metric in projPath.computeMetrics()) {
+        double distance = 0.0;
+        while (distance < metric.length) {
+          final double end = (distance + dashWidth).clamp(0.0, metric.length);
+          final extractedPath = metric.extractPath(distance, end);
+          canvas.drawPath(extractedPath, projPaint);
+          distance += dashWidth + dashSpace;
+        }
+      }
     }
 
     // 7. Draw Pin Indicator & Tooltip at Selected Time
@@ -214,7 +238,7 @@ class WaveChartPainter extends CustomPainter {
       );
 
       final Paint shadowPaint = Paint()
-        ..color = Colors.black.withValues(alpha: 0.06)
+        ..color = AppColors.black.withValues(alpha: 0.06)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
       canvas.drawRRect(tooltipRRect.shift(const Offset(0, 2)), shadowPaint);
 
@@ -278,26 +302,6 @@ class WaveChartPainter extends CustomPainter {
         paint,
       );
       currentY += dashHeight + dashSpace;
-    }
-  }
-
-  void _drawDashedHorizontalLine(
-    Canvas canvas,
-    double startX,
-    double endX,
-    double y,
-    Paint paint,
-  ) {
-    const double dashWidth = 4.0;
-    const double dashSpace = 4.0;
-    double currentX = startX;
-    while (currentX < endX) {
-      canvas.drawLine(
-        Offset(currentX, y),
-        Offset((currentX + dashWidth).clamp(startX, endX), y),
-        paint,
-      );
-      currentX += dashWidth + dashSpace;
     }
   }
 

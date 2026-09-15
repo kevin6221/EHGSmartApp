@@ -9,7 +9,9 @@ abstract class TrainingEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class LoadTrainingDataEvent extends TrainingEvent {}
+class LoadTrainingDataEvent extends TrainingEvent {
+  const LoadTrainingDataEvent();
+}
 
 class SelectWorkoutCategoryEvent extends TrainingEvent {
   final WorkoutType category;

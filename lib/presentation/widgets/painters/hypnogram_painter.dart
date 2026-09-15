@@ -35,22 +35,22 @@ class HypnogramPainter extends CustomPainter {
 
       switch (it.phase) {
         case SleepPhase.deep:
-          color = const Color(0xFF1E60C8);
+          color = AppColors.hypnogramDeep;
           topY = 0;
           barHeight = height;
           break;
         case SleepPhase.rem:
-          color = const Color(0xFF4ADE80);
+          color = AppColors.hypnogramRem;
           topY = height * 0.33;
           barHeight = height * 0.67;
           break;
         case SleepPhase.light:
-          color = const Color(0xFF38BDF8);
+          color = AppColors.hypnogramLight;
           topY = height * 0.66;
           barHeight = height * 0.34;
           break;
         case SleepPhase.awake:
-          color = const Color(0xFFF43F5E);
+          color = AppColors.hypnogramAwake;
           topY = 0;
           barHeight = height;
           break;

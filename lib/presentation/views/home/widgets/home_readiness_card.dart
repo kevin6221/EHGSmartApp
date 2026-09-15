@@ -2,56 +2,112 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/responsive.dart';
 import '../../../../data/models/wellness_data_model.dart';
+import '../../../helpers/readiness_card_calculator.dart';
 import '../../../widgets/common/app_card.dart';
 
-enum _SegmentType { sleep, hrv, rest, stress }
-
-class _BarSegment {
-  final double height;
-  final _SegmentType type;
-  const _BarSegment(this.height, this.type);
-}
-
 /// Exact 15 timeline bar columns extracted from Figma node 118:917 (Group 1376157171)
-const List<List<_BarSegment>> _timelineColumns = [
-  [_BarSegment(15.0, _SegmentType.hrv), _BarSegment(19.7, _SegmentType.sleep), _BarSegment(17.7, _SegmentType.hrv)],
-  [_BarSegment(22.5, _SegmentType.hrv), _BarSegment(9.2, _SegmentType.sleep), _BarSegment(29.0, _SegmentType.hrv)],
-  [_BarSegment(13.8, _SegmentType.rest), _BarSegment(5.0, _SegmentType.sleep), _BarSegment(17.9, _SegmentType.hrv)],
-  [_BarSegment(34.7, _SegmentType.hrv), _BarSegment(26.3, _SegmentType.sleep), _BarSegment(21.0, _SegmentType.stress)],
-  [_BarSegment(7.9, _SegmentType.hrv), _BarSegment(19.7, _SegmentType.sleep), _BarSegment(20.4, _SegmentType.rest)],
-  [_BarSegment(34.7, _SegmentType.hrv), _BarSegment(14.5, _SegmentType.sleep), _BarSegment(14.7, _SegmentType.rest)],
-  [_BarSegment(44.3, _SegmentType.hrv), _BarSegment(9.2, _SegmentType.sleep), _BarSegment(25.6, _SegmentType.rest)],
-  [_BarSegment(21.2, _SegmentType.hrv), _BarSegment(31.3, _SegmentType.sleep), _BarSegment(5.6, _SegmentType.stress)],
-  [_BarSegment(25.7, _SegmentType.hrv), _BarSegment(14.5, _SegmentType.sleep), _BarSegment(18.8, _SegmentType.rest)],
-  [_BarSegment(42.3, _SegmentType.hrv), _BarSegment(20.7, _SegmentType.sleep), _BarSegment(22.4, _SegmentType.hrv)],
-  [_BarSegment(12.3, _SegmentType.rest), _BarSegment(14.5, _SegmentType.sleep), _BarSegment(37.7, _SegmentType.sleep)],
-  [_BarSegment(22.1, _SegmentType.hrv), _BarSegment(18.6, _SegmentType.sleep), _BarSegment(18.8, _SegmentType.sleep)],
-  [_BarSegment(33.1, _SegmentType.hrv), _BarSegment(14.5, _SegmentType.sleep), _BarSegment(9.6, _SegmentType.sleep)],
-  [_BarSegment(44.3, _SegmentType.hrv), _BarSegment(12.4, _SegmentType.sleep), _BarSegment(20.3, _SegmentType.sleep)],
-  [_BarSegment(18.4, _SegmentType.hrv), _BarSegment(17.6, _SegmentType.sleep), _BarSegment(23.0, _SegmentType.hrv)],
+const List<List<ReadinessBarSegmentDef>> _timelineColumns = [
+  [
+    ReadinessBarSegmentDef(15.0, ReadinessSegmentType.hrv),
+    ReadinessBarSegmentDef(19.7, ReadinessSegmentType.sleep),
+    ReadinessBarSegmentDef(17.7, ReadinessSegmentType.hrv),
+  ],
+  [
+    ReadinessBarSegmentDef(22.5, ReadinessSegmentType.hrv),
+    ReadinessBarSegmentDef(9.2, ReadinessSegmentType.sleep),
+    ReadinessBarSegmentDef(29.0, ReadinessSegmentType.hrv),
+  ],
+  [
+    ReadinessBarSegmentDef(13.8, ReadinessSegmentType.rest),
+    ReadinessBarSegmentDef(5.0, ReadinessSegmentType.sleep),
+    ReadinessBarSegmentDef(17.9, ReadinessSegmentType.hrv),
+  ],
+  [
+    ReadinessBarSegmentDef(34.7, ReadinessSegmentType.hrv),
+    ReadinessBarSegmentDef(26.3, ReadinessSegmentType.sleep),
+    ReadinessBarSegmentDef(21.0, ReadinessSegmentType.stress),
+  ],
+  [
+    ReadinessBarSegmentDef(7.9, ReadinessSegmentType.hrv),
+    ReadinessBarSegmentDef(19.7, ReadinessSegmentType.sleep),
+    ReadinessBarSegmentDef(20.4, ReadinessSegmentType.rest),
+  ],
+  [
+    ReadinessBarSegmentDef(34.7, ReadinessSegmentType.hrv),
+    ReadinessBarSegmentDef(14.5, ReadinessSegmentType.sleep),
+    ReadinessBarSegmentDef(14.7, ReadinessSegmentType.rest),
+  ],
+  [
+    ReadinessBarSegmentDef(44.3, ReadinessSegmentType.hrv),
+    ReadinessBarSegmentDef(9.2, ReadinessSegmentType.sleep),
+    ReadinessBarSegmentDef(25.6, ReadinessSegmentType.rest),
+  ],
+  [
+    ReadinessBarSegmentDef(21.2, ReadinessSegmentType.hrv),
+    ReadinessBarSegmentDef(31.3, ReadinessSegmentType.sleep),
+    ReadinessBarSegmentDef(5.6, ReadinessSegmentType.stress),
+  ],
+  [
+    ReadinessBarSegmentDef(25.7, ReadinessSegmentType.hrv),
+    ReadinessBarSegmentDef(14.5, ReadinessSegmentType.sleep),
+    ReadinessBarSegmentDef(18.8, ReadinessSegmentType.rest),
+  ],
+  [
+    ReadinessBarSegmentDef(42.3, ReadinessSegmentType.hrv),
+    ReadinessBarSegmentDef(20.7, ReadinessSegmentType.sleep),
+    ReadinessBarSegmentDef(22.4, ReadinessSegmentType.hrv),
+  ],
+  [
+    ReadinessBarSegmentDef(12.3, ReadinessSegmentType.rest),
+    ReadinessBarSegmentDef(14.5, ReadinessSegmentType.sleep),
+    ReadinessBarSegmentDef(37.7, ReadinessSegmentType.sleep),
+  ],
+  [
+    ReadinessBarSegmentDef(22.1, ReadinessSegmentType.hrv),
+    ReadinessBarSegmentDef(18.6, ReadinessSegmentType.sleep),
+    ReadinessBarSegmentDef(18.8, ReadinessSegmentType.sleep),
+  ],
+  [
+    ReadinessBarSegmentDef(33.1, ReadinessSegmentType.hrv),
+    ReadinessBarSegmentDef(14.5, ReadinessSegmentType.sleep),
+    ReadinessBarSegmentDef(9.6, ReadinessSegmentType.sleep),
+  ],
+  [
+    ReadinessBarSegmentDef(44.3, ReadinessSegmentType.hrv),
+    ReadinessBarSegmentDef(12.4, ReadinessSegmentType.sleep),
+    ReadinessBarSegmentDef(20.3, ReadinessSegmentType.sleep),
+  ],
+  [
+    ReadinessBarSegmentDef(18.4, ReadinessSegmentType.hrv),
+    ReadinessBarSegmentDef(17.6, ReadinessSegmentType.sleep),
+    ReadinessBarSegmentDef(23.0, ReadinessSegmentType.hrv),
+  ],
 ];
 
 /// Card showing Readiness score, timeline bars, and key sub-metrics (Sleep, HRV, Rest HR, Stress).
-/// Pixel-perfect implementation matching Figma node 118:917 specs.
+/// Dynamic responsive layout adhering to senior developer architecture.
 class HomeReadinessCard extends StatelessWidget {
   final WellnessDataModel data;
   final VoidCallback? onTap;
 
-  const HomeReadinessCard({
-    super.key,
-    required this.data,
-    this.onTap,
-  });
+  const HomeReadinessCard({super.key, required this.data, this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final r = context.responsive;
+    final dims = ReadinessCardDimensions.compute(
+      screenWidth: r.width,
+      screenHeight: r.height,
+    );
+
     return AppCard(
-      padding: const EdgeInsets.all(16.0),
+      padding: EdgeInsets.all(r.isSmall ? 12.0 : 16.0),
       borderRadius: BorderRadius.circular(22.0),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.03),
+          color: AppColors.black.withValues(alpha: 0.03),
           blurRadius: 8.0,
           offset: const Offset(0, 4),
         ),
@@ -66,159 +122,175 @@ class HomeReadinessCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 textBaseline: TextBaseline.alphabetic,
                 children: [
                   Text(
                     '${data.readinessScore}',
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 28.0,
+                      fontSize: r.font(28.0),
                       fontWeight: FontWeight.w700,
                       color: AppColors.primary,
                       height: 1.0,
                     ),
                   ),
-                  const SizedBox(width: 8.0),
+                  SizedBox(width: dims.headerGap),
                   Text(
                     data.readinessTag,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 15.0,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFF1F2937),
+                      fontSize: r.font(14.0),
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.secondary,
                     ),
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 5.0),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEBF4FE),
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10.0,
+                      vertical: 5.0,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.readinessBadgeBg,
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    child: Text(
                       'READINESS',
                       style: GoogleFonts.plusJakartaSans(
                         color: AppColors.primary,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 10.0,
-                        letterSpacing: 0.5,
+                        fontWeight: FontWeight.w500,
+                        fontSize: r.font(12.0),
+                        letterSpacing: 1,
                       ),
                     ),
-                    const SizedBox(width: 2.0),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      size: 14.0,
-                      color: AppColors.primary,
+                  ),
+                  const SizedBox(width: 4.0),
+                  ShaderMask(
+                    shaderCallback: (Rect bounds) {
+                      return AppColors.primaryGradient.createShader(bounds);
+                    },
+                    blendMode: BlendMode.srcIn,
+                    child: const Icon(
+                      Icons.arrow_forward_ios_outlined,
+                      size: 18.0,
+                      color: Colors.white,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 14.0),
+          SizedBox(height: dims.itemSpacing),
 
           // Divider Line (Line 6 in Figma)
-          Container(
-            height: 0.5,
-            color: const Color(0xFFE2E8F0),
-          ),
-          const SizedBox(height: 14.0),
+          Container(height: 0.5, color: AppColors.divider),
+          SizedBox(height: dims.itemSpacing),
 
           // 4 Dot Legend
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              _DotLegend(color: Color(0xFF1976D2), label: 'Sleep'),
-              _DotLegend(color: Color(0xFF56A7FC), label: 'HRV'),
-              _DotLegend(color: Color(0xFF6AD61F), label: 'Rest'),
-              _DotLegend(color: Color(0xFFE72151), label: 'Stress'),
+            children: [
+              _DotLegend(color: AppColors.readinessSleep, label: 'Sleep', r: r),
+              _DotLegend(color: AppColors.readinessHrv, label: 'HRV', r: r),
+              _DotLegend(color: AppColors.readinessRest, label: 'Rest', r: r),
+              _DotLegend(
+                color: AppColors.readinessStress,
+                label: 'Stress',
+                r: r,
+              ),
             ],
           ),
-          const SizedBox(height: 16.0),
-
-          // 15-Column Pill Timeline Chart
+          SizedBox(height: dims.itemSpacing),
           RepaintBoundary(
-            child: SizedBox(
-              height: 106.0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: _timelineColumns.map((col) {
-                  return Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: col.map((seg) {
-                      Color color;
-                      switch (seg.type) {
-                        case _SegmentType.sleep:
-                          color = const Color(0xFF1976D2);
-                          break;
-                        case _SegmentType.hrv:
-                          color = const Color(0xFF56A7FC);
-                          break;
-                        case _SegmentType.rest:
-                          color = const Color(0xFF6AD61F);
-                          break;
-                        case _SegmentType.stress:
-                          color = const Color(0xFFE72151);
-                          break;
-                      }
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final barWidth = ReadinessCardCalculator.computeBarWidth(
+                  constraints.maxWidth,
+                );
 
-                      return Container(
-                        margin: const EdgeInsets.symmetric(vertical: 2.0),
-                        width: 5.2,
-                        height: seg.height,
-                        decoration: BoxDecoration(
-                          color: color,
-                          borderRadius: BorderRadius.circular(2.6),
-                        ),
+                return SizedBox(
+                  height: dims.chartHeight,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: _timelineColumns.map((colDefs) {
+                      final segments =
+                          ReadinessCardCalculator.computeColumnSegments(
+                        columnDefs: colDefs,
+                        chartHeight: dims.chartHeight,
                       );
-                    }).toList(),
-                  );
-                }).toList(),
-              ),
+
+                      return Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: segments.map((seg) {
+                          return Container(
+                            margin: const EdgeInsets.symmetric(vertical: 2.0),
+                            width: barWidth,
+                            height: seg.height,
+                            decoration: BoxDecoration(
+                              color: seg.color,
+                              borderRadius: BorderRadius.circular(barWidth / 2),
+                            ),
+                          );
+                        }).toList(growable: false),
+                      );
+                    }).toList(growable: false),
+                  ),
+                );
+              },
             ),
           ),
-          const SizedBox(height: 18.0),
+          SizedBox(height: dims.itemSpacing * 1.1),
 
-          // 2x2 Sub-metric Grid Tiles
           Row(
             children: [
               Expanded(
                 child: _buildTile(
                   title: 'Sleep',
                   value: data.sleepDetail,
-                  bgColor: const Color(0xFFEFF6FF),
+                  accentColor: AppColors.readinessSleep,
+                  tileBg: AppColors.tileSleepBg,
+                  r: r,
+                  dims: dims,
                 ),
               ),
-              const SizedBox(width: 10.0),
+              SizedBox(width: dims.itemSpacing),
               Expanded(
                 child: _buildTile(
                   title: 'HRV',
                   value: '${data.hrvMs}ms',
-                  bgColor: const Color(0xFFEFF6FF),
+                  accentColor: AppColors.readinessHrv,
+                  tileBg: AppColors.tileHrvBg,
+                  r: r,
+                  dims: dims,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10.0),
+          SizedBox(height: dims.itemSpacing),
           Row(
             children: [
               Expanded(
                 child: _buildTile(
                   title: 'Rest HR',
                   value: '${data.restHr}',
-                  bgColor: const Color(0xFFF0FDF4),
+                  accentColor: AppColors.readinessRest,
+                  tileBg: AppColors.tileGreenBg,
+                  r: r,
+                  dims: dims,
                 ),
               ),
-              const SizedBox(width: 10.0),
+              SizedBox(width: dims.itemSpacing),
               Expanded(
                 child: _buildTile(
                   title: 'Stress',
                   value: '${data.stressScore}',
-                  bgColor: const Color(0xFFFFF1F2),
+                  accentColor: AppColors.readinessStress,
+                  tileBg: AppColors.tileRoseBg,
+                  r: r,
+                  dims: dims,
                 ),
               ),
             ],
@@ -231,40 +303,69 @@ class HomeReadinessCard extends StatelessWidget {
   Widget _buildTile({
     required String title,
     required String value,
-    required Color bgColor,
+    required Color accentColor,
+    required Responsive r,
+    required ReadinessCardDimensions dims,
+    Color? valueColor,
+    Color? tileBg,
+    Gradient? gradient,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(16.0),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            title,
-            style: GoogleFonts.plusJakartaSans(
-              color: const Color(0xFF4B5563),
-              fontWeight: FontWeight.w500,
-              fontSize: 12.0,
+    final effectiveGradient =
+        gradient ??
+        LinearGradient(
+          colors: [
+            tileBg ?? accentColor.withValues(alpha: 0.12),
+            AppColors.white,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10.0),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: dims.tilePadH,
+          vertical: dims.tilePadV,
+        ),
+        decoration: BoxDecoration(
+          gradient: effectiveGradient,
+          borderRadius: BorderRadius.circular(8.0),
+          boxShadow: [
+            BoxShadow(
+              color: accentColor.withValues(alpha: 0.04),
+              blurRadius: 12.0,
+              offset: const Offset(0, 2),
             ),
-          ),
-          const SizedBox(height: 4.0),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 16.0,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1F2937),
+                color: AppColors.secondary,
+                fontWeight: FontWeight.w500,
+                fontSize: r.font(14.0),
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 4.0),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: r.font(18.0),
+                  fontWeight: FontWeight.w700,
+                  color: valueColor ?? AppColors.secondary,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -273,26 +374,29 @@ class HomeReadinessCard extends StatelessWidget {
 class _DotLegend extends StatelessWidget {
   final Color color;
   final String label;
+  final Responsive r;
 
-  const _DotLegend({required this.color, required this.label});
+  const _DotLegend({required this.color, required this.label, required this.r});
 
   @override
   Widget build(BuildContext context) {
+    final dotSize = (r.width * 0.041).clamp(12.0, 18.0);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 8.0,
-          height: 8.0,
+          width: dotSize,
+          height: dotSize,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6.0),
         Text(
           label,
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 11.0,
+            fontSize: r.font(12.0),
             fontWeight: FontWeight.w500,
-            color: const Color(0xFF4B5563),
+            color: AppColors.tertiary,
           ),
         ),
       ],

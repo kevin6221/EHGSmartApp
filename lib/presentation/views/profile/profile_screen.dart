@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
@@ -7,16 +8,16 @@ import '../../blocs/profile/profile_bloc.dart';
 import '../../blocs/profile/profile_event.dart';
 import '../../blocs/profile/profile_state.dart';
 import '../../widgets/common/screen_header.dart';
-import '../../widgets/common/section_header.dart';
 import 'widgets/profile_account_card.dart';
 import 'widgets/profile_appearance_card.dart';
 import 'widgets/profile_band_card.dart';
 import 'widgets/profile_data_privacy_section.dart';
 import 'widgets/profile_membership_banner.dart';
 import 'widgets/profile_notifications_card.dart';
+import 'widgets/profile_picker_sheets.dart';
 import 'widgets/profile_rewards_card.dart';
 
-/// User profile and application settings screen.
+/// User profile and application settings screen (Figma Node 75:2756).
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -61,7 +62,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             children: [
               // Sky header gradient
               SkyHeaderBackground(
-                height: screenHeight * 0.3,
+                height: screenHeight * 0.30,
                 stops: const [0.0, 0.85],
               ),
 
@@ -78,11 +79,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Header Row
-                      const ScreenHeader(title: 'Profile'),
-                      SizedBox(height: screenHeight * 0.022),
+                      // 1. Header Row with Online Avatar Indicator (Figma Node 75:2762-2763)
+                      const ScreenHeader(
+                        title: 'Profile',
+                        showAvatar: true,
+                        showOnlineIndicator: true,
+                      ),
+                      SizedBox(height: (screenHeight * 0.020).clamp(16.0, 20.0)),
 
-                      // 1. "Keep your rewards safe" Card
+                      // 2. "Keep your rewards safe" Card (Figma Node 75:2775)
                       ProfileRewardsCard(
                         emailController: _emailController,
                         onCreateAccount: () {
@@ -95,27 +100,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                         },
                       ),
-                      SizedBox(height: screenHeight * 0.024),
+                      SizedBox(height: (screenHeight * 0.022).clamp(16.0, 20.0)),
 
-                      // 2. Profile Details Section
-                      const SectionHeader(
-                        title: 'Profile',
-                        padding: EdgeInsets.zero,
+                      // 3. Profile Details Section (Figma Node 75:2928)
+                      Text(
+                        'Profile',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: r.font(14.0),
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.secondary,
+                        ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 12.0),
                       ProfileAccountCard(
                         usernameController: _usernameController,
                         age: data.age,
                         weight: data.weight,
+                        onAgeTap: () {
+                          showAgePickerSheet(
+                            context,
+                            initialAge: data.age,
+                            onConfirmed: (newAge) {
+                              context.read<ProfileBloc>().add(
+                                UpdateAgeEvent(newAge),
+                              );
+                            },
+                          );
+                        },
+                        onWeightTap: () {
+                          showWeightPickerSheet(
+                            context,
+                            initialWeight: data.weight,
+                            unitSystem: data.unitSystem,
+                            onConfirmed: (newWeight) {
+                              context.read<ProfileBloc>().add(
+                                UpdateWeightEvent(newWeight),
+                              );
+                            },
+                          );
+                        },
                       ),
-                      SizedBox(height: screenHeight * 0.024),
+                      SizedBox(height: (screenHeight * 0.022).clamp(16.0, 20.0)),
 
-                      // 3. Appearance Section
-                      const SectionHeader(
-                        title: 'Appearance',
-                        padding: EdgeInsets.zero,
+                      // 4. Appearance Section (Figma Nodes 75:2952 & 75:2966)
+                      Text(
+                        'Appearance',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: r.font(14.0),
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.secondary,
+                        ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 12.0),
                       ProfileAppearanceCard(
                         appearance: data.appearance,
                         unitSystem: data.unitSystem,
@@ -130,14 +166,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                         },
                       ),
-                      SizedBox(height: screenHeight * 0.024),
+                      SizedBox(height: (screenHeight * 0.022).clamp(16.0, 20.0)),
 
-                      // 4. Notifications Section
-                      const SectionHeader(
-                        title: 'Notifications',
-                        padding: EdgeInsets.zero,
-                      ),
-                      const SizedBox(height: 12),
+                      // 5. Notifications Section with CupertinoSwitch (Figma Nodes 82:2984, 82:2977, 82:3002)
                       ProfileNotificationsCard(
                         data: data,
                         onToggleNotification: (key, value) {
@@ -146,24 +177,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                         },
                       ),
-                      SizedBox(height: screenHeight * 0.024),
+                      SizedBox(height: (screenHeight * 0.022).clamp(16.0, 20.0)),
 
-                      // 5. Band Section
-                      const SectionHeader(
-                        title: 'Band',
-                        padding: EdgeInsets.zero,
+                      // 6. Band Section (Figma Node 82:3003)
+                      Text(
+                        'Band',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: r.font(14.0),
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.secondary,
+                        ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 12.0),
                       ProfileBandCard(data: data, onForgetBand: () {}),
-                      SizedBox(height: screenHeight * 0.024),
+                      SizedBox(height: (screenHeight * 0.022).clamp(16.0, 20.0)),
 
-                      // 6. Health Tracking Membership Banner Card
+                      // 7. Health Tracking Membership Banner Card (Figma Node 82:3028)
                       const ProfileMembershipBanner(),
-                      SizedBox(height: screenHeight * 0.024),
+                      SizedBox(height: (screenHeight * 0.022).clamp(16.0, 20.0)),
 
-                      // 7. Data & Privacy + Disclaimer
+                      // 8. Data & Privacy + Disclaimer (Figma Node 82:3035)
                       const ProfileDataPrivacySection(),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 12.0),
                     ],
                   ),
                 ),

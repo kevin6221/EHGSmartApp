@@ -69,20 +69,21 @@ class CardSectionHeader extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             child: Row(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
                   actionText!,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: actionFontSize,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.tertiary,
                   ),
                 ),
-                const SizedBox(width: 2.0),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  size: actionFontSize + 4.0,
-                  color: AppColors.textMuted,
+                const SizedBox(width: 4.0),
+                AppSvgIcon(
+                  AppIcons.rightArrowChevron,
+                  size: actionFontSize + 2.0,
+                  color: AppColors.tertiary,
                 ),
               ],
             ),

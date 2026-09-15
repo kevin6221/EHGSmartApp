@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/responsive.dart';
 
 /// Device info card showing paired band name, identifier, and battery duration,
 /// matching Figma node 16:2978.
@@ -22,30 +23,35 @@ class OnboardingDeviceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = context.responsive;
+    final badgeDim = (r.width * 0.095).clamp(32.0, 42.0);
+    final badgeIconDim = (badgeDim * 0.5).clamp(16.0, 20.0);
+    final verticalPad = (r.height * 0.016).clamp(10.0, 16.0);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+        padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: verticalPad),
         decoration: BoxDecoration(
-          color: const Color(0xFFF1F5F9),
+          color: AppColors.surfaceVariant,
           borderRadius: BorderRadius.circular(16.0),
-          border: Border.all(color: const Color(0xFFE2E8F0), width: 1.0),
+          border: Border.all(color: AppColors.divider, width: 1.0),
         ),
         child: Row(
           children: [
             // Band badge icon
             Container(
-              width: 36.0,
-              height: 36.0,
+              width: badgeDim,
+              height: badgeDim,
               decoration: const BoxDecoration(
                 gradient: AppColors.primaryGradient,
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
-              child: const AppSvgIcon(
+              child: AppSvgIcon(
                 AppIcons.band,
-                size: 18.0,
-                color: Colors.white,
+                size: badgeIconDim,
+                color: AppColors.white,
               ),
             ),
             const SizedBox(width: 12.0),
@@ -79,7 +85,7 @@ class OnboardingDeviceCard extends StatelessWidget {
                       const Text(
                         '|',
                         style: TextStyle(
-                          color: Color(0xFFCBD5E1),
+                          color: AppColors.deviceTrackBorder,
                           fontSize: 12.0,
                         ),
                       ),
@@ -87,7 +93,7 @@ class OnboardingDeviceCard extends StatelessWidget {
                       const Icon(
                         Icons.battery_5_bar_rounded,
                         size: 14.0,
-                        color: Color(0xFF10B981),
+                        color: AppColors.deviceConnectedGreen,
                       ),
                       const SizedBox(width: 4.0),
                       Text(

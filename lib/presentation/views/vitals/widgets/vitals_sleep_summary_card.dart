@@ -27,12 +27,15 @@ class VitalsSleepSummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = context.responsive;
 
+    final iconBoxDim = (r.width * 0.082).clamp(28.0, 36.0);
+    final iconSize = (iconBoxDim * 0.5).clamp(14.0, 18.0);
+
     return AppCard(
       padding: EdgeInsets.all(r.isSmall ? 12.0 : 18.0),
       borderRadius: BorderRadius.circular(24),
       boxShadow: [
         BoxShadow(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.04),
+          color: AppColors.shadowNavy.withValues(alpha: 0.04),
           blurRadius: 16,
           offset: const Offset(0, 4),
         ),
@@ -44,17 +47,17 @@ class VitalsSleepSummaryCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 32,
-                height: 32,
+                width: iconBoxDim,
+                height: iconBoxDim,
                 decoration: const BoxDecoration(
-                  color: AppColors.primary,
                   shape: BoxShape.circle,
+                  gradient: AppColors.vitalsSleepIconGradient,
                 ),
-                child: const Center(
+                child: Center(
                   child: AppSvgIcon(
-                    AppIcons.sleep,
-                    color: Colors.white,
-                    size: 16,
+                    AppIcons.sleepZ,
+                    color: AppColors.white,
+                    size: iconSize,
                   ),
                 ),
               ),
@@ -63,8 +66,8 @@ class VitalsSleepSummaryCard extends StatelessWidget {
                 child: Text(
                   'Last night Sleep Summary',
                   style: AppTypography.titleMedium.copyWith(
-                    fontWeight: FontWeight.w700,
-                    fontSize: r.font(14),
+                    fontWeight: FontWeight.w600,
+                    fontSize: r.font(16),
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -91,7 +94,7 @@ class VitalsSleepSummaryCard extends StatelessWidget {
                   style: AppTypography.bodySmall.copyWith(
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w500,
-                    fontSize: r.font(11),
+                    fontSize: r.font(14),
                   ),
                   overflow: TextOverflow.ellipsis,
                   textAlign: TextAlign.end,

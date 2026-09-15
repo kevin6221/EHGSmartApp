@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/constants/app_animations.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 
@@ -35,11 +36,11 @@ class SegmentedPillBar<T> extends StatelessWidget {
     required this.selectedValue,
     required this.onChanged,
     this.height = 44.0,
-    this.backgroundColor = const Color(0xFFF1F5F9),
+    this.backgroundColor = AppColors.pillBarBg,
     this.activeGradient = AppColors.primaryGradient,
     this.activeColor,
     this.inactiveTextColor = AppColors.textSecondary,
-    this.activeTextColor = Colors.white,
+    this.activeTextColor = AppColors.white,
     this.padding = const EdgeInsets.all(4.0),
   });
 
@@ -61,15 +62,15 @@ class SegmentedPillBar<T> extends StatelessWidget {
               onTap: () => onChanged(item.value),
               behavior: HitTestBehavior.opaque,
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
+                duration: AppDurations.fast,
+                curve: AppCurves.standard,
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular((height - 8) / 2),
                   gradient: isSelected ? activeGradient : null,
                   color: isSelected && activeGradient == null
                       ? (activeColor ?? AppColors.primary)
-                      : Colors.transparent,
+                      : AppColors.transparent,
                   boxShadow: isSelected
                       ? [
                           BoxShadow(

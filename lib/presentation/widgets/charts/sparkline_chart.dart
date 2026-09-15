@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../painters/sparkline_painter.dart';
 
 /// Lightweight UI widget that displays a sparkline trend chart.
@@ -14,7 +15,7 @@ class SparklineChart extends StatelessWidget {
   const SparklineChart({
     super.key,
     required this.values,
-    this.lineColor = const Color(0xFF3E83C8),
+    this.lineColor = AppColors.primary,
     this.showFill = true,
     this.height = 40,
     this.width = 110,

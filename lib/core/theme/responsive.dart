@@ -31,13 +31,14 @@ class Responsive {
   double get verticalPadding => (height * 0.015).clamp(10.0, 20.0);
 
   /// Safe scaled width fraction
-  double wp(double percent) => (width * percent).clamp(0.0, width);
+  double wp(double percent) => (width * percent.clamp(0.0, 1.0)).clamp(0.0, width);
 
   /// Safe scaled height fraction
-  double hp(double percent) => (height * percent).clamp(0.0, height);
+  double hp(double percent) => (height * percent.clamp(0.0, 1.0)).clamp(0.0, height);
 
   /// Clamped font scaling that respects user accessibility while preventing layout overflow
   double font(double size) {
+    if (size <= 0.0) return 0.0;
     final scale = _media.textScaler.scale(size) / size;
     final clampedScale = scale.clamp(0.85, 1.25);
     return size * clampedScale;

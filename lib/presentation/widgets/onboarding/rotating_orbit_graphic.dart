@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_animations.dart';
 import '../../../core/constants/app_constants.dart';
 
 /// Rotating orbital graphic widget used on the onboarding screen.
@@ -10,7 +11,7 @@ class RotatingOrbitGraphic extends StatefulWidget {
   const RotatingOrbitGraphic({
     super.key,
     required this.dimension,
-    this.rotationDuration = const Duration(seconds: 40),
+    this.rotationDuration = AppDurations.orbitRotation,
   });
 
   @override

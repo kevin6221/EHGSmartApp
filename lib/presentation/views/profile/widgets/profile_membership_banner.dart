@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/responsive.dart';
 
-/// Gradient banner promoting Health Tracking Membership.
+/// Gradient banner promoting Health Tracking Membership (Figma Node 82:3028).
 class ProfileMembershipBanner extends StatelessWidget {
   final VoidCallback? onSeeMembership;
 
@@ -11,18 +12,17 @@ class ProfileMembershipBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final screenHeight = media.size.height;
+    final r = context.responsive;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(15.0),
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(12.0),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0072CE).withValues(alpha: 0.3),
-            blurRadius: 16,
+            color: AppColors.primarySky.withValues(alpha: 0.20),
+            blurRadius: 12.0,
             offset: const Offset(0, 4),
           ),
         ],
@@ -32,34 +32,40 @@ class ProfileMembershipBanner extends StatelessWidget {
         children: [
           Text(
             'Health Tracking',
-            style: AppTypography.titleLarge.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
+            style: GoogleFonts.montserrat(
+              fontSize: r.font(14.0),
+              fontWeight: FontWeight.w600,
+              color: AppColors.white,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6.0),
           Text(
             'Free forever. Membership adds programmes, the outfit engine and double points.',
-            style: AppTypography.bodyMedium.copyWith(
-              color: Colors.white.withValues(alpha: 0.9),
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: r.font(12.0),
+              fontWeight: FontWeight.w400,
+              color: AppColors.white.withValues(alpha: 0.95),
             ),
           ),
-          SizedBox(height: screenHeight * 0.02),
-          ElevatedButton(
-            onPressed: onSeeMembership,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 44),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+          const SizedBox(height: 12.0),
+          GestureDetector(
+            onTap: onSeeMembership,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              height: 40.0,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(8.0),
               ),
-              elevation: 0,
-            ),
-            child: Text(
-              'See Membership',
-              style: AppTypography.labelLarge.copyWith(
-                color: AppColors.primary,
-                fontWeight: FontWeight.w700,
+              alignment: Alignment.center,
+              child: Text(
+                'See Membership',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: r.font(16.0),
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.primary,
+                ),
               ),
             ),
           ),

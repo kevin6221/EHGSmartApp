@@ -2,12 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_animations.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../widgets/common/figma_circular_loader.dart';
 import '../../widgets/splash/splash_pulsing_rings.dart';
 
-/// Splash Screen displaying the brand logo with pulsing rings and a circular loader.
+/// Full-screen branding splash screen matching Figma Node 10:2334.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -21,7 +22,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _timer = Timer(const Duration(milliseconds: 1600), _navigateToNext);
+    _timer = Timer(AppDurations.splashDelay, _navigateToNext);
   }
 
   void _navigateToNext() {

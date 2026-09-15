@@ -38,6 +38,10 @@ class WellnessRepository {
       activeMins: 210,
       goalMins: 600,
       weeklyEnergy: [0.75, 0.55, 0.4, 0.65, 0.8, 0.9, 0.6],
+      moveScore: 36,
+      recoverScore: 73,
+      mindScore: 30,
+      fuelScore: 31,
     );
   }
 

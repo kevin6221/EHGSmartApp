@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/constants/app_animations.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../blocs/onboarding/onboarding_cubit.dart';
@@ -39,8 +40,8 @@ class OnboardingProgressBar extends StatefulWidget {
     this.totalSteps = 5,
     this.height = 4.0,
     this.padding = const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-    this.animationDuration = const Duration(milliseconds: 400),
-    this.animationCurve = Curves.easeOutCubic,
+    this.animationDuration = AppDurations.pageTransition,
+    this.animationCurve = AppCurves.slideIn,
   });
 
   @override

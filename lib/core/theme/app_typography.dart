@@ -15,40 +15,40 @@ class AppTypography {
   // ===========================================================================
   // 1. Headline Family: Funnel Display (Figma Node 2:575)
   // ===========================================================================
-  static TextStyle get displayLarge => GoogleFonts.funnelDisplay(
+  static TextStyle get displayLarge => GoogleFonts.plusJakartaSans(
     fontSize: 32,
     fontWeight: FontWeight.w700,
     color: AppColors.secondary,
     letterSpacing: -0.5,
   );
 
-  static TextStyle get displayMedium => GoogleFonts.funnelDisplay(
+  static TextStyle get displayMedium => GoogleFonts.plusJakartaSans(
     fontSize: 26,
     fontWeight: FontWeight.w700,
     color: AppColors.secondary,
     letterSpacing: -0.3,
   );
 
-  static TextStyle get displaySmall => GoogleFonts.funnelDisplay(
+  static TextStyle get displaySmall => GoogleFonts.plusJakartaSans(
     fontSize: 24,
     fontWeight: FontWeight.w700,
     color: AppColors.secondary,
     letterSpacing: -0.2,
   );
 
-  static TextStyle get headlineLarge => GoogleFonts.funnelDisplay(
+  static TextStyle get headlineLarge => GoogleFonts.plusJakartaSans(
     fontSize: 22,
     fontWeight: FontWeight.w700,
     color: AppColors.secondary,
   );
 
-  static TextStyle get headlineMedium => GoogleFonts.funnelDisplay(
+  static TextStyle get headlineMedium => GoogleFonts.plusJakartaSans(
     fontSize: 18,
     fontWeight: FontWeight.w600,
     color: AppColors.secondary,
   );
 
-  static TextStyle get headlineSmall => GoogleFonts.funnelDisplay(
+  static TextStyle get headlineSmall => GoogleFonts.plusJakartaSans(
     fontSize: 16,
     fontWeight: FontWeight.w600,
     color: AppColors.secondary,

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/constants/app_animations.dart';
 import '../../../core/constants/app_constants.dart';
 
+/// Animated radar graphic for Onboarding Screen 2 (Figma Node 14:2600).
+/// Isolated repaint boundary with centralized rotation duration.
 class OnboardingRadarGraphic extends StatefulWidget {
   final double dimension;
 
@@ -22,7 +25,7 @@ class _OnboardingRadarGraphicState extends State<OnboardingRadarGraphic>
     super.initState();
     _rotationController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 12),
+      duration: AppDurations.radarRotation,
     )..repeat();
     _clockwiseTurns = Tween<double>(
       begin: 0.0,

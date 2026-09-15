@@ -58,7 +58,7 @@ class _OnboardingScreen4State extends State<OnboardingScreen4> {
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
+        statusBarColor: AppColors.transparent,
         statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
       ),
@@ -131,7 +131,7 @@ class _OnboardingScreen4State extends State<OnboardingScreen4> {
                                 Container(
                                   height: _itemExtent,
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFEFF3FF),
+                                    color: AppColors.inputFilledBackground,
                                     borderRadius: BorderRadius.circular(16.0),
                                     border: Border.all(
                                       color: AppColors.primary,

@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/constants/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/theme/app_typography.dart';
+import '../../../../core/theme/responsive.dart';
 import '../../../../data/models/user_profile_model.dart';
 import '../../../widgets/common/app_card.dart';
 
-/// Card showing connected Smart Band details (model, ID, battery) and unpair action.
+/// Card showing connected Smart Band details and unpair action (Figma Node 82:3003).
 class ProfileBandCard extends StatelessWidget {
   final UserProfileModel data;
   final VoidCallback? onForgetBand;
@@ -15,87 +16,123 @@ class ProfileBandCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final r = context.responsive;
+
     return AppCard(
-      padding: const EdgeInsets.all(18),
-      borderRadius: BorderRadius.circular(20),
+      padding: const EdgeInsets.all(15.0),
+      borderRadius: BorderRadius.circular(12.0),
+      border: const Border.fromBorderSide(BorderSide.none),
       boxShadow: [
         BoxShadow(
-          color: const Color(0xFF0F172A).withValues(alpha: 0.04),
-          blurRadius: 14,
-          offset: const Offset(0, 3),
+          color: AppColors.shadowNavy.withValues(alpha: 0.03),
+          blurRadius: 8.0,
+          offset: const Offset(0, 4),
         ),
       ],
       child: Column(
         children: [
+          // 1. Device Info Row (Radial Badge + Name + ID + Battery)
           Row(
             children: [
               Container(
-                width: 38,
-                height: 38,
+                width: 32.0,
+                height: 32.0,
                 decoration: const BoxDecoration(
-                  color: AppColors.primary,
+                  gradient: AppColors.profileBadgeRadial,
                   shape: BoxShape.circle,
                 ),
-                child: const Center(
+                child: Center(
                   child: AppSvgIcon(
-                    AppIcons.band,
-                    color: Colors.white,
-                    size: 20,
+                    AppIcons.watchDevice,
+                    color: AppColors.white,
+                    size: 16.0,
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    data.bandModel,
-                    style: AppTypography.titleMedium.copyWith(
-                      fontWeight: FontWeight.w700,
+              const SizedBox(width: 10.0),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      data.bandModel,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontWeight: FontWeight.w600,
+                        fontSize: r.font(16.0),
+                        color: AppColors.secondary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Row(
-                    children: [
-                      Text(data.bandId, style: AppTypography.bodySmall),
-                      const SizedBox(width: 8),
-                      const Text(
-                        '|',
-                        style: TextStyle(color: AppColors.border),
-                      ),
-                      const SizedBox(width: 8),
-                      const Icon(
-                        Icons.battery_5_bar_rounded,
-                        size: 14,
-                        color: AppColors.greenMetric,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        data.bandBatteryDays,
-                        style: AppTypography.bodySmall.copyWith(
-                          color: AppColors.textSecondary,
+                    const SizedBox(height: 3.0),
+                    Row(
+                      children: [
+                        Text(
+                          data.bandId,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: r.font(12.0),
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.tertiary,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: 8.0),
+                        Container(
+                          width: 0.5,
+                          height: 10.0,
+                          color: AppColors.borderLight,
+                        ),
+                        const SizedBox(width: 8.0),
+                        RotatedBox(
+                          quarterTurns: 1,
+                          child: const Icon(
+                            Icons.battery_5_bar_rounded,
+                            size: 18.0,
+                            color: AppColors.greenMetric,
+                          ),
+                        ),
+                        const SizedBox(width: 4.0),
+                        Text(
+                          data.bandBatteryDays,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: r.font(12.0),
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.tertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          OutlinedButton(
-            onPressed: onForgetBand,
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(double.infinity, 44),
-              side: const BorderSide(color: AppColors.primary, width: 1.2),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+          const SizedBox(height: 16.0),
+
+          // 2. Forgot this Band Button (Figma Node 82:3022, h=40, cr=8, gradient outline)
+          GestureDetector(
+            onTap: onForgetBand,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              height: 40.0,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: BorderRadius.circular(8.0),
               ),
-            ),
-            child: Text(
-              'Forgot this band',
-              style: AppTypography.labelMedium.copyWith(
-                color: AppColors.primary,
+              padding: const EdgeInsets.all(1.0), // 1px gradient stroke
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(7.0),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  'Forgot this band',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: r.font(16.0),
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primary,
+                  ),
+                ),
               ),
             ),
           ),
