@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>AIzaSyC7eNtMN_AgEnaX84_AZUoM0KFMcAk8xFQ</string>
+	<key>GCM_SENDER_ID</key>
+	<string>298539544564</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.ehgsmartapp.dev</string>
+	<key>PROJECT_ID</key>
+	<string>ehg-smart-app</string>
+	<key>STORAGE_BUCKET</key>
+	<string>ehg-smart-app.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:298539544564:ios:60bf99abe1310d4c21d3a1</string>
+</dict>
+</plist>

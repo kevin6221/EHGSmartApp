@@ -1,4 +1,4 @@
-package com.example.ehgsmartapp
+package com.ehgsmartapp
 
 import io.flutter.embedding.android.FlutterActivity
 
