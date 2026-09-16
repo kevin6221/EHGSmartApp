@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/responsive.dart';
+import '../../../widgets/common/app_button.dart';
 import '../../../widgets/common/app_card.dart';
 
 /// Card prompting user to link email and secure their rewards (Figma Node 75:2775).
@@ -40,17 +41,14 @@ class ProfileRewardsCard extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 38.0,
-                height: 38.0,
+                padding: const EdgeInsets.all(9.0),
                 decoration: const BoxDecoration(
-                  gradient: AppColors.profileBadgeRadial,
+                  gradient: AppGradients.profileBadgeRadial,
                   shape: BoxShape.circle,
                 ),
-                child: Center(
-                  child: SvgPicture.asset(
-                    AppIcons.profileVerify,
-                    fit: BoxFit.contain,
-                  ),
+                child: SvgPicture.asset(
+                  AppIcons.profileVerify,
+                  fit: BoxFit.contain,
                 ),
               ),
               const SizedBox(width: 12.0),
@@ -72,62 +70,72 @@ class ProfileRewardsCard extends StatelessWidget {
             valueListenable: emailController,
             builder: (context, nameValue, _) {
               final bool isTextEntered = nameValue.text.trim().isNotEmpty;
-
               return TextFormField(
                 controller: emailController,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: r.font(14.0),
                   fontWeight: isTextEntered ? FontWeight.w600 : FontWeight.w400,
-                  color: isTextEntered ? AppColors.primary : AppColors.textPrimary,
+                  color: isTextEntered
+                      ? AppColors.primary
+                      : AppColors.secondary,
                 ),
                 cursorColor: AppColors.primary,
                 decoration: InputDecoration(
+                  filled: true,
+                  fillColor: isTextEntered
+                      ? AppColors.profileInputFill
+                      : AppColors.white,
                   hintText: 'You@lorem.com',
                   hintStyle: GoogleFonts.plusJakartaSans(
                     color: AppColors.tertiary,
                     fontSize: r.font(14.0),
                     fontWeight: FontWeight.w400,
                   ),
-
-                  border: InputBorder.none,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: BorderSide(
+                      color: isTextEntered
+                          ? AppColors.primary
+                          : AppColors.profileInputBorder,
+                      width: 0.5,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: const BorderSide(
+                      color: AppColors.primary,
+                      width: 1.0,
+                    ),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: BorderSide(
+                      color: isTextEntered
+                          ? AppColors.primary
+                          : AppColors.profileInputBorder,
+                      width: 0.5,
+                    ),
+                  ),
                 ),
               );
             },
           ),
           const SizedBox(height: 12.0),
 
-          // 3. Create Account Button (Figma Node 75:2919, h=40, cr=8, brand horizontal gradient)
-          GestureDetector(
-            onTap: onCreateAccount,
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              height: 40.0,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              alignment: Alignment.center,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    'Create account',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: r.font(16.0),
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.white,
-                    ),
-                  ),
-                  const SizedBox(width: 8.0),
-                  const Icon(
-                    Icons.arrow_forward_rounded,
-                    color: AppColors.white,
-                    size: 16.0,
-                  ),
-                ],
-              ),
+          // 3. Create Account Button using AppButton
+          AppButton(
+            text: 'Create account',
+            onPressed: onCreateAccount,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20.0,
+              vertical: 10.0,
             ),
+            useGradient: true,
+            borderRadius: BorderRadius.circular(8.0),
+            trailingSvg: AppIcons.buttonRightArrow,
+            fontSize: r.font(16.0),
+            fontWeight: FontWeight.w500,
+            hasShadow: false,
           ),
           const SizedBox(height: 10.0),
 

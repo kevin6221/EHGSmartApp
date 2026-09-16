@@ -11,4 +11,11 @@ abstract class AppRoutes {
   static const String onboarding4 = '/onboarding-4';
   static const String onboarding5 = '/onboarding-5';
   static const String dashboard = '/dashboard';
+  static const String trainingSession = '/train/session';
+  static const String membership = '/membership';
+  static const String unlockWardrobe = '/wardrobe/unlock';
+  static const String systems = '/systems';
+  static const String journal = '/journal';
+  static const String rewards = '/rewards';
+  static const String profile = '/profile';
 }

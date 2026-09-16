@@ -78,5 +78,32 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
         emit(state.copyWith(data: updated));
       }
     });
+
+    on<StartWorkoutEvent>((event, emit) {
+      emit(
+        state.copyWith(
+          sessionStatus: TrainingSessionStatus.running,
+          elapsedSeconds: 0,
+        ),
+      );
+    });
+
+    on<ToggleWorkoutPauseEvent>((event, emit) {
+      if (state.sessionStatus == TrainingSessionStatus.running) {
+        emit(state.copyWith(sessionStatus: TrainingSessionStatus.paused));
+      } else if (state.sessionStatus == TrainingSessionStatus.paused) {
+        emit(state.copyWith(sessionStatus: TrainingSessionStatus.running));
+      }
+    });
+
+    on<TickWorkoutEvent>((event, emit) {
+      if (state.sessionStatus == TrainingSessionStatus.running) {
+        emit(state.copyWith(elapsedSeconds: state.elapsedSeconds + 1));
+      }
+    });
+
+    on<FinishWorkoutEvent>((event, emit) {
+      emit(state.copyWith(sessionStatus: TrainingSessionStatus.completed));
+    });
   }
 }

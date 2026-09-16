@@ -70,12 +70,41 @@ class ProfileAccountCard extends StatelessWidget {
                 ),
                 cursorColor: AppColors.primary,
                 decoration: InputDecoration(
-                  border: InputBorder.none,
+                  filled: true,
+                  fillColor: isTextEntered
+                      ? AppColors.profileInputFill
+                      : AppColors.white,
                   hintText: 'John',
                   hintStyle: GoogleFonts.plusJakartaSans(
                     color: AppColors.tertiary,
                     fontSize: r.font(14.0),
                     fontWeight: FontWeight.w400,
+                  ),
+
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: BorderSide(
+                      color: isTextEntered
+                          ? AppColors.primary
+                          : AppColors.profileInputBorder,
+                      width: 0.8,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: const BorderSide(
+                       color: AppColors.primary,
+                       width: 1.0,
+                    ),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8.0),
+                    borderSide: BorderSide(
+                      color: isTextEntered
+                          ? AppColors.primary
+                          : AppColors.profileInputBorder,
+                      width: 0.8,
+                    ),
                   ),
                 ),
               );
@@ -144,13 +173,15 @@ class ProfileAccountCard extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Container(
-        height: 40.0,
         decoration: BoxDecoration(
           color: AppColors.profileInputFill,
-          borderRadius: BorderRadius.circular(12.0),
+          borderRadius: BorderRadius.circular(8.0),
           border: Border.all(color: AppColors.profileInputBorder, width: 0.8),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 14.0,
+          vertical: 10.5,
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [

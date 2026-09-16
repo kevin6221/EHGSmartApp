@@ -51,7 +51,7 @@ class VitalsSleepSummaryCard extends StatelessWidget {
                 height: iconBoxDim,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: AppColors.vitalsSleepIconGradient,
+                  gradient: AppGradients.vitalsSleepIcon,
                 ),
                 child: Center(
                   child: AppSvgIcon(

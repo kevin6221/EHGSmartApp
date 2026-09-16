@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
 import '../../blocs/profile/profile_bloc.dart';
@@ -32,7 +33,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _emailController = TextEditingController(text: 'You@lorem.com');
+    _emailController = TextEditingController();
     _usernameController = TextEditingController(text: 'John');
   }
 
@@ -60,7 +61,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           backgroundColor: AppColors.background,
           body: Stack(
             children: [
-              // Sky header gradient
               SkyHeaderBackground(
                 height: screenHeight * 0.30,
                 stops: const [0.0, 0.85],
@@ -82,10 +82,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       // 1. Header Row with Online Avatar Indicator (Figma Node 75:2762-2763)
                       const ScreenHeader(
                         title: 'Profile',
+                        showBackButton: true,
                         showAvatar: true,
                         showOnlineIndicator: true,
                       ),
-                      SizedBox(height: (screenHeight * 0.020).clamp(16.0, 20.0)),
+                      SizedBox(
+                        height: (screenHeight * 0.020).clamp(16.0, 20.0),
+                      ),
 
                       // 2. "Keep your rewards safe" Card (Figma Node 75:2775)
                       ProfileRewardsCard(
@@ -100,7 +103,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                         },
                       ),
-                      SizedBox(height: (screenHeight * 0.022).clamp(16.0, 20.0)),
+                      SizedBox(
+                        height: (screenHeight * 0.022).clamp(16.0, 20.0),
+                      ),
 
                       // 3. Profile Details Section (Figma Node 75:2928)
                       Text(
@@ -140,7 +145,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                         },
                       ),
-                      SizedBox(height: (screenHeight * 0.022).clamp(16.0, 20.0)),
+                      SizedBox(
+                        height: (screenHeight * 0.022).clamp(16.0, 20.0),
+                      ),
 
                       // 4. Appearance Section (Figma Nodes 75:2952 & 75:2966)
                       Text(
@@ -166,7 +173,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                         },
                       ),
-                      SizedBox(height: (screenHeight * 0.022).clamp(16.0, 20.0)),
+                      SizedBox(
+                        height: (screenHeight * 0.022).clamp(16.0, 20.0),
+                      ),
 
                       // 5. Notifications Section with CupertinoSwitch (Figma Nodes 82:2984, 82:2977, 82:3002)
                       ProfileNotificationsCard(
@@ -177,7 +186,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                         },
                       ),
-                      SizedBox(height: (screenHeight * 0.022).clamp(16.0, 20.0)),
+                      SizedBox(
+                        height: (screenHeight * 0.022).clamp(16.0, 20.0),
+                      ),
 
                       // 6. Band Section (Figma Node 82:3003)
                       Text(
@@ -190,11 +201,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 12.0),
                       ProfileBandCard(data: data, onForgetBand: () {}),
-                      SizedBox(height: (screenHeight * 0.022).clamp(16.0, 20.0)),
+                      SizedBox(
+                        height: (screenHeight * 0.022).clamp(16.0, 20.0),
+                      ),
 
                       // 7. Health Tracking Membership Banner Card (Figma Node 82:3028)
-                      const ProfileMembershipBanner(),
-                      SizedBox(height: (screenHeight * 0.022).clamp(16.0, 20.0)),
+                      ProfileMembershipBanner(
+                        onSeeMembership: () {
+                          Navigator.of(context).pushNamed(AppRoutes.membership);
+                        },
+                      ),
+                      SizedBox(
+                        height: (screenHeight * 0.022).clamp(16.0, 20.0),
+                      ),
 
                       // 8. Data & Privacy + Disclaimer (Figma Node 82:3035)
                       const ProfileDataPrivacySection(),

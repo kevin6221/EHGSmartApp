@@ -1,3 +1,4 @@
+import 'package:ehgsmartapp/core/constants/app_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -185,21 +186,13 @@ class _OnboardingScreen2State extends State<OnboardingScreen2> {
                                     ? AppButton(
                                         key: const ValueKey('find_band_button'),
                                         text: 'Find My band',
-                                        trailingIcon: const Icon(
-                                          Icons.search_rounded,
-                                          color: AppColors.white,
-                                          size: 20,
-                                        ),
+                                        trailingSvg: AppIcons.searchIcon,
                                         onPressed: _onFindBandPressed,
                                       )
                                     : AppButton(
                                         key: const ValueKey('connect_button'),
                                         text: 'Connect',
-                                        trailingIcon: const Icon(
-                                          Icons.arrow_forward_rounded,
-                                          color: AppColors.white,
-                                          size: 20,
-                                        ),
+                                        trailingSvg: AppIcons.connectIcon,
                                         onPressed: _onConnectPressed,
                                       ),
                               ),

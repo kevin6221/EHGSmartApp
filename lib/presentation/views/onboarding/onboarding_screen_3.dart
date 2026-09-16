@@ -202,7 +202,7 @@ class _OnboardingScreen3State extends State<OnboardingScreen3> {
                                     ? _onNextPressed
                                     : null,
                                 disabledGradient:
-                                    AppColors.disabledPrimaryGradient,
+                                    AppGradients.disabledPrimary,
                                 disabledTextColor: AppColors.primary,
                                 hasShadow: isTextEntered,
                               ),

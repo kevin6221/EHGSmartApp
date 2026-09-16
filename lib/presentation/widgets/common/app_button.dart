@@ -58,7 +58,7 @@ class AppButton extends StatelessWidget {
   /// Button width (defaults to full width `double.infinity`).
   final double width;
 
-  /// Custom gradient override (e.g. AppColors.primaryGradient).
+  /// Custom gradient override (e.g. AppGradients.primary).
   final Gradient? gradient;
 
   /// Whether to apply primary gradient on primary variant.
@@ -224,6 +224,8 @@ class AppButton extends StatelessWidget {
     this.trailingSvg,
     this.height = 48.0,
     this.width = double.infinity,
+    this.textColor,
+    this.border,
     this.fontSize = 16.0,
     this.fontWeight = FontWeight.w600,
     this.borderRadius,
@@ -233,11 +235,9 @@ class AppButton extends StatelessWidget {
        gradient = null,
        useGradient = false,
        backgroundColor = null,
-       textColor = null,
        disabledGradient = null,
        disabledBackgroundColor = null,
        disabledTextColor = null,
-       border = null,
        hasShadow = false;
 
   @override
@@ -261,7 +261,7 @@ class AppButton extends StatelessWidget {
         if (gradient != null) {
           resolvedGradient = gradient;
         } else if (useGradient && backgroundColor == null) {
-          resolvedGradient = AppColors.primaryGradient;
+          resolvedGradient = AppGradients.primary;
         }
         if (hasShadow && isEnabled) {
           resolvedShadow = [
@@ -299,7 +299,7 @@ class AppButton extends StatelessWidget {
         resolvedBg = backgroundColor ?? AppColors.transparent;
         resolvedText = textColor ?? AppColors.primary;
         resolvedBorder =
-            border ?? Border.all(color: AppColors.primary, width: 1.5);
+            border ?? Border.all(color: AppColors.primary, width: 1.0);
         break;
     }
 
@@ -315,7 +315,7 @@ class AppButton extends StatelessWidget {
 
     return Container(
       width: width,
-      height: effectiveHeight,
+      constraints: BoxConstraints(minHeight: effectiveHeight),
       decoration: BoxDecoration(
         color: effectiveColor,
         gradient: effectiveGradient,
@@ -384,7 +384,7 @@ class AppButton extends StatelessWidget {
                         ] else if (showArrow) ...[
                           const SizedBox(width: 10),
                           AppSvgIcon(
-                            AppIcons.arrowForward,
+                            AppIcons.buttonRightArrow,
                             size: 20,
                             color: effectiveTextColor,
                           ),

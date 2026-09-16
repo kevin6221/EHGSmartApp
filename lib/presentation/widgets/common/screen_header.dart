@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
 
@@ -51,6 +52,8 @@ class ScreenHeader extends StatelessWidget {
   final bool showOnlineIndicator;
   final Widget? trailing;
   final VoidCallback? onAvatarTap;
+  final bool showBackButton;
+  final VoidCallback? onBackTap;
 
   const ScreenHeader({
     super.key,
@@ -61,6 +64,8 @@ class ScreenHeader extends StatelessWidget {
     this.showOnlineIndicator = false,
     this.trailing,
     this.onAvatarTap,
+    this.showBackButton = false,
+    this.onBackTap,
   });
 
   @override
@@ -73,6 +78,19 @@ class ScreenHeader extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        if (showBackButton)
+          GestureDetector(
+            onTap: onBackTap ?? () => Navigator.of(context).pop(),
+            behavior: HitTestBehavior.opaque,
+            child: const Padding(
+              padding: EdgeInsets.only(right: 12.0),
+              child: Icon(
+                Icons.arrow_back_ios_new_outlined,
+                color: AppColors.white,
+                size: 20.0,
+              ),
+            ),
+          ),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,7 +124,14 @@ class ScreenHeader extends StatelessWidget {
           trailing!
         else if (showAvatar)
           GestureDetector(
-            onTap: onAvatarTap,
+            onTap: onAvatarTap ??
+                () {
+                  if (ModalRoute.of(context)?.settings.name !=
+                      AppRoutes.profile) {
+                    Navigator.pushNamed(context, AppRoutes.profile);
+                  }
+                },
+            behavior: HitTestBehavior.opaque,
             child: Stack(
               clipBehavior: Clip.none,
               children: [

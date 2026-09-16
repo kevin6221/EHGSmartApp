@@ -5,6 +5,7 @@ import '../../../../core/constants/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/responsive.dart';
 import '../../../../data/models/user_profile_model.dart';
+import '../../../widgets/common/app_button.dart';
 import '../../../widgets/common/app_card.dart';
 
 /// Card showing connected Smart Band details and unpair action (Figma Node 82:3003).
@@ -30,6 +31,7 @@ class ProfileBandCard extends StatelessWidget {
         ),
       ],
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 1. Device Info Row (Radial Badge + Name + ID + Battery)
           Row(
@@ -38,14 +40,13 @@ class ProfileBandCard extends StatelessWidget {
                 width: 32.0,
                 height: 32.0,
                 decoration: const BoxDecoration(
-                  gradient: AppColors.profileBadgeRadial,
+                  gradient: AppGradients.profileBadgeRadial,
                   shape: BoxShape.circle,
                 ),
                 child: Center(
                   child: AppSvgIcon(
                     AppIcons.watchDevice,
                     color: AppColors.white,
-                    size: 16.0,
                   ),
                 ),
               ),
@@ -57,13 +58,12 @@ class ProfileBandCard extends StatelessWidget {
                     Text(
                       data.bandModel,
                       style: GoogleFonts.plusJakartaSans(
-                        fontWeight: FontWeight.w600,
                         fontSize: r.font(16.0),
+                        fontWeight: FontWeight.w600,
                         color: AppColors.secondary,
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 3.0),
                     Row(
                       children: [
                         Text(
@@ -107,34 +107,15 @@ class ProfileBandCard extends StatelessWidget {
           ),
           const SizedBox(height: 16.0),
 
-          // 2. Forgot this Band Button (Figma Node 82:3022, h=40, cr=8, gradient outline)
-          GestureDetector(
-            onTap: onForgetBand,
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              height: 40.0,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: AppColors.primaryGradient,
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              padding: const EdgeInsets.all(1.0), // 1px gradient stroke
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(7.0),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  'Forgot this band',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: r.font(16.0),
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primary,
-                  ),
-                ),
-              ),
-            ),
+          // 2. Forgot this Band Button (Figma Node 82:3022)
+          AppButton.outlined(
+            text: 'Forgot this band',
+            onPressed: onForgetBand,
+            showArrow: false,
+            borderRadius: BorderRadius.circular(8.0),
+            padding: const EdgeInsets.symmetric(vertical: 10.0),
+            fontSize: r.font(16.0),
+            fontWeight: FontWeight.w500,
           ),
         ],
       ),

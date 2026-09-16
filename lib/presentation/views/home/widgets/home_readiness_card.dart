@@ -169,7 +169,7 @@ class HomeReadinessCard extends StatelessWidget {
                   const SizedBox(width: 4.0),
                   ShaderMask(
                     shaderCallback: (Rect bounds) {
-                      return AppColors.primaryGradient.createShader(bounds);
+                      return AppGradients.primary.createShader(bounds);
                     },
                     blendMode: BlendMode.srcIn,
                     child: const Icon(

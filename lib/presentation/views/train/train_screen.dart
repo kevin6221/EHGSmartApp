@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
+import '../../../core/routes/app_routes.dart';
 import '../../blocs/training/training_bloc.dart';
 import '../../blocs/training/training_event.dart';
 import '../../blocs/training/training_state.dart';
@@ -58,7 +59,9 @@ class TrainScreen extends StatelessWidget {
                         showAvatar: true,
                         showOnlineIndicator: true,
                       ),
-                      SizedBox(height: (screenHeight * 0.020).clamp(16.0, 20.0)),
+                      SizedBox(
+                        height: (screenHeight * 0.020).clamp(16.0, 20.0),
+                      ),
 
                       // 2. Workout Categories Card (Figma Node 75:2570)
                       TrainCategorySelector(
@@ -69,18 +72,29 @@ class TrainScreen extends StatelessWidget {
                           );
                         },
                       ),
-                      SizedBox(height: (screenHeight * 0.022).clamp(16.0, 22.0)),
+                      SizedBox(
+                        height: (screenHeight * 0.022).clamp(16.0, 22.0),
+                      ),
 
                       // 3. Active Workout Card with Integrated Calorie maths (Figma Node 75:2580)
                       TrainActiveWorkoutCard(
                         data: data,
+                        onStartWorkout: () {
+                          context.read<TrainingBloc>().add(
+                            const StartWorkoutEvent(),
+                          );
+                          Navigator.of(context)
+                              .pushNamed(AppRoutes.trainingSession);
+                        },
                         onWeightSelected: (weight) {
                           context.read<TrainingBloc>().add(
                             SelectWeightEvent(weight),
                           );
                         },
                       ),
-                      SizedBox(height: (screenHeight * 0.024).clamp(18.0, 24.0)),
+                      SizedBox(
+                        height: (screenHeight * 0.024).clamp(18.0, 24.0),
+                      ),
 
                       // 4. Recent Sessions Section Header (Figma Node 75:2659)
                       Text(
@@ -91,7 +105,9 @@ class TrainScreen extends StatelessWidget {
                           color: AppColors.secondary,
                         ),
                       ),
-                      SizedBox(height: (screenHeight * 0.014).clamp(10.0, 14.0)),
+                      SizedBox(
+                        height: (screenHeight * 0.014).clamp(10.0, 14.0),
+                      ),
 
                       // 5. Recent Session Statistics Card (Figma Node 75:2661)
                       TrainRecentSessionCard(

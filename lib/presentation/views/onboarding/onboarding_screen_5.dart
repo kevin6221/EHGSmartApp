@@ -274,7 +274,7 @@ class _PlanCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12.0),
         // One is filled gradient background, one is pure white background per Figma
         color: isFilled ? null : AppColors.white,
-        gradient: isFilled ? AppColors.onboardingCardGradient : null,
+        gradient: isFilled ? AppGradients.onboardingCard : null,
         border: Border.all(color: AppColors.primary, width: 0.5),
         boxShadow: isFilled
             ? [

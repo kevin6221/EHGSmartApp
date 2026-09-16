@@ -37,7 +37,7 @@ class SegmentedPillBar<T> extends StatelessWidget {
     required this.onChanged,
     this.height = 44.0,
     this.backgroundColor = AppColors.pillBarBg,
-    this.activeGradient = AppColors.primaryGradient,
+    this.activeGradient = AppGradients.primary,
     this.activeColor,
     this.inactiveTextColor = AppColors.textSecondary,
     this.activeTextColor = AppColors.white,

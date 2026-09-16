@@ -92,7 +92,7 @@ class TrainActiveWorkoutCard extends StatelessWidget {
                   width: playBtnDim,
                   height: playBtnDim,
                   decoration: const BoxDecoration(
-                    gradient: AppColors.trainPlayGradient,
+                    gradient: AppGradients.trainPlay,
                     shape: BoxShape.circle,
                   ),
                   child: const Center(

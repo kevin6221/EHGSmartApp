@@ -17,7 +17,7 @@ class ProfileMembershipBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(15.0),
       decoration: BoxDecoration(
-        gradient: AppColors.primaryGradient,
+        gradient: AppGradients.primary,
         borderRadius: BorderRadius.circular(12.0),
         boxShadow: [
           BoxShadow(
@@ -48,23 +48,23 @@ class ProfileMembershipBanner extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12.0),
-          GestureDetector(
-            onTap: onSeeMembership,
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              height: 40.0,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                'See Membership',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: r.font(16.0),
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.primary,
+          Material(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(8.0),
+            child: InkWell(
+              onTap: onSeeMembership ?? () {},
+              borderRadius: BorderRadius.circular(8.0),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 10.0),
+                alignment: Alignment.center,
+                child: Text(
+                  'See Membership',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: r.font(16.0),
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primary,
+                  ),
                 ),
               ),
             ),

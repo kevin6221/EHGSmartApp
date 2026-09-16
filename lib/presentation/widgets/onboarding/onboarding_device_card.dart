@@ -44,7 +44,7 @@ class OnboardingDeviceCard extends StatelessWidget {
               width: badgeDim,
               height: badgeDim,
               decoration: const BoxDecoration(
-                gradient: AppColors.primaryGradient,
+                gradient: AppGradients.primary,
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,

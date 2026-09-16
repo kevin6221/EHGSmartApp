@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+export 'app_gradients.dart';
+
 /// App color palette strictly aligned with the Figma Brand Guide (Node 2:575)
 /// and all centralized app screens and components.
 class AppColors {
@@ -68,12 +70,15 @@ class AppColors {
 
   /// Primary gradient blue start tone (#0067B8).
   static const Color primaryGradientStart = Color(0xFF0067B8);
+  static const Color primaryStart = primaryGradientStart;
 
   /// Primary gradient cyan mid tone (#00AEDE).
   static const Color primaryGradientMid = Color(0xFF00AEDE);
+  static const Color primaryMid = primaryGradientMid;
 
   /// Primary gradient cyan bright end tone (#00F1FE).
   static const Color primaryGradientEnd = Color(0xFF00F1FE);
+  static const Color primaryEnd = primaryGradientEnd;
 
   /// Soft Cyan Tone (#1CB6E3) used in Mind pillar metrics and concentric rings.
   static const Color cyanLight = Color(0xFF1CB6E3);
@@ -136,6 +141,12 @@ class AppColors {
 
   /// Training recent session purple tile background (#FAF5FF).
   static const Color tilePurpleBg = Color(0xFFFAF5FF);
+
+  /// Expanded vitals metric card background start tone (#DCEDFC).
+  static const Color vitalsExpandedBgStart = Color(0xFFDCEDFC);
+
+  /// Expanded vitals metric card background mid tone (#EFFBFF).
+  static const Color vitalsExpandedBgMid = Color(0xFFEFFBFF);
 
   // ===========================================================================
   // 6. Hydration & Energy Metrics
@@ -275,104 +286,7 @@ class AppColors {
   /// Floating nav bar shadow.
   static final Color floatingNavShadow = const Color(0xFF0F172A).withValues(alpha: 0.08);
 
-  // ===========================================================================
-  // 15. Centralized Gradients
-  // ===========================================================================
-  static const LinearGradient primaryGradient = LinearGradient(
-    colors: [primaryGradientStart, primaryGradientMid, primaryGradientEnd],
-    stops: [0.0, 0.545, 1.0],
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
-  );
 
-  /// Disabled primary gradient (10% opacity primary gradient matching Figma Node 16:4201).
-  static const LinearGradient disabledPrimaryGradient = LinearGradient(
-    colors: [Color(0x1A0067B8), Color(0x1A00AEDE), Color(0x1A00F1FE)],
-    stops: [0.0, 0.545, 1.0],
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
-  );
-
-  static const LinearGradient skyHeaderGradient = LinearGradient(
-    colors: [Color(0xFF4A90E2), Color(0xFFF8FAFC)],
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    stops: [0.0, 0.45],
-  );
-
-  static const LinearGradient screenHeaderGradient = LinearGradient(
-    colors: [primarySkyLight, background],
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-  );
-
-  static const LinearGradient cardHeaderGradient = LinearGradient(
-    colors: [Color(0xFFEBF4FD), white],
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-  );
-
-  /// Wellness card top diagonal gradient (Figma Node 118:917 / 60:289).
-  static const LinearGradient wellnessCardGradient = LinearGradient(
-    colors: [wellnessCardGradientStart, wellnessCardGradientMid, white],
-    stops: [0.0, 0.40, 1.0],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  /// Expanded vitals metric card background start tone (#DCEDFC).
-  static const Color vitalsExpandedBgStart = Color(0xFFDCEDFC);
-
-  /// Expanded vitals metric card background mid tone (#EFFBFF).
-  static const Color vitalsExpandedBgMid = Color(0xFFEFFBFF);
-
-  /// Expanded vitals metric card diagonal gradient (Figma Node 119:1442).
-  static const LinearGradient vitalsExpandedCardGradient = LinearGradient(
-    colors: [
-      vitalsExpandedBgStart,
-      vitalsExpandedBgMid,
-      white,
-    ],
-    stops: [0.0, 0.545, 1.0],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  /// Sleep summary icon radial gradient (Figma Node 73:1319 / 119:1477).
-  static const RadialGradient vitalsSleepIconGradient = RadialGradient(
-    colors: [cyanActive, primary],
-    center: Alignment.center,
-    radius: 0.75,
-  );
-
-  /// Onboarding plan card gradient (Figma Node 120:1785).
-  static const LinearGradient onboardingCardGradient = LinearGradient(
-    colors: [wellnessCardGradientStart, onboardingCardGradientMid, white],
-    stops: [0.0, 0.40, 1.0],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  /// Bottom Navigation Active Indicator Radial Gradient (Figma Ellipse 7).
-  static const RadialGradient activeNavCircleGradient = RadialGradient(
-    colors: [cyanActive, primary],
-    center: Alignment.center,
-    radius: 0.85,
-  );
-
-  /// Active plan badge gradient (Figma Node 120:1785).
-  static const LinearGradient planBadgeGradient = LinearGradient(
-    colors: [cyanActive, primary],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
-
-  /// Energy burned vertical capsule chart gradient.
-  static const LinearGradient energyBurnedGradient = LinearGradient(
-    colors: [energyGradientStart, energyGradientEnd],
-    begin: Alignment.bottomCenter,
-    end: Alignment.topCenter,
-  );
 
   // ===========================================================================
   // 12. Training Screen (Figma Node 75:2261)
@@ -413,33 +327,14 @@ class AppColors {
   /// Train Stat 3 (Avg) Subtle Border (#D3C7FC)
   static const Color trainStatAvgBorder = Color(0xFFD3C7FC);
 
-  /// Train Play Button Radial Gradient (Figma Node 75:2593)
-  static const RadialGradient trainPlayGradient = RadialGradient(
-    colors: [cyanActive, primary],
-    center: Alignment(0.39, 0.30),
-    radius: 0.85,
-  );
+  /// Training Session Timer Card Gradient Start (#B6DAF2) (Figma Node 128:554).
+  static const Color timerCardGradientStart = Color(0xFFB6DAF2);
 
-  /// Train Stat 1 (Time) Gradient (Figma Group 1376157569)
-  static const LinearGradient trainStatTimeGradient = LinearGradient(
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
-    colors: [trainStatTimeStart, trainStatTimeEnd],
-  );
+  /// Training Session Timer Card Gradient Mid tone (#E6F4FD) (Figma Node 128:554).
+  static const Color timerCardGradientMid = Color(0xFFE6F4FD);
 
-  /// Train Stat 2 (Peak) Gradient (Figma Group 1376157568)
-  static const LinearGradient trainStatPeakGradient = LinearGradient(
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
-    colors: [trainStatPeakStart, trainStatPeakEnd],
-  );
 
-  /// Train Stat 3 (Avg) Gradient (Figma Group 1376157570)
-  static const LinearGradient trainStatAvgGradient = LinearGradient(
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
-    colors: [trainStatAvgStart, trainStatAvgEnd],
-  );
+
 
   // ===========================================================================
   // 13. Profile Screen (Figma Node 75:2756)
@@ -456,16 +351,69 @@ class AppColors {
   /// Profile data deletion action red (#FF383C)
   static const Color profileDeleteRed = Color(0xFFFF383C);
 
-  /// Circular badge radial gradient for Lock & Band (#01D5F1 -> #3E83C8)
-  static const RadialGradient profileBadgeRadial = RadialGradient(
-    colors: [cyanActive, primary],
-    center: Alignment(0.39, 0.30),
-    radius: 0.85,
-  );
-
   /// Profile switch inactive border (Figma Rectangle 136, stroke 0.5px #4B5563 at 30% opacity)
   static const Color profileSwitchBorder = Color(0x4D4B5563);
 
   /// Profile switch inactive thumb (Figma Ellipse 251, #4B5563 at 40% opacity = #B7BBC1)
   static const Color profileSwitchThumbInactive = Color(0xFFB7BBC1);
+
+  // ===========================================================================
+  // 14. Systems Screen
+  // ===========================================================================
+  static const Color systemCardBgLight = Color(0xFFEFF9FD);
+  static const Color systemCardBorder = Color(0xFFCEF0FA);
+  static const Color systemCyan = Color(0xFF00AEDE);
+  static const Color textGray900 = Color(0xFF111827);
+  static const Color textGray500 = Color(0xFF6B7280);
+  static const Color textGray400 = Color(0xFF94A3B8);
+  static const Color systemRed = Color(0xFFEF4444);
+  static const Color systemPrimaryDark = Color(0xFF0067B8);
+
+  /// Routine input textfield & chip fill background in Systems screen (#EFF3FF, Figma Node 143:2187)
+  static const Color routineInputFill = Color(0xFFEFF3FF);
+
+  /// Routine input textfield & chip border in Systems screen (#CCDDF5, Figma Node 143:2187)
+  static const Color routineInputBorder = Color(0xFFCCDDF5);
+
+  // ===========================================================================
+  // 15. Systems, Journal & Rewards Gradient Tokens
+  // ===========================================================================
+  /// Recover card gradient start (#B8DCF5)
+  static const Color recoverCardGradientStart = Color(0xFFB8DCF5);
+
+  /// Recover card gradient mid (#E8F6FD)
+  static const Color recoverCardGradientMid = Color(0xFFE8F6FD);
+
+  /// Journal pattern banner gradient start (#9BD0EC)
+  static const Color journalPatternBannerStart = Color(0xFF9BD0EC);
+
+  /// Journal pattern banner gradient end (#BAF3FB)
+  static const Color journalPatternBannerEnd = Color(0xFFBAF3FB);
+
+  /// Rewards tier card gradient start (#B8DCF5)
+  static const Color rewardsTierCardStart = Color(0xFFB8DCF5);
+
+  /// Rewards tier card gradient mid (#E8F6FD)
+  static const Color rewardsTierCardMid = Color(0xFFE8F6FD);
+
+  /// Rewards tier card border (#BAE6FD)
+  static const Color rewardsTierCardBorder = Color(0xFFBAE6FD);
+
+  /// Rewards balance card background start (#E5F3FB)
+  static const Color rewardsBalanceBgStart = Color(0xFFE5F3FB);
+
+  /// Rewards balance card background end (#F6FDFF)
+  static const Color rewardsBalanceBgEnd = Color(0xFFF6FDFF);
+
+  /// Rewards card redeemed border (#86EFAC)
+  static const Color rewardsRedeemedBorder = Color(0xFF86EFAC);
+
+  /// Rewards card redeemed green text (#16A34A)
+  static const Color rewardsRedeemedText = Color(0xFF16A34A);
+
+  /// Rewards code card dashed border (#BAE6FD)
+  static const Color rewardsCodeBorder = Color(0xFFBAE6FD);
+
+  /// Rewards code orange text (#EA580C)
+  static const Color rewardsCodeOrange = Color(0xFFEA580C);
 }

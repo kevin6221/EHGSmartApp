@@ -30,3 +30,19 @@ class SelectWeightEvent extends TrainingEvent {
   @override
   List<Object?> get props => [weightKg];
 }
+
+class StartWorkoutEvent extends TrainingEvent {
+  const StartWorkoutEvent();
+}
+
+class ToggleWorkoutPauseEvent extends TrainingEvent {
+  const ToggleWorkoutPauseEvent();
+}
+
+class TickWorkoutEvent extends TrainingEvent {
+  const TickWorkoutEvent();
+}
+
+class FinishWorkoutEvent extends TrainingEvent {
+  const FinishWorkoutEvent();
+}

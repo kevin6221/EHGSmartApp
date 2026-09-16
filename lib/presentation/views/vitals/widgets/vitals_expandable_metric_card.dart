@@ -186,7 +186,7 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(dims.cardRadius),
-                          gradient: AppColors.vitalsExpandedCardGradient,
+                          gradient: AppGradients.vitalsExpandedCard,
                           border: Border.all(
                             color: AppColors.primary,
                             width: 0.5,
@@ -408,7 +408,7 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
             vertical: (r.height * 0.014).clamp(10.0, 14.0),
           ),
           decoration: BoxDecoration(
-            gradient: AppColors.primaryGradient,
+            gradient: AppGradients.primary,
             borderRadius: BorderRadius.circular(12.0),
             border: Border.all(
               color: AppColors.tertiary.withValues(alpha: 0.2),

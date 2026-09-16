@@ -10,6 +10,13 @@ import '../../presentation/views/onboarding/onboarding_screen_5.dart';
 import '../../presentation/views/onboarding/welcome_screen_1.dart';
 import '../../presentation/views/onboarding/welcome_screen_2.dart';
 import '../../presentation/views/splash/splash_screen.dart';
+import '../../presentation/views/train/training_session_screen.dart';
+import '../../presentation/views/membership/membership_screen.dart';
+import '../../presentation/views/systems/systems_screen.dart';
+import '../../presentation/views/journal/journal_screen.dart';
+import '../../presentation/views/rewards/rewards_screen.dart';
+import '../../presentation/views/wardrobe/unlock_wardrobe_screen.dart';
+import '../../presentation/views/profile/profile_screen.dart';
 import 'app_routes.dart';
 
 /// Supported custom transition animations for route generation.
@@ -94,6 +101,62 @@ abstract class AppRouter {
           settings: settings,
           transitionType: TransitionType.fade,
           duration: AppDurations.pageTransitionSlow,
+        );
+
+      case AppRoutes.trainingSession:
+        return _buildRoute(
+          page: const TrainingSessionScreen(),
+          settings: settings,
+          transitionType: TransitionType.slideUp,
+          duration: AppDurations.pageTransition,
+        );
+
+      case AppRoutes.membership:
+        return _buildRoute(
+          page: const MembershipScreen(),
+          settings: settings,
+          transitionType: TransitionType.slideRight,
+          duration: AppDurations.pageTransition,
+        );
+
+      case AppRoutes.unlockWardrobe:
+        return _buildRoute(
+          page: const UnlockWardrobeScreen(),
+          settings: settings,
+          transitionType: TransitionType.slideRight,
+          duration: AppDurations.pageTransition,
+        );
+
+      case AppRoutes.systems:
+        return _buildRoute(
+          page: const SystemsScreen(),
+          settings: settings,
+          transitionType: TransitionType.slideRight,
+          duration: AppDurations.pageTransition,
+        );
+
+      case AppRoutes.journal:
+        return _buildRoute(
+          page: const JournalScreen(),
+          settings: settings,
+          transitionType: TransitionType.slideRight,
+          duration: AppDurations.pageTransition,
+        );
+
+      case AppRoutes.rewards:
+        return _buildRoute(
+          page: const RewardsScreen(),
+          settings: settings,
+          transitionType: TransitionType.slideRight,
+          duration: AppDurations.pageTransition,
+        );
+
+      case AppRoutes.profile:
+        return _buildRoute(
+          page: const ProfileScreen(),
+          settings: settings,
+          transitionType: TransitionType.slideRight,
+          duration: AppDurations.pageTransition,
         );
 
       default:

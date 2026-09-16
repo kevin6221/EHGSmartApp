@@ -102,7 +102,7 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
             padding: EdgeInsets.all(r.isSmall ? 12.0 : 16.0),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(22.0),
-              gradient: AppColors.wellnessCardGradient,
+              gradient: AppGradients.wellnessCard,
               border: Border.all(
                 color: AppColors.primary,
                 width: 0.5,

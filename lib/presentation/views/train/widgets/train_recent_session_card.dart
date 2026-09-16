@@ -90,7 +90,7 @@ class TrainRecentSessionCard extends StatelessWidget {
                     vertical: 7.0,
                   ),
                   decoration: BoxDecoration(
-                    gradient: AppColors.trainStatTimeGradient,
+                    gradient: AppGradients.trainStatTime,
                     borderRadius: BorderRadius.circular(8.0),
                     border: Border.all(
                       color: AppColors.trainStatTimeBorder,
@@ -132,7 +132,7 @@ class TrainRecentSessionCard extends StatelessWidget {
                     vertical: 6.0,
                   ),
                   decoration: BoxDecoration(
-                    gradient: AppColors.trainStatPeakGradient,
+                    gradient: AppGradients.trainStatPeak,
                     borderRadius: BorderRadius.circular(8.0),
                     border: Border.all(
                       color: AppColors.trainStatPeakBorder,
@@ -176,7 +176,7 @@ class TrainRecentSessionCard extends StatelessWidget {
                     vertical: 6.0,
                   ),
                   decoration: BoxDecoration(
-                    gradient: AppColors.trainStatAvgGradient,
+                    gradient: AppGradients.trainStatAvg,
                     borderRadius: BorderRadius.circular(8.0),
                     border: Border.all(
                       color: AppColors.trainStatAvgBorder,

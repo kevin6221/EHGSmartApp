@@ -141,9 +141,12 @@ class CustomBottomNavBar extends StatefulWidget {
 
   static const List<_NavTabData> _tabs = [
     _NavTabData(label: 'Activity', svgPath: AppIcons.activity),
-    _NavTabData(label: 'Vitals', svgPath: AppIcons.heartGrey),
+    _NavTabData(label: 'Vitals', svgPath: AppIcons.heartPulse),
     _NavTabData(label: 'Train', svgPath: AppIcons.burnGrey),
-    _NavTabData(label: 'Profile', svgPath: AppIcons.profile),
+    _NavTabData(label: 'Unlock', svgPath: AppIcons.tagScanner),
+    _NavTabData(label: 'Systems', svgPath: AppIcons.systems),
+    _NavTabData(label: 'Journal', svgPath: AppIcons.journal),
+    _NavTabData(label: 'Rewards', svgPath: AppIcons.rewards),
   ];
 
   @override
@@ -291,7 +294,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
                                   borderRadius: BorderRadius.circular(
                                     bubbleSpec.borderRadius,
                                   ),
-                                  gradient: AppColors.activeNavCircleGradient,
+                                  gradient: AppGradients.activeNavCircle,
                                   boxShadow: [
                                     BoxShadow(
                                       color: AppColors.navActiveGlow,
@@ -325,7 +328,8 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
                                 return Expanded(
                                   child: GestureDetector(
                                     onTap: () {
-                                      if (widget.activeIndex != index) {
+                                      if (widget.activeIndex != index ||
+                                          index == 3) {
                                         HapticFeedback.lightImpact();
                                         widget.onTabSelected(index);
                                       }
@@ -346,21 +350,26 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
                                                 size: dims.inactiveIconSize,
                                                 color: AppColors.tertiary,
                                               ),
-                                              const SizedBox(height: 3.0),
-                                              if (index != widget.activeIndex ||
-                                                  _controller.isAnimating)
-                                                Text(
-                                                  tab.label,
-                                                  style:
-                                                      GoogleFonts.plusJakartaSans(
-                                                    fontSize: r.font(11.0),
-                                                    fontWeight: FontWeight.w500,
-                                                    color: AppColors.tertiary,
+                                              if (tab.label.isNotEmpty) ...[
+                                                const SizedBox(height: 2.0),
+                                                if (index !=
+                                                        widget.activeIndex ||
+                                                    _controller.isAnimating)
+                                                  Text(
+                                                    tab.label,
+                                                    style: GoogleFonts
+                                                        .plusJakartaSans(
+                                                      fontSize: r.font(9.5),
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      color:
+                                                          AppColors.tertiary,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.clip,
                                                   ),
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
+                                              ],
                                             ],
                                           ),
                                         ),

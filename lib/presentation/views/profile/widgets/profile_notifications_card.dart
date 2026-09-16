@@ -41,7 +41,7 @@ class ProfileNotificationsCard extends StatelessWidget {
             color: AppColors.secondary,
           ),
         ),
-        const SizedBox(height: 12.0),
+        const SizedBox(height: 15.0),
 
         // 3. Four Notification Switch Rows (Figma Nodes 82:2983-3000)
         _buildSwitchRow(

@@ -53,6 +53,23 @@ class AppIcons {
   static const String deleteIcon = 'assets/icons/delete_icon.svg';
   static const String shareIcon = 'assets/icons/share_icon.svg';
   static const String selectorArrows = 'assets/icons/selector_arrows.svg';
+  static const String buttonRightArrow = 'assets/icons/button_right_arrow.svg';
+  static const String connectIcon = 'assets/icons/connect_icon.svg';
+  static const String searchIcon = 'assets/icons/search_icon.svg';
+  static const String tagScanner = 'assets/icons/tag_scanner.svg';
+  static const String wardrobePieceBadge = 'assets/icons/wardrobe_piece_badge.svg';
+  static const String careWash = 'assets/icons/care_wash.svg';
+  static const String careBleach = 'assets/icons/care_bleach.svg';
+  static const String careDry = 'assets/icons/care_dry.svg';
+  static const String careIron = 'assets/icons/care_iron.svg';
+  static const String lock = 'assets/icons/lock.svg';
+  static const String journal = 'assets/icons/journal.svg';
+  static const String rewards = 'assets/icons/rewards.svg';
+  static const String systems = layersFolded;
+  static const String recoverPerson = 'assets/icons/recover_person.svg';
+  static const String mindBreath = 'assets/icons/mind_breath.svg';
+  static const String singleDrop = 'assets/icons/single_drop.svg';
+  static const String redCross = 'assets/icons/red_cross.svg';
 }
 
 class AppSvgIcon extends StatelessWidget {
