@@ -148,6 +148,7 @@ class _HomeScreenState extends State<HomeScreen>
                         goalMins: data.goalMins,
                         weeklyEnergy: data.weeklyEnergy,
                       ),
+                      SizedBox(height: itemSpacing),
                     ],
                   ),
                 ),
