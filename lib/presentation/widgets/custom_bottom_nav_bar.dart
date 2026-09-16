@@ -141,7 +141,7 @@ class CustomBottomNavBar extends StatefulWidget {
 
   static const List<_NavTabData> _tabs = [
     _NavTabData(label: 'Activity', svgPath: AppIcons.activity),
-    _NavTabData(label: 'Vitals', svgPath: AppIcons.heartPulse),
+    _NavTabData(label: 'Vitals', svgPath: AppIcons.heartGrey),
     _NavTabData(label: 'Train', svgPath: AppIcons.burnGrey),
     _NavTabData(label: 'Unlock', svgPath: AppIcons.tagScanner),
     _NavTabData(label: 'Systems', svgPath: AppIcons.systems),

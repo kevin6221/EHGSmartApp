@@ -30,7 +30,11 @@ class AppGradients {
 
   /// Disabled primary gradient (10% opacity primary gradient matching Figma Node 16:4201).
   static const LinearGradient disabledPrimary = LinearGradient(
-    colors: [Color(0x1A0067B8), Color(0x1A00AEDE), Color(0x1A00F1FE)],
+    colors: [
+      AppColors.primaryDisabledStart,
+      AppColors.primaryDisabledMid,
+      AppColors.primaryDisabledEnd,
+    ],
     stops: [0.0, 0.545, 1.0],
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
@@ -39,12 +43,27 @@ class AppGradients {
   /// Semantic alias for [disabledPrimary].
   static const LinearGradient disabledPrimaryGradient = disabledPrimary;
 
+  /// Primary logo diagonal gradient (bottomLeft -> topRight) strictly matching Figma logo shader (Node 3:815).
+  static const LinearGradient primaryLogo = LinearGradient(
+    begin: Alignment.bottomLeft,
+    end: Alignment.topRight,
+    colors: [
+      AppColors.primaryGradientStart,
+      AppColors.primaryGradientMid,
+      AppColors.primaryGradientEnd,
+    ],
+    stops: [0.0, 0.5, 1.0],
+  );
+
+  /// Semantic alias for [primaryLogo].
+  static const LinearGradient primaryLogoGradient = primaryLogo;
+
   // ===========================================================================
   // 2. Header Gradients
   // ===========================================================================
   /// Top sky banner header gradient.
   static const LinearGradient skyHeader = LinearGradient(
-    colors: [Color(0xFF4A90E2), Color(0xFFF8FAFC)],
+    colors: [AppColors.skyHeaderStart, AppColors.background],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     stops: [0.0, 0.45],
@@ -65,7 +84,7 @@ class AppGradients {
 
   /// Card header subtle vertical gradient.
   static const LinearGradient cardHeader = LinearGradient(
-    colors: [Color(0xFFEBF4FD), AppColors.white],
+    colors: [AppColors.skyHeaderSubtleStart, AppColors.white],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );

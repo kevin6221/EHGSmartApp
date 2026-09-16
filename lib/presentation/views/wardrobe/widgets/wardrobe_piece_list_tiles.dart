@@ -36,7 +36,7 @@ class WardrobeVerifiedTShirtCard extends StatelessWidget {
             height: 44.0,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFFE8F7FC),
+              color: AppColors.wardrobePieceIconBg,
               border: Border.all(
                 color: AppColors.primarySky.withValues(alpha: 0.25),
                 width: 1.0,

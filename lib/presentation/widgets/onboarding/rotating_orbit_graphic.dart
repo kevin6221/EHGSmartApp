@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 
 import '../../../core/constants/app_animations.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/app_icons.dart';
+import '../../../core/theme/app_gradients.dart';
 
 /// Rotating orbital graphic widget used on the onboarding screen.
 class RotatingOrbitGraphic extends StatefulWidget {
@@ -39,8 +42,8 @@ class _RotatingOrbitGraphicState extends State<RotatingOrbitGraphic>
 
   @override
   Widget build(BuildContext context) {
-    final logoWidth = widget.dimension * (57.0 / 500.0);
-    final logoHeight = widget.dimension * (58.0 / 396.0);
+    final logoWidth = widget.dimension * (57.0 / 393.0);
+    final logoHeight = widget.dimension * (58.0 / 393.0);
 
     return RepaintBoundary(
       child: Stack(
@@ -57,12 +60,16 @@ class _RotatingOrbitGraphicState extends State<RotatingOrbitGraphic>
           ),
 
           // Static EHG brand logo centered inside the orbital graphic
-          Image.asset(
-            AppConstants.welcomeLogo,
-            width: logoWidth,
-            height: logoHeight,
-            fit: BoxFit.contain,
-            cacheWidth: (logoWidth * 3).toInt(),
+          ShaderMask(
+            shaderCallback: (Rect bounds) =>
+                AppGradients.primaryLogo.createShader(bounds),
+            blendMode: BlendMode.srcIn,
+            child: SvgPicture.asset(
+              AppIcons.ehgLogo,
+              height: logoHeight,
+              width: logoWidth,
+              fit: BoxFit.contain,
+            ),
           ),
         ],
       ),

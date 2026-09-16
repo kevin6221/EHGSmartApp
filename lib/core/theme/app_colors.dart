@@ -14,7 +14,7 @@ class AppColors {
   static const Color white = Color(0xFFFFFFFF);
 
   /// Brand surface pure white (#FFFFFF), semantic alias for [white].
-  static const Color surface = Color(0xFFFFFFFF);
+  static const Color surface = white;
 
   /// 70% white (#B3FFFFFF) used for secondary overlay labels.
   static const Color white70 = Color(0xB3FFFFFF);
@@ -53,6 +53,12 @@ class AppColors {
   /// Sky header top tone (#5A9FE6) for the screen header banner.
   static const Color primarySkyLight = Color(0xFF5A9FE6);
 
+  /// Top sky banner header gradient start tone (#4A90E2).
+  static const Color skyHeaderStart = Color(0xFF4A90E2);
+
+  /// Card header subtle vertical gradient start tone (#EBF4FD).
+  static const Color skyHeaderSubtleStart = Color(0xFFEBF4FD);
+
   /// Sky Blue Accent (#1BB6E3) used in wellness chevron.
   static const Color primarySkyAccent = Color(0xFF1BB6E3);
 
@@ -80,6 +86,15 @@ class AppColors {
   static const Color primaryGradientEnd = Color(0xFF00F1FE);
   static const Color primaryEnd = primaryGradientEnd;
 
+  /// Disabled primary gradient blue start tone (#0067B8 at 10% opacity).
+  static const Color primaryDisabledStart = Color(0x1A0067B8);
+
+  /// Disabled primary gradient cyan mid tone (#00AEDE at 10% opacity).
+  static const Color primaryDisabledMid = Color(0x1A00AEDE);
+
+  /// Disabled primary gradient cyan bright end tone (#00F1FE at 10% opacity).
+  static const Color primaryDisabledEnd = Color(0x1A00F1FE);
+
   /// Soft Cyan Tone (#1CB6E3) used in Mind pillar metrics and concentric rings.
   static const Color cyanLight = Color(0xFF1CB6E3);
 
@@ -89,11 +104,11 @@ class AppColors {
   /// Move Pillar Indigo-Blue (#3E50C8).
   static const Color movePillar = Color(0xFF3E50C8);
 
-  /// Recover Pillar Blue (#3E83C8, primary brand blue).
-  static const Color recoverPillar = Color(0xFF3E83C8);
+  /// Recover Pillar Blue (#3E83C8, semantic alias for [primary]).
+  static const Color recoverPillar = primary;
 
-  /// Mind Pillar Cyan (#1CB6E3).
-  static const Color mindPillar = Color(0xFF1CB6E3);
+  /// Mind Pillar Cyan (#1CB6E3, semantic alias for [cyanLight]).
+  static const Color mindPillar = cyanLight;
 
   /// Fuel Pillar Royal Purple (#861CE3).
   static const Color fuelPillar = Color(0xFF861CE3);
@@ -130,9 +145,6 @@ class AppColors {
   /// Sub-metric tile soft cyan/sky background for HRV (#E0F2FE).
   static const Color tileHrvBg = Color(0xFFE0F2FE);
 
-  /// Sub-metric tile soft blue background (#DBEAFE).
-  static const Color tileBlueBg = Color(0xFFDBEAFE);
-
   /// Sub-metric tile soft green background (#DCFCE7).
   static const Color tileGreenBg = Color(0xFFDCFCE7);
 
@@ -166,8 +178,8 @@ class AppColors {
   /// Hydration capsule bar middle tier (#60A5FA).
   static const Color hydrationMiddle = Color(0xFF60A5FA);
 
-  /// Hydration capsule bar light tier (#DBEAFE).
-  static const Color hydrationLight = Color(0xFFDBEAFE);
+  /// Hydration capsule bar light tier (#DBEAFE, semantic alias for [tileSleepBg]).
+  static const Color hydrationLight = tileSleepBg;
 
   /// Energy capsule bar middle tier (#99F7FE).
   static const Color energyMiddle = Color(0xFF99F7FE);
@@ -190,9 +202,7 @@ class AppColors {
   // 8. General Health Metrics & Status Indicators
   // ===========================================================================
   static const Color sleep = Color(0xFF2563EB);
-  static const Color hrv = Color(0xFF38BDF8);
-  static const Color rest = Color(0xFF4ADE80);
-  static const Color stress = Color(0xFFF43F5E);
+  static const Color stress = hypnogramAwake;
   static const Color hydration = Color(0xFF3B82F6);
   static const Color energy = Color(0xFF06B6D4);
   static const Color orangeMetric = Color(0xFFF97316);
@@ -202,14 +212,11 @@ class AppColors {
   // ===========================================================================
   // 9. Input & Component Backgrounds
   // ===========================================================================
-  /// Input field filled background (#EFF3FF).
+  /// Universal input field filled background (#EFF3FF).
   static const Color inputFilledBackground = Color(0xFFEFF3FF);
 
-  /// Segmented pill bar container background (#F1F5F9).
-  static const Color pillBarBg = Color(0xFFF1F5F9);
-
-  /// Weight selector unselected item background (#F3F4F6).
-  static const Color weightSelectorBg = Color(0xFFF3F4F6);
+  /// Segmented pill bar container background (#F1F5F9, semantic alias for [surfaceVariant]).
+  static const Color pillBarBg = surfaceVariant;
 
   /// Workout card inner subtle container (#F9FAFB).
   static const Color workoutCardBg = Color(0xFFF9FAFB);
@@ -230,8 +237,8 @@ class AppColors {
   static const Color borderLight = Color(0xFFF3F4F6);
   static const Color divider = Color(0xFFE2E8F0);
 
-  /// Navigation bar border (#E2E8F0).
-  static const Color navBorder = Color(0xFFE2E8F0);
+  /// Navigation bar border (#E2E8F0, semantic alias for [divider]).
+  static const Color navBorder = divider;
 
   /// Vitals expanded card divider line (#3E83C8 at 15% opacity matching Figma Node 119:1756 Line 11).
   static final Color vitalsDivider = primary.withValues(alpha: 0.15);
@@ -239,8 +246,8 @@ class AppColors {
   /// Vitals 'Do this' callout banner border (25% opacity primary gradient start).
   static final Color vitalsCalloutBorder = primaryGradientStart.withValues(alpha: 0.25);
 
-  /// Vitals 'Do this' callout banner subtext light tone (#F8FAFC).
-  static const Color vitalsCalloutSubtext = Color(0xFFF8FAFC);
+  /// Vitals 'Do this' callout banner subtext light tone (#F8FAFC, semantic alias for [background]).
+  static const Color vitalsCalloutSubtext = background;
 
   // ===========================================================================
   // 11. Surface Variants
@@ -281,24 +288,22 @@ class AppColors {
   static const Color navActiveGlow = Color(0x400072CE);
 
   /// Default subtle card shadow.
-  static final Color cardShadow = const Color(0xFF0F172A).withValues(alpha: 0.04);
+  static final Color cardShadow = shadowNavy.withValues(alpha: 0.04);
 
   /// Floating nav bar shadow.
-  static final Color floatingNavShadow = const Color(0xFF0F172A).withValues(alpha: 0.08);
-
-
+  static final Color floatingNavShadow = shadowNavy.withValues(alpha: 0.08);
 
   // ===========================================================================
-  // 12. Training Screen (Figma Node 75:2261)
+  // 15. Training Screen (Figma Node 75:2261)
   // ===========================================================================
   /// Train Runner Icon Circle Background (#F3F9FF)
   static const Color trainRunnerBg = Color(0xFFF3F9FF);
 
-  /// Train Weight Selected Background (#EFF3FF)
-  static const Color trainWeightSelectedBg = Color(0xFFEFF3FF);
+  /// Train Weight Selected Background (#EFF3FF, semantic alias for [inputFilledBackground])
+  static const Color trainWeightSelectedBg = inputFilledBackground;
 
-  /// Train Weight Unselected Background (#F8FAFC)
-  static const Color trainWeightUnselectedBg = Color(0xFFF8FAFC);
+  /// Train Weight Unselected Background (#F8FAFC, semantic alias for [background])
+  static const Color trainWeightUnselectedBg = background;
 
   /// Train Stat 1 (Time) Gradient Start - rich cyan/blue shader (#CEEEFA)
   static const Color trainStatTimeStart = Color(0xFFCEEEFA);
@@ -333,23 +338,17 @@ class AppColors {
   /// Training Session Timer Card Gradient Mid tone (#E6F4FD) (Figma Node 128:554).
   static const Color timerCardGradientMid = Color(0xFFE6F4FD);
 
-
-
-
   // ===========================================================================
-  // 13. Profile Screen (Figma Node 75:2756)
+  // 16. Profile Screen (Figma Node 75:2756)
   // ===========================================================================
-  /// Soft blue-tinted input fill background (#EFF3FF)
-  static const Color profileInputFill = Color(0xFFEFF3FF);
+  /// Soft blue-tinted input fill background (#EFF3FF, semantic alias for [inputFilledBackground])
+  static const Color profileInputFill = inputFilledBackground;
 
   /// Profile text input & selector container border (#3E83C8 at 50% opacity, Figma strokeWeight 0.5)
   static const Color profileInputBorder = Color(0x803E83C8);
 
   /// Subtle divider line color (#7B7B7B with 20% opacity)
   static const Color profileDivider = Color(0x337B7B7B);
-
-  /// Profile data deletion action red (#FF383C)
-  static const Color profileDeleteRed = Color(0xFFFF383C);
 
   /// Profile switch inactive border (Figma Rectangle 136, stroke 0.5px #4B5563 at 30% opacity)
   static const Color profileSwitchBorder = Color(0x4D4B5563);
@@ -358,19 +357,16 @@ class AppColors {
   static const Color profileSwitchThumbInactive = Color(0xFFB7BBC1);
 
   // ===========================================================================
-  // 14. Systems Screen
+  // 17. Systems Screen
   // ===========================================================================
   static const Color systemCardBgLight = Color(0xFFEFF9FD);
   static const Color systemCardBorder = Color(0xFFCEF0FA);
-  static const Color systemCyan = Color(0xFF00AEDE);
   static const Color textGray900 = Color(0xFF111827);
   static const Color textGray500 = Color(0xFF6B7280);
-  static const Color textGray400 = Color(0xFF94A3B8);
   static const Color systemRed = Color(0xFFEF4444);
-  static const Color systemPrimaryDark = Color(0xFF0067B8);
 
-  /// Routine input textfield & chip fill background in Systems screen (#EFF3FF, Figma Node 143:2187)
-  static const Color routineInputFill = Color(0xFFEFF3FF);
+  /// Routine input textfield & chip fill background in Systems screen (#EFF3FF, semantic alias for [inputFilledBackground])
+  static const Color routineInputFill = inputFilledBackground;
 
   /// Routine input textfield & chip border in Systems screen (#CCDDF5, Figma Node 143:2187)
   static const Color routineInputBorder = Color(0xFFCCDDF5);
@@ -379,7 +375,7 @@ class AppColors {
   static const Color checkboxBorder = Color(0xFFA6C4E5);
 
   // ===========================================================================
-  // 15. Systems, Journal & Rewards Gradient Tokens
+  // 18. Systems, Journal & Rewards Gradient Tokens
   // ===========================================================================
   /// Recover card gradient start (#B8DCF5)
   static const Color recoverCardGradientStart = Color(0xFFB8DCF5);
@@ -393,11 +389,11 @@ class AppColors {
   /// Journal pattern banner gradient end (#BAF3FB)
   static const Color journalPatternBannerEnd = Color(0xFFBAF3FB);
 
-  /// Rewards tier card gradient start (#B8DCF5)
-  static const Color rewardsTierCardStart = Color(0xFFB8DCF5);
+  /// Rewards tier card gradient start (#B8DCF5, semantic alias for [recoverCardGradientStart])
+  static const Color rewardsTierCardStart = recoverCardGradientStart;
 
-  /// Rewards tier card gradient mid (#E8F6FD)
-  static const Color rewardsTierCardMid = Color(0xFFE8F6FD);
+  /// Rewards tier card gradient mid (#E8F6FD, semantic alias for [recoverCardGradientMid])
+  static const Color rewardsTierCardMid = recoverCardGradientMid;
 
   /// Rewards tier card border (#BAE6FD)
   static const Color rewardsTierCardBorder = Color(0xFFBAE6FD);
@@ -411,27 +407,30 @@ class AppColors {
   /// Rewards card redeemed border (#86EFAC)
   static const Color rewardsRedeemedBorder = Color(0xFF86EFAC);
 
-  /// Rewards card redeemed green text (#16A34A)
-  static const Color rewardsRedeemedText = Color(0xFF16A34A);
+  /// Rewards card redeemed green text (#16A34A, semantic alias for [readinessRest])
+  static const Color rewardsRedeemedText = readinessRest;
 
-  /// Rewards code card dashed border (#BAE6FD)
-  static const Color rewardsCodeBorder = Color(0xFFBAE6FD);
+  /// Rewards code card dashed border (#BAE6FD, semantic alias for [rewardsTierCardBorder])
+  static const Color rewardsCodeBorder = rewardsTierCardBorder;
 
   /// Rewards code orange text (#EA580C)
   static const Color rewardsCodeOrange = Color(0xFFEA580C);
 
   // ===========================================================================
-  // 12. Wardrobe Tag Scanner (Figma Node 142:1543)
+  // 19. Wardrobe Tag Scanner (Figma Node 142:1543)
   // ===========================================================================
-  /// Scan tag outer ring (#EFF9FD)
-  static const Color scanTagRingOuter = Color(0xFFEFF9FD);
+  /// Scan tag outer ring (#EFF9FD, semantic alias for [systemCardBgLight])
+  static const Color scanTagRingOuter = systemCardBgLight;
 
-  /// Scan tag middle ring (#CEF0FA)
-  static const Color scanTagRingMid = Color(0xFFCEF0FA);
+  /// Scan tag middle ring (#CEF0FA, semantic alias for [systemCardBorder])
+  static const Color scanTagRingMid = systemCardBorder;
 
   /// Scan tag inner ring / badge (#75D5F1)
   static const Color scanTagRingInner = Color(0xFF75D5F1);
 
-  /// Scan tag pulse wave ring (#38BDF8)
-  static const Color scanTagPulse = Color(0xFF38BDF8);
+  /// Scan tag pulse wave ring (#38BDF8, semantic alias for [hypnogramLight])
+  static const Color scanTagPulse = hypnogramLight;
+
+  /// Wardrobe piece circular badge icon container background (#E8F7FC).
+  static const Color wardrobePieceIconBg = Color(0xFFE8F7FC);
 }

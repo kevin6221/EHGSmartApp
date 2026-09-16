@@ -7,15 +7,8 @@ class AppIcons {
   static const String logo = 'assets/icons/ehg_logo.svg';
   static const String ehgLogo = logo;
   static const String activity = 'assets/icons/activity.svg';
-  static const String vitals = 'assets/icons/vitals.svg';
-  static const String train = 'assets/icons/train.svg';
   static const String profile = 'assets/icons/profile.svg';
-  static const String runner = 'assets/icons/runner.svg';
-  static const String water = 'assets/icons/water.svg';
-  static const String sleep = 'assets/icons/sleep.svg';
-  static const String stress = 'assets/icons/stress.svg';
   static const String band = 'assets/icons/band.svg';
-  static const String play = 'assets/icons/play.svg';
   static const String shield = 'assets/icons/shield.svg';
   static const String chevronRight = 'assets/icons/chevron_right.svg';
   static const String arrowForward = 'assets/icons/arrow_forward.svg';

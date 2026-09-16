@@ -100,7 +100,7 @@ class RewardsPiecesSection extends StatelessWidget {
           const SizedBox(height: 10.0),
           LinearProgressIndicator(
             value: progress,
-            backgroundColor: const Color(0xFFF1F5F9),
+            backgroundColor: AppColors.surfaceVariant,
             color: AppColors.cyanLight,
             minHeight: 2.0,
             borderRadius: BorderRadius.circular(3.0),

@@ -1,7 +1,10 @@
+import 'package:ehgsmartapp/core/constants/app_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../core/constants/app_animations.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/theme/app_gradients.dart';
 
 /// Animated radar graphic for Onboarding Screen 2 (Figma Node 14:2600).
 /// Isolated repaint boundary with centralized rotation duration.
@@ -47,7 +50,7 @@ class _OnboardingRadarGraphicState extends State<OnboardingRadarGraphic>
   @override
   Widget build(BuildContext context) {
     final dim = widget.dimension;
-    final logoDim = dim * 0.13; // ~35px for 272px radar
+    final logoDim = dim * 0.11; // ~35px for 272px radar
 
     return RepaintBoundary(
       child: SizedBox(
@@ -80,12 +83,16 @@ class _OnboardingRadarGraphicState extends State<OnboardingRadarGraphic>
             ),
 
             // 3. Static central EHG clover/cross brand logo (stationary)
-            Image.asset(
-              AppConstants.onboardingRadarLogo,
-              width: logoDim,
-              height: logoDim,
-              fit: BoxFit.contain,
-              cacheWidth: (logoDim * 2).toInt(),
+            ShaderMask(
+              shaderCallback: (Rect bounds) =>
+                  AppGradients.primaryLogo.createShader(bounds),
+              blendMode: BlendMode.srcIn,
+              child: SvgPicture.asset(
+                AppIcons.ehgLogo,
+                height: logoDim,
+                width: logoDim,
+                fit: BoxFit.contain,
+              ),
             ),
           ],
         ),
