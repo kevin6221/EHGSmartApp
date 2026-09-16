@@ -108,6 +108,7 @@ class AppProgressBar extends StatelessWidget {
         return Container(
           width: totalWidth,
           height: height,
+          alignment: Alignment.centerLeft,
           decoration: BoxDecoration(
             color: trackColor ?? AppColors.surface,
             borderRadius: effectiveRadius,
@@ -119,17 +120,14 @@ class AppProgressBar extends StatelessWidget {
               ),
             ],
           ),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: AnimatedContainer(
-              duration: animationDuration,
-              curve: Curves.easeOutCubic,
-              width: fillWidth,
-              height: height,
-              decoration: BoxDecoration(
-                color: resolvedFill,
-                borderRadius: effectiveRadius,
-              ),
+          child: AnimatedContainer(
+            duration: animationDuration,
+            curve: Curves.easeOutCubic,
+            width: fillWidth,
+            height: height,
+            decoration: BoxDecoration(
+              color: resolvedFill,
+              borderRadius: effectiveRadius,
             ),
           ),
         );

@@ -83,6 +83,7 @@ class AppBrandLogo extends StatelessWidget {
       width: size,
       height: size,
       padding: effectivePadding,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(borderRadius),
@@ -97,11 +98,9 @@ class AppBrandLogo extends StatelessWidget {
               ]
             : null,
       ),
-      child: Center(
-        child: SvgPicture.asset(
-          AppIcons.ehgLogo,
-          colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
-        ),
+      child: SvgPicture.asset(
+        AppIcons.ehgLogo,
+        colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
       ),
     );
   }

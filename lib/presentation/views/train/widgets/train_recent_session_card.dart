@@ -49,6 +49,7 @@ class TrainRecentSessionCard extends StatelessWidget {
               Container(
                 width: runnerBoxDim,
                 height: runnerBoxDim,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: AppColors.trainRunnerBg,
                   shape: BoxShape.circle,
@@ -57,12 +58,10 @@ class TrainRecentSessionCard extends StatelessWidget {
                     width: 0.3,
                   ),
                 ),
-                child: const Center(
-                  child: AppSvgIcon(
-                    AppIcons.runningManIcon,
-                    color: AppColors.primary,
-                    size: 24.0,
-                  ),
+                child: const AppSvgIcon(
+                  AppIcons.runningManIcon,
+                  color: AppColors.primary,
+                  size: 24.0,
                 ),
               ),
               const SizedBox(width: 10.0),

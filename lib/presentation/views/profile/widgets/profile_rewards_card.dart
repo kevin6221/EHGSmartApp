@@ -1,12 +1,13 @@
-import 'package:ehgsmartapp/core/constants/app_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/constants/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/responsive.dart';
 import '../../../widgets/common/app_button.dart';
 import '../../../widgets/common/app_card.dart';
+import '../../../widgets/common/app_text_form_field.dart';
 
 /// Card prompting user to link email and secure their rewards (Figma Node 75:2775).
 class ProfileRewardsCard extends StatelessWidget {
@@ -66,59 +67,12 @@ class ProfileRewardsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16.0),
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: emailController,
-            builder: (context, nameValue, _) {
-              final bool isTextEntered = nameValue.text.trim().isNotEmpty;
-              return TextFormField(
-                controller: emailController,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: r.font(14.0),
-                  fontWeight: isTextEntered ? FontWeight.w600 : FontWeight.w400,
-                  color: isTextEntered
-                      ? AppColors.primary
-                      : AppColors.secondary,
-                ),
-                cursorColor: AppColors.primary,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: isTextEntered
-                      ? AppColors.profileInputFill
-                      : AppColors.white,
-                  hintText: 'You@lorem.com',
-                  hintStyle: GoogleFonts.plusJakartaSans(
-                    color: AppColors.tertiary,
-                    fontSize: r.font(14.0),
-                    fontWeight: FontWeight.w400,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                    borderSide: BorderSide(
-                      color: isTextEntered
-                          ? AppColors.primary
-                          : AppColors.profileInputBorder,
-                      width: 0.5,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                    borderSide: const BorderSide(
-                      color: AppColors.primary,
-                      width: 1.0,
-                    ),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                    borderSide: BorderSide(
-                      color: isTextEntered
-                          ? AppColors.primary
-                          : AppColors.profileInputBorder,
-                      width: 0.5,
-                    ),
-                  ),
-                ),
-              );
-            },
+          AppTextFormField(
+            controller: emailController,
+            hintText: 'You@lorem.com',
+            fontSize: r.font(14.0),
+            borderWidth: 0.5,
+            keyboardType: TextInputType.emailAddress,
           ),
           const SizedBox(height: 12.0),
 

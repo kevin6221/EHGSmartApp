@@ -30,6 +30,10 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sub = subtitle;
+    final actWidget = actionWidget;
+    final actLabel = actionLabel;
+
     return Padding(
       padding: padding,
       child: Row(
@@ -50,10 +54,10 @@ class SectionHeader extends StatelessWidget {
                     letterSpacing: -0.2,
                   ),
                 ),
-                if (subtitle != null) ...[
+                if (sub != null) ...[
                   const SizedBox(height: 2.0),
                   Text(
-                    subtitle!,
+                    sub,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 13.0,
                       fontWeight: FontWeight.w400,
@@ -64,14 +68,14 @@ class SectionHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (actionWidget != null)
-            actionWidget!
-          else if (actionLabel != null && onAction != null)
+          if (actWidget != null)
+            actWidget
+          else if (actLabel != null && onAction != null)
             GestureDetector(
               onTap: onAction,
               behavior: HitTestBehavior.opaque,
               child: Text(
-                actionLabel!,
+                actLabel,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 13.0,
                   fontWeight: FontWeight.w600,

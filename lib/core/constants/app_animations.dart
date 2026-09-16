@@ -44,6 +44,12 @@ class AppDurations {
   /// Splash screen ambient ring pulsing cycle: 2400ms
   static const Duration splashPulse = Duration(milliseconds: 2400);
 
+  /// Wardrobe tag scanner pulse duration: 2400ms
+  static const Duration scanPulse = Duration(milliseconds: 2400);
+
+  /// Wardrobe tag scanner radar sweep duration: 4000ms
+  static const Duration scanRadarSweep = Duration(milliseconds: 4000);
+
   /// Onboarding radar scanner sweep rotation cycle: 12s
   static const Duration radarRotation = Duration(seconds: 12);
 

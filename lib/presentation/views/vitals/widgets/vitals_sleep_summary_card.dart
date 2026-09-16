@@ -49,16 +49,15 @@ class VitalsSleepSummaryCard extends StatelessWidget {
               Container(
                 width: iconBoxDim,
                 height: iconBoxDim,
+                alignment: Alignment.center,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: AppGradients.vitalsSleepIcon,
                 ),
-                child: Center(
-                  child: AppSvgIcon(
-                    AppIcons.sleepZ,
-                    color: AppColors.white,
-                    size: iconSize,
-                  ),
+                child: AppSvgIcon(
+                  AppIcons.sleepZ,
+                  color: AppColors.white,
+                  size: iconSize,
                 ),
               ),
               const SizedBox(width: 10),

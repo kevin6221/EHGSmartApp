@@ -375,6 +375,9 @@ class AppColors {
   /// Routine input textfield & chip border in Systems screen (#CCDDF5, Figma Node 143:2187)
   static const Color routineInputBorder = Color(0xFFCCDDF5);
 
+  /// Checkbox unselected border color in Routine builder (#A6C4E5, Figma Node 143:2187)
+  static const Color checkboxBorder = Color(0xFFA6C4E5);
+
   // ===========================================================================
   // 15. Systems, Journal & Rewards Gradient Tokens
   // ===========================================================================
@@ -416,4 +419,19 @@ class AppColors {
 
   /// Rewards code orange text (#EA580C)
   static const Color rewardsCodeOrange = Color(0xFFEA580C);
+
+  // ===========================================================================
+  // 12. Wardrobe Tag Scanner (Figma Node 142:1543)
+  // ===========================================================================
+  /// Scan tag outer ring (#EFF9FD)
+  static const Color scanTagRingOuter = Color(0xFFEFF9FD);
+
+  /// Scan tag middle ring (#CEF0FA)
+  static const Color scanTagRingMid = Color(0xFFCEF0FA);
+
+  /// Scan tag inner ring / badge (#75D5F1)
+  static const Color scanTagRingInner = Color(0xFF75D5F1);
+
+  /// Scan tag pulse wave ring (#38BDF8)
+  static const Color scanTagPulse = Color(0xFF38BDF8);
 }

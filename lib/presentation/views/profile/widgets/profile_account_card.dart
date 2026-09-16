@@ -6,6 +6,7 @@ import '../../../../core/constants/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/responsive.dart';
 import '../../../widgets/common/app_card.dart';
+import '../../../widgets/common/app_text_form_field.dart';
 
 /// Card showing profile inputs: username text field, age selector, and weight selector (Figma Node 75:2928).
 class ProfileAccountCard extends StatelessWidget {
@@ -54,61 +55,10 @@ class ProfileAccountCard extends StatelessWidget {
           const SizedBox(height: 8.0),
 
           // 2. Username Input (Figma Node 75:2929, h=40, cr=12, bg=#EFF3FF, stroke=#3E83C8 at 50%)
-          ValueListenableBuilder<TextEditingValue>(
-            valueListenable: usernameController,
-            builder: (context, nameValue, _) {
-              final bool isTextEntered = nameValue.text.trim().isNotEmpty;
-
-              return TextFormField(
-                controller: usernameController,
-                style: GoogleFonts.plusJakartaSans(
-                  color: isTextEntered
-                      ? AppColors.primary
-                      : AppColors.secondary,
-                  fontSize: r.font(14.0),
-                  fontWeight: isTextEntered ? FontWeight.w600 : FontWeight.w400,
-                ),
-                cursorColor: AppColors.primary,
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: isTextEntered
-                      ? AppColors.profileInputFill
-                      : AppColors.white,
-                  hintText: 'John',
-                  hintStyle: GoogleFonts.plusJakartaSans(
-                    color: AppColors.tertiary,
-                    fontSize: r.font(14.0),
-                    fontWeight: FontWeight.w400,
-                  ),
-
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                    borderSide: BorderSide(
-                      color: isTextEntered
-                          ? AppColors.primary
-                          : AppColors.profileInputBorder,
-                      width: 0.8,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                    borderSide: const BorderSide(
-                       color: AppColors.primary,
-                       width: 1.0,
-                    ),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8.0),
-                    borderSide: BorderSide(
-                      color: isTextEntered
-                          ? AppColors.primary
-                          : AppColors.profileInputBorder,
-                      width: 0.8,
-                    ),
-                  ),
-                ),
-              );
-            },
+          AppTextFormField(
+            controller: usernameController,
+            hintText: 'John',
+            fontSize: r.font(14.0),
           ),
           const SizedBox(height: 14.0),
 

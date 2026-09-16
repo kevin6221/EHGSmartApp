@@ -15,8 +15,7 @@ class WelcomeScreen1 extends StatelessWidget {
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final screenHeight = media.size.height;
-    final screenWidth = media.size.width;
-    final horizontalPad = (screenWidth * 0.05).clamp(16.0, 24.0);
+    final horizontalPad = 16.0;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -96,19 +95,24 @@ class WelcomeScreen1 extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.end,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Figma 82:3095: Plus Jakarta Sans Bold 30px, line-height 40px, -0.39 tracking, center aligned
-                    Text(
-                      'Understand Your Health.\nElevate Your Wellness.',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppColors.white,
-                        fontSize: (screenWidth * 0.08).clamp(24.0, 30.0),
-                        fontWeight: FontWeight.w700,
-                        height: 40.0 / 30.0,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Understand Your Health.\nElevate Your Wellness.',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppColors.white,
+                          fontSize: 30,
+                          fontWeight: FontWeight.w700,
+                          height: 1.25,
+                          letterSpacing: -0.39,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
                       ),
-                      textAlign: TextAlign.center,
                     ),
 
-                    SizedBox(height: 25),
+                    const SizedBox(height: 24.0),
 
                     // Next button matching Figma 82:3097
                     AppButton(

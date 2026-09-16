@@ -79,10 +79,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // 1. Header Row with Online Avatar Indicator (Figma Node 75:2762-2763)
                       const ScreenHeader(
                         title: 'Profile',
-                        showBackButton: true,
+                        showBackButton: false,
                         showAvatar: true,
                         showOnlineIndicator: true,
                       ),
@@ -217,7 +216,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                       // 8. Data & Privacy + Disclaimer (Figma Node 82:3035)
                       const ProfileDataPrivacySection(),
-                      const SizedBox(height: 12.0),
+                      // const SizedBox(height: 12.0),
                     ],
                   ),
                 ),

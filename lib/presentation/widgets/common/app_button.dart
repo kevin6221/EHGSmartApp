@@ -312,6 +312,10 @@ class AppButton extends StatelessWidget {
     final effectiveTextColor = isEnabled
         ? resolvedText
         : (disabledTextColor ?? AppColors.textMuted);
+    final lSvg = leadingSvg;
+    final lIcon = leadingIcon;
+    final tSvg = trailingSvg;
+    final tIcon = trailingIcon;
 
     return Container(
       width: width,
@@ -348,15 +352,15 @@ class AppButton extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        if (leadingSvg != null) ...[
+                        if (lSvg != null) ...[
                           AppSvgIcon(
-                            leadingSvg!,
+                            lSvg,
                             size: 20,
                             color: effectiveTextColor,
                           ),
                           const SizedBox(width: 10),
-                        ] else if (leadingIcon != null) ...[
-                          leadingIcon!,
+                        ] else if (lIcon != null) ...[
+                          lIcon,
                           const SizedBox(width: 10),
                         ],
                         Flexible(
@@ -371,16 +375,16 @@ class AppButton extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (trailingSvg != null) ...[
+                        if (tSvg != null) ...[
                           const SizedBox(width: 10),
                           AppSvgIcon(
-                            trailingSvg!,
+                            tSvg,
                             size: 20,
                             color: effectiveTextColor,
                           ),
-                        ] else if (trailingIcon != null) ...[
+                        ] else if (tIcon != null) ...[
                           const SizedBox(width: 10),
-                          trailingIcon!,
+                          tIcon,
                         ] else if (showArrow) ...[
                           const SizedBox(width: 10),
                           AppSvgIcon(

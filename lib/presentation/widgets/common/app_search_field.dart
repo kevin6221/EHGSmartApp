@@ -32,17 +32,19 @@ class AppSearchField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ctrl = controller;
+
     return Container(
       height: height,
       padding: padding,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
         color: backgroundColor ?? AppColors.background,
         borderRadius: BorderRadius.circular(12.0),
         border: Border.all(color: AppColors.divider, width: 1.0),
       ),
-      child: Center(
-        child: TextField(
-          controller: controller,
+      child: TextField(
+          controller: ctrl,
           focusNode: focusNode,
           autofocus: autofocus,
           onChanged: onChanged,
@@ -78,10 +80,10 @@ class AppSearchField extends StatelessWidget {
               minWidth: 40.0,
               minHeight: 20.0,
             ),
-            suffixIcon: controller != null && controller!.text.isNotEmpty
+            suffixIcon: ctrl != null && ctrl.text.isNotEmpty
                 ? GestureDetector(
                     onTap: () {
-                      controller!.clear();
+                      ctrl.clear();
                       onClear?.call();
                       onChanged?.call('');
                     },
@@ -98,7 +100,6 @@ class AppSearchField extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 }

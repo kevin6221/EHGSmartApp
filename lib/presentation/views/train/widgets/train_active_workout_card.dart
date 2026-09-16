@@ -51,6 +51,7 @@ class TrainActiveWorkoutCard extends StatelessWidget {
                     Container(
                       width: runnerBoxDim,
                       height: runnerBoxDim,
+                      alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: AppColors.trainRunnerBg,
                         shape: BoxShape.circle,
@@ -59,12 +60,10 @@ class TrainActiveWorkoutCard extends StatelessWidget {
                           width: 0.3,
                         ),
                       ),
-                      child: const Center(
-                        child: AppSvgIcon(
-                          AppIcons.runningManIcon,
-                          color: AppColors.primary,
-                          size: 24.0,
-                        ),
+                      child: const AppSvgIcon(
+                        AppIcons.runningManIcon,
+                        color: AppColors.primary,
+                        size: 24.0,
                       ),
                     ),
                     const SizedBox(width: 12.0),
@@ -91,16 +90,15 @@ class TrainActiveWorkoutCard extends StatelessWidget {
                 child: Container(
                   width: playBtnDim,
                   height: playBtnDim,
+                  alignment: Alignment.center,
                   decoration: const BoxDecoration(
                     gradient: AppGradients.trainPlay,
                     shape: BoxShape.circle,
                   ),
-                  child: const Center(
-                    child: AppSvgIcon(
-                      AppIcons.playButton,
-                      color: AppColors.white,
-                      size: 14.0,
-                    ),
+                  child: const AppSvgIcon(
+                    AppIcons.playButton,
+                    color: AppColors.white,
+                    size: 14.0,
                   ),
                 ),
               ),
@@ -203,10 +201,11 @@ class TrainActiveWorkoutCard extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 1.0),
-          child: SizedBox(
+          child: Container(
             width: 18.0,
             height: 18.0,
-            child: Center(child: icon),
+            alignment: Alignment.center,
+            child: icon,
           ),
         ),
         const SizedBox(width: 10.0),

@@ -13,9 +13,13 @@ import '../../blocs/training/training_event.dart';
 import '../../blocs/training/training_state.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/custom_bottom_nav_bar.dart';
+import 'widgets/training_metric_card.dart';
+import 'widgets/training_recording_background.dart';
+import 'widgets/training_timer_card.dart';
+import 'widgets/training_zone_card.dart';
 
 /// Pixel-perfect recording view matching Figma Node 128:554.
-/// Strictly enforces Zero setState policy via ValueNotifier.
+/// Modular architecture with strictly Zero setState.
 class TrainingSessionScreen extends StatefulWidget {
   const TrainingSessionScreen({super.key});
 
@@ -56,7 +60,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
           backgroundColor: AppColors.background,
           body: Stack(
             children: [
-              const _RecordingBackground(),
+              const TrainingRecordingBackground(),
               SafeArea(
                 bottom: false,
                 child: Column(
@@ -93,7 +97,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _TimerCard(elapsedSeconds: state.elapsedSeconds),
+                            TrainingTimerCard(elapsedSeconds: state.elapsedSeconds),
                             SizedBox(
                               height: (screenHeight * 0.020).clamp(12.0, 16.0),
                             ),
@@ -101,7 +105,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                               child: Row(
                                 children: [
                                   const Expanded(
-                                    child: _MetricCard(
+                                    child: TrainingMetricCard(
                                       icon: AppIcons.heartPulse,
                                       label: 'Heart Rate',
                                       color: AppColors.primary,
@@ -111,7 +115,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                                   ),
                                   const SizedBox(width: 14),
                                   Expanded(
-                                    child: _MetricCard(
+                                    child: TrainingMetricCard(
                                       icon: AppIcons.trainFlame,
                                       color: AppColors.mindPillar,
                                       label: 'Calories',
@@ -136,7 +140,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                             SizedBox(
                               height: (screenHeight * 0.014).clamp(8.0, 12.0),
                             ),
-                            _ZoneCard(
+                            TrainingZoneCard(
                               selectedZoneNotifier: _selectedZoneNotifier,
                             ),
                             SizedBox(
@@ -146,7 +150,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                               valueListenable: _selectedZoneNotifier,
                               builder: (context, selectedZone, _) {
                                 return Text(
-                                  _zoneDescription(selectedZone),
+                                  TrainingZoneCard.zoneDescription(selectedZone),
                                   style: GoogleFonts.plusJakartaSans(
                                     color: AppColors.tertiary,
                                     fontSize: r.font(13.5),
@@ -159,9 +163,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                               height: (screenHeight * 0.032).clamp(20.0, 28.0),
                             ),
                             Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 14),
                               child: AppButton(
                                 text: 'Finish session',
                                 onPressed: () {
@@ -200,263 +202,5 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
         );
       },
     );
-  }
-
-  static String _zoneDescription(int zone) {
-    const descriptions = [
-      'Aerobic and sustainable. This is the range that builds an engine without costing you tomorrow.',
-      'Controlled and comfortable. This is the range that builds endurance without costing you tomorrow.',
-      'Steady and focused. This is the range that improves your fitness while staying sustainable.',
-      'Challenging and strong. Use this range for short efforts with enough recovery between them.',
-      'High intensity. Keep this range brief and return to an easier zone when you need to recover.',
-    ];
-    return descriptions[zone - 1];
-  }
-}
-
-class _RecordingBackground extends StatelessWidget {
-  const _RecordingBackground();
-
-  @override
-  Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.sizeOf(context).height;
-
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      height: screenHeight * 0.35,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              AppColors.primaryGradientStart,
-              AppColors.background.withValues(alpha: 0.0),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _TimerCard extends StatelessWidget {
-  final int elapsedSeconds;
-  const _TimerCard({required this.elapsedSeconds});
-
-  @override
-  Widget build(BuildContext context) {
-    final r = context.responsive;
-    final media = MediaQuery.sizeOf(context);
-    final totalSeconds = 16080 + elapsedSeconds;
-    final duration = Duration(seconds: totalSeconds);
-    final hours = duration.inHours.toString().padLeft(2, '0');
-    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
-    final timer = '$hours : $minutes : $seconds';
-
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(
-        horizontal: (media.width * 0.06).clamp(18.0, 24.0),
-        vertical: (media.height * 0.022).clamp(14.0, 20.0),
-      ),
-      alignment: Alignment.centerLeft,
-      decoration: BoxDecoration(
-        gradient: AppGradients.timerCard,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.primary,
-          width: 0.5,
-        ),
-      ),
-      child: Text(
-        timer,
-        style: GoogleFonts.plusJakartaSans(
-          color: AppColors.primary,
-          fontSize: r.font(30),
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-class _MetricCard extends StatelessWidget {
-  final String icon;
-  final String label;
-  final String value;
-  final Color color;
-  final String unit;
-
-  const _MetricCard({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.value,
-    required this.unit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final r = context.responsive;
-    final media = MediaQuery.sizeOf(context);
-
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: (media.height * 0.016).clamp(11.0, 15.0),
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowNavy.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              AppSvgIcon(icon, size: 16, color: color),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.plusJakartaSans(
-                    color: AppColors.secondary,
-                    fontSize: r.font(12),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: (media.height * 0.010).clamp(6.0, 10.0)),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                value,
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppColors.secondary,
-                  fontSize: r.font(18),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Text(
-                unit,
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppColors.secondary,
-                  fontSize: r.font(12),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ZoneCard extends StatelessWidget {
-  final ValueNotifier<int> selectedZoneNotifier;
-
-  const _ZoneCard({required this.selectedZoneNotifier});
-
-  @override
-  Widget build(BuildContext context) {
-    final r = context.responsive;
-    final media = MediaQuery.sizeOf(context);
-
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: (media.height * 0.014).clamp(10.0, 14.0),
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowNavy.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: ValueListenableBuilder<int>(
-        valueListenable: selectedZoneNotifier,
-        builder: (context, selectedZone, _) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Zone $selectedZone · ${_zoneName(selectedZone)}',
-                style: GoogleFonts.plusJakartaSans(
-                  color: AppColors.primary,
-                  fontSize: r.font(12.5),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              SizedBox(height: (media.height * 0.010).clamp(6.0, 10.0)),
-              Row(
-                children: List.generate(5, (index) {
-                  final zone = index + 1;
-                  final isSelected = zone == selectedZone;
-                  return Expanded(
-                    child: GestureDetector(
-                      onTap: () => selectedZoneNotifier.value = zone,
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
-                        margin: EdgeInsets.only(right: zone == 5 ? 0 : 5),
-                        padding: EdgeInsets.symmetric(
-                          vertical: (media.height * 0.009).clamp(6.0, 9.0),
-                        ),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppColors.primary
-                              : AppColors.primaryLight,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          'Z$zone',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: isSelected
-                                ? AppColors.white
-                                : AppColors.primary,
-                            fontSize: r.font(12.5),
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-
-  static String _zoneName(int zone) {
-    const names = ['Easy', 'Steady', 'Moderate', 'Hard', 'Peak'];
-    return names[zone - 1];
   }
 }

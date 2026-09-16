@@ -46,23 +46,21 @@ class HomeVitalsSummaryRow extends StatelessWidget {
         child: Row(
           children: [
             // 1. Heart Rate Card
-            SizedBox(
-              width: dims.cardWidth,
-              height: dims.cardHeight,
-              child: _buildHeartRateCard(r, dims.chartWidth, dims.cardHeight),
+            _buildHeartRateCard(
+              r,
+              dims.chartWidth,
+              dims.cardWidth,
+              dims.cardHeight,
             ),
             SizedBox(width: dims.cardGap),
 
             // 2. Sleep Card
-            SizedBox(
-              width: dims.cardWidth,
-              height: dims.cardHeight,
-              child: _buildSleepCard(
-                r,
-                dims.chartWidth,
-                dims.sleepBarWidth,
-                dims.cardHeight,
-              ),
+            _buildSleepCard(
+              r,
+              dims.chartWidth,
+              dims.sleepBarWidth,
+              dims.cardWidth,
+              dims.cardHeight,
             ),
           ],
         ),
@@ -73,11 +71,14 @@ class HomeVitalsSummaryRow extends StatelessWidget {
   Widget _buildHeartRateCard(
     Responsive r,
     double chartWidth,
+    double cardWidth,
     double cardHeight,
   ) {
     final sparklineHeight = (cardHeight * 0.22).clamp(20.0, 28.0);
 
     return AppCard(
+      width: cardWidth,
+      height: cardHeight,
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
       borderRadius: BorderRadius.circular(18.0),
       border: Border.all(color: AppColors.borderLight, width: 0.8),
@@ -197,12 +198,15 @@ class HomeVitalsSummaryRow extends StatelessWidget {
     Responsive r,
     double chartWidth,
     double sleepBarWidth,
+    double cardWidth,
     double cardHeight,
   ) {
     final baseHeights = [18.0, 22.0, 16.0, 24.0, 20.0, 26.0, 22.0];
     final scaleFactor = cardHeight / 112.0;
 
     return AppCard(
+      width: cardWidth,
+      height: cardHeight,
       padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 10.0),
       borderRadius: BorderRadius.circular(18.0),
       border: Border.all(color: AppColors.borderLight, width: 0.8),

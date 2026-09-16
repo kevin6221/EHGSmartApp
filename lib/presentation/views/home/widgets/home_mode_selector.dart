@@ -76,20 +76,19 @@ class HomeModeSelector extends StatelessWidget {
               child: GestureDetector(
                 onTap: () => onModeChanged(mode),
                 behavior: HitTestBehavior.opaque,
-                child: SizedBox(
+                child: Container(
                   height: (r.height * 0.045).clamp(36.0, 44.0),
-                  child: Center(
-                    child: Text(
-                      label,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: isSelected
-                            ? AppColors.primary
-                            : AppColors.textMuted,
-                        fontWeight: isSelected
-                            ? FontWeight.w600
-                            : FontWeight.w400,
-                        fontSize: r.font(14.0),
-                      ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    label,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: isSelected
+                          ? AppColors.primary
+                          : AppColors.textMuted,
+                      fontWeight: isSelected
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                      fontSize: r.font(14.0),
                     ),
                   ),
                 ),

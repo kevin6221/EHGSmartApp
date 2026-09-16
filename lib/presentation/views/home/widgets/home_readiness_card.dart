@@ -321,51 +321,48 @@ class HomeReadinessCard extends StatelessWidget {
           end: Alignment.bottomRight,
         );
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10.0),
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: dims.tilePadH,
-          vertical: dims.tilePadV,
-        ),
-        decoration: BoxDecoration(
-          gradient: effectiveGradient,
-          borderRadius: BorderRadius.circular(8.0),
-          boxShadow: [
-            BoxShadow(
-              color: accentColor.withValues(alpha: 0.04),
-              blurRadius: 12.0,
-              offset: const Offset(0, 2),
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: dims.tilePadH,
+        vertical: dims.tilePadV,
+      ),
+      decoration: BoxDecoration(
+        gradient: effectiveGradient,
+        borderRadius: BorderRadius.circular(8.0),
+        boxShadow: [
+          BoxShadow(
+            color: accentColor.withValues(alpha: 0.04),
+            blurRadius: 12.0,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.plusJakartaSans(
+              color: AppColors.secondary,
+              fontWeight: FontWeight.w500,
+              fontSize: r.font(14.0),
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              title,
+          ),
+          const SizedBox(height: 4.0),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
               style: GoogleFonts.plusJakartaSans(
-                color: AppColors.secondary,
-                fontWeight: FontWeight.w500,
-                fontSize: r.font(14.0),
+                fontSize: r.font(18.0),
+                fontWeight: FontWeight.w700,
+                color: valueColor ?? AppColors.secondary,
               ),
             ),
-            const SizedBox(height: 4.0),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                value,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: r.font(18.0),
-                  fontWeight: FontWeight.w700,
-                  color: valueColor ?? AppColors.secondary,
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

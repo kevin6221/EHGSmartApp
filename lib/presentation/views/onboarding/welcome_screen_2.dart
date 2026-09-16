@@ -40,7 +40,7 @@ class WelcomeScreen2 extends StatelessWidget {
           right: false,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final horizontalPad = (screenWidth * 0.05).clamp(16.0, 24.0);
+              final horizontalPad = 16.0;
               final availableHeight = constraints.maxHeight;
               final orbitDim = screenWidth > 500.0 ? 440.0 : screenWidth;
 

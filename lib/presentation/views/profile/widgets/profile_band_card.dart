@@ -39,15 +39,14 @@ class ProfileBandCard extends StatelessWidget {
               Container(
                 width: 32.0,
                 height: 32.0,
+                alignment: Alignment.center,
                 decoration: const BoxDecoration(
                   gradient: AppGradients.profileBadgeRadial,
                   shape: BoxShape.circle,
                 ),
-                child: Center(
-                  child: AppSvgIcon(
-                    AppIcons.watchDevice,
-                    color: AppColors.white,
-                  ),
+                child: const AppSvgIcon(
+                  AppIcons.watchDevice,
+                  color: AppColors.white,
                 ),
               ),
               const SizedBox(width: 10.0),

@@ -20,11 +20,10 @@ class Responsive {
   bool get isLarge => width >= 420 && width < 600;
   bool get isTablet => width >= 600;
 
-  /// Proportional horizontal padding (5% on phones, up to 10% on tablets/foldables)
+  /// Proportional horizontal padding (16.0 on phones, up to 15% on tablets/foldables)
   double get horizontalPadding {
     if (isTablet) return width * 0.15;
-    if (isSmall) return 14.0;
-    return (width * 0.05).clamp(16.0, 24.0);
+    return 16.0;
   }
 
   /// Proportional vertical padding

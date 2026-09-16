@@ -53,6 +53,7 @@ class AppCard extends StatelessWidget {
       width: width,
       height: height,
       margin: margin,
+      padding: padding,
       decoration: BoxDecoration(
         color: gradient == null ? (backgroundColor ?? AppColors.surface) : null,
         gradient: gradient,
@@ -61,7 +62,7 @@ class AppCard extends StatelessWidget {
         boxShadow: effectiveShadow,
       ),
       clipBehavior: clipBehavior,
-      child: padding != null ? Padding(padding: padding!, child: child) : child,
+      child: child,
     );
 
     if (onTap != null) {

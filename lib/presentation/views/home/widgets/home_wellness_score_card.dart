@@ -562,21 +562,12 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
         ),
         const SizedBox(height: 5.0),
         // Progress Bar
-        ClipRRect(
+        LinearProgressIndicator(
+          value: fraction,
+          minHeight: 3.0,
           borderRadius: BorderRadius.circular(2.0),
-          child: Container(
-            height: 3.0,
-            width: double.infinity,
-            color: scoreColor.withValues(alpha: 0.15),
-            alignment: Alignment.centerLeft,
-            child: FractionallySizedBox(
-              widthFactor: fraction,
-              child: Container(
-                height: 3.0,
-                color: scoreColor,
-              ),
-            ),
-          ),
+          backgroundColor: scoreColor.withValues(alpha: 0.15),
+          valueColor: AlwaysStoppedAnimation<Color>(scoreColor),
         ),
         const SizedBox(height: 5.0),
         Text(

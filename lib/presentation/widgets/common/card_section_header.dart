@@ -30,6 +30,9 @@ class CardSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final svg = iconSvg;
+    final action = actionText;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -39,9 +42,9 @@ class CardSectionHeader extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (iconSvg != null) ...[
+              if (svg != null) ...[
                 AppSvgIcon(
-                  iconSvg!,
+                  svg,
                   size: iconSize,
                   color: iconColor,
                 ),
@@ -63,7 +66,7 @@ class CardSectionHeader extends StatelessWidget {
         ),
 
         // Trailing Action (e.g. "Today >", "Start a session >")
-        if (actionText != null)
+        if (action != null)
           GestureDetector(
             onTap: onActionTap,
             behavior: HitTestBehavior.opaque,
@@ -72,7 +75,7 @@ class CardSectionHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Text(
-                  actionText!,
+                  action,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: actionFontSize,
                     fontWeight: FontWeight.w400,

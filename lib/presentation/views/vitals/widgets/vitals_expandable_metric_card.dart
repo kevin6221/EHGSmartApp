@@ -146,6 +146,7 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
         final isClosed = _animController.isDismissed && !_expandedNotifier.value;
 
         return Container(
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: AppColors.white,
             borderRadius: BorderRadius.circular(dims.cardRadius),
@@ -157,9 +158,7 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
               ),
             ],
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(dims.cardRadius),
-            child: Stack(
+          child: Stack(
               children: [
                 // 1. Collapsed subtle border layer (cross-fades out as card expands)
                 if (progress < 1.0)
@@ -339,8 +338,7 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
                 ),
               ],
             ),
-          ),
-        );
+          );
       },
     );
   }

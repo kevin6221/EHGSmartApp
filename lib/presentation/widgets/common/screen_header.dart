@@ -54,6 +54,8 @@ class ScreenHeader extends StatelessWidget {
   final VoidCallback? onAvatarTap;
   final bool showBackButton;
   final VoidCallback? onBackTap;
+  final double? titleFontSize;
+  final int maxLines;
 
   const ScreenHeader({
     super.key,
@@ -66,6 +68,8 @@ class ScreenHeader extends StatelessWidget {
     this.onAvatarTap,
     this.showBackButton = false,
     this.onBackTap,
+    this.titleFontSize,
+    this.maxLines = 1,
   });
 
   @override
@@ -73,6 +77,8 @@ class ScreenHeader extends StatelessWidget {
     final r = context.responsive;
     final avatarDim = (r.width * 0.115).clamp(38.0, 48.0);
     final dotDim = (avatarDim * 0.25).clamp(9.0, 12.0);
+    final sub = subtitle;
+    final trail = trailing;
 
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -96,9 +102,9 @@ class ScreenHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (subtitle != null) ...[
+              if (sub != null) ...[
                 Text(
-                  subtitle!,
+                  sub,
                   style: GoogleFonts.plusJakartaSans(
                     color: AppColors.white.withValues(alpha: 0.9),
                     fontSize: r.font(13.0),
@@ -111,17 +117,18 @@ class ScreenHeader extends StatelessWidget {
                 title,
                 style: GoogleFonts.plusJakartaSans(
                   color: AppColors.white,
-                  fontSize: r.font(26.0),
+                  fontSize: r.font(titleFontSize ?? 26.0),
                   fontWeight: FontWeight.w700,
                   letterSpacing: -0.3,
                 ),
+                maxLines: maxLines,
                 overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
         ),
-        if (trailing != null)
-          trailing!
+        if (trail != null)
+          trail
         else if (showAvatar)
           GestureDetector(
             onTap: onAvatarTap ??

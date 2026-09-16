@@ -41,6 +41,9 @@ class MetricTile extends StatelessWidget {
     final iconBoxDim = (r.width * 0.105).clamp(36.0, 44.0);
     final iconDim = (iconBoxDim * 0.5).clamp(18.0, 22.0);
     final verticalPad = (r.height * 0.016).clamp(10.0, 16.0);
+    final badge = badgeText;
+    final trail = trailing;
+    final u = unit;
 
     return AppCard(
       padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: verticalPad),
@@ -74,10 +77,10 @@ class MetricTile extends StatelessWidget {
                     color: AppColors.textPrimary,
                   ),
                 ),
-                if (badgeText != null) ...[
+                if (badge != null) ...[
                   const SizedBox(height: 3.0),
                   Text(
-                    badgeText!,
+                    badge,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 12.0,
                       fontWeight: FontWeight.w500,
@@ -90,8 +93,8 @@ class MetricTile extends StatelessWidget {
           ),
 
           // Trailing: either custom widget (e.g. sparkline) or Value + Unit
-          if (trailing != null)
-            trailing!
+          if (trail != null)
+            trail
           else
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -106,10 +109,10 @@ class MetricTile extends StatelessWidget {
                     color: AppColors.textPrimary,
                   ),
                 ),
-                if (unit != null) ...[
+                if (u != null) ...[
                   const SizedBox(width: 4.0),
                   Text(
-                    unit!,
+                    u,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 12.0,
                       fontWeight: FontWeight.w500,
