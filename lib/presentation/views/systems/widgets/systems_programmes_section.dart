@@ -156,7 +156,7 @@ class SystemsProgrammesSection extends StatelessWidget {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: r.font(10.0),
                   fontWeight: FontWeight.w400,
-                  color: AppColors.tertiary,
+                  color: AppColors.calorieOrangeColor,
                 ),
               ),
             ],

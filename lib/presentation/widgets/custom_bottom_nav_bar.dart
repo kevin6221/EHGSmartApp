@@ -157,19 +157,23 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _animation;
-
   double _fromPosition = 0.0;
   double _targetPosition = 0.0;
   int _fromIndex = 0;
   int _targetIndex = 0;
 
+  bool get _hasSelection =>
+      widget.activeIndex >= 0 &&
+      widget.activeIndex < CustomBottomNavBar._tabs.length;
+
   @override
   void initState() {
     super.initState();
-    _fromPosition = widget.activeIndex.toDouble();
-    _targetPosition = widget.activeIndex.toDouble();
-    _fromIndex = widget.activeIndex;
-    _targetIndex = widget.activeIndex;
+    final initialIndex = _hasSelection ? widget.activeIndex : 0;
+    _fromPosition = initialIndex.toDouble();
+    _targetPosition = initialIndex.toDouble();
+    _fromIndex = initialIndex;
+    _targetIndex = initialIndex;
 
     _controller = AnimationController(
       vsync: this,
@@ -186,7 +190,21 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
   void didUpdateWidget(covariant CustomBottomNavBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.activeIndex != oldWidget.activeIndex) {
-      _animateToTab(oldWidget.activeIndex, widget.activeIndex);
+      final wasSelected = oldWidget.activeIndex >= 0 &&
+          oldWidget.activeIndex < CustomBottomNavBar._tabs.length;
+      final isSelected = _hasSelection;
+
+      if (!wasSelected && isSelected) {
+        _fromPosition = widget.activeIndex.toDouble();
+        _targetPosition = widget.activeIndex.toDouble();
+        _fromIndex = widget.activeIndex;
+        _targetIndex = widget.activeIndex;
+        _controller.value = 1.0;
+      } else if (wasSelected && !isSelected) {
+        _controller.value = 1.0;
+      } else if (wasSelected && isSelected) {
+        _animateToTab(oldWidget.activeIndex, widget.activeIndex);
+      }
     }
   }
 
@@ -267,51 +285,55 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
                   return AnimatedBuilder(
                     animation: _animation,
                     builder: (context, child) {
-                      final currentPos = _currentPosition;
-                      final bubbleSpec = NavBarCalculator.computeBubbleSpec(
-                        currentPos: currentPos,
-                        fromPosition: _fromPosition,
-                        targetPosition: _targetPosition,
-                        progress: _animation.value,
-                        tabWidth: tabWidth,
-                        indicatorDim: dims.indicatorDim,
-                        navHeight: dims.navHeight,
-                      );
+                      final currentPos =
+                          _hasSelection ? _currentPosition : -1.0;
+                      final bubbleSpec = _hasSelection
+                          ? NavBarCalculator.computeBubbleSpec(
+                              currentPos: currentPos,
+                              fromPosition: _fromPosition,
+                              targetPosition: _targetPosition,
+                              progress: _animation.value,
+                              tabWidth: tabWidth,
+                              indicatorDim: dims.indicatorDim,
+                              navHeight: dims.navHeight,
+                            )
+                          : null;
 
                       return Stack(
                         clipBehavior: Clip.none,
                         alignment: Alignment.centerLeft,
                         children: [
                           // 1. Sliding Glowing Gradient Bubble with Embedded Active Icon
-                          Positioned(
-                            left: bubbleSpec.left,
-                            top: bubbleSpec.top,
-                            width: bubbleSpec.width,
-                            height: bubbleSpec.height,
-                            child: RepaintBoundary(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(
-                                    bubbleSpec.borderRadius,
-                                  ),
-                                  gradient: AppGradients.activeNavCircle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.navActiveGlow,
-                                      blurRadius: 10.0,
-                                      offset: const Offset(0.0, 4.0),
+                          if (_hasSelection && bubbleSpec != null)
+                            Positioned(
+                              left: bubbleSpec.left,
+                              top: bubbleSpec.top,
+                              width: bubbleSpec.width,
+                              height: bubbleSpec.height,
+                              child: RepaintBoundary(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(
+                                      bubbleSpec.borderRadius,
                                     ),
-                                  ],
-                                ),
-                                child: Center(
-                                  child: _buildActiveBubbleIcon(
-                                    activeIconSize: dims.activeIconSize,
-                                    progress: _animation.value,
+                                    gradient: AppGradients.activeNavCircle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.navActiveGlow,
+                                        blurRadius: 10.0,
+                                        offset: const Offset(0.0, 4.0),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Center(
+                                    child: _buildActiveBubbleIcon(
+                                      activeIconSize: dims.activeIconSize,
+                                      progress: _animation.value,
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
 
                           // 2. Interactive Navigation Tabs Track
                           Row(
@@ -319,16 +341,18 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
                               CustomBottomNavBar._tabs.length,
                               (index) {
                                 final tab = CustomBottomNavBar._tabs[index];
-                                final inactiveOpacity =
-                                    NavBarCalculator.computeInactiveOpacity(
-                                  currentPos: currentPos,
-                                  tabIndex: index,
-                                );
+                                final inactiveOpacity = _hasSelection
+                                    ? NavBarCalculator.computeInactiveOpacity(
+                                        currentPos: currentPos,
+                                        tabIndex: index,
+                                      )
+                                    : 1.0;
 
                                 return Expanded(
                                   child: GestureDetector(
                                     onTap: () {
-                                      if (widget.activeIndex != index ||
+                                      if (!_hasSelection ||
+                                          widget.activeIndex != index ||
                                           index == 3) {
                                         HapticFeedback.lightImpact();
                                         widget.onTabSelected(index);
@@ -352,7 +376,8 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
                                               ),
                                               if (tab.label.isNotEmpty) ...[
                                                 const SizedBox(height: 2.0),
-                                                if (index !=
+                                                if (!_hasSelection ||
+                                                    index !=
                                                         widget.activeIndex ||
                                                     _controller.isAnimating)
                                                   Text(
@@ -397,7 +422,16 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
     required double activeIconSize,
     required double progress,
   }) {
-    if (_fromIndex == _targetIndex || !_controller.isAnimating) {
+    if (!_hasSelection ||
+        _targetIndex < 0 ||
+        _targetIndex >= CustomBottomNavBar._tabs.length) {
+      return const SizedBox.shrink();
+    }
+
+    if (_fromIndex < 0 ||
+        _fromIndex >= CustomBottomNavBar._tabs.length ||
+        _fromIndex == _targetIndex ||
+        !_controller.isAnimating) {
       return AppSvgIcon(
         CustomBottomNavBar._tabs[_targetIndex].svgPath,
         size: activeIconSize,

@@ -433,4 +433,6 @@ class AppColors {
 
   /// Wardrobe piece circular badge icon container background (#E8F7FC).
   static const Color wardrobePieceIconBg = Color(0xFFE8F7FC);
+
+  static const Color calorieOrangeColor = Color(0xFFEF7305);
 }

@@ -202,6 +202,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         bloodPressure: data.bloodPressure,
                         skinTempDiff: data.skinTempDiff,
                       ),
+                      SizedBox(height: cardSpacing),
                     ],
                   ),
                 ),

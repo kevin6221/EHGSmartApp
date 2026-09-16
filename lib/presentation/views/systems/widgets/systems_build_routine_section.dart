@@ -483,8 +483,8 @@ class SystemsBuildRoutineSection extends StatelessWidget {
               label,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: r.font(r.isSmall ? 11.5 : 12.5),
-                fontWeight: isChecked ? FontWeight.w500 : FontWeight.w400,
-                color: isChecked ? AppColors.secondary : AppColors.tertiary,
+                fontWeight: FontWeight.w400,
+                color: AppColors.tertiary,
               ),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,

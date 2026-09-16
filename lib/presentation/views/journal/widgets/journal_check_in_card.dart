@@ -81,10 +81,10 @@ class JournalCheckInCard extends StatelessWidget {
                           '$energyLevel',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: r.font(14.0),
-                            fontWeight: FontWeight.w600,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                             color: isSelected
                                 ? AppColors.white
-                                : AppColors.secondary,
+                                : AppColors.tertiary,
                           ),
                         ),
                       ),
@@ -177,6 +177,7 @@ class JournalCheckInCard extends StatelessWidget {
           const SizedBox(height: 16.0),
           AppButton(
             text: 'Save entry · +120',
+            showArrow: false,
             onPressed: onSave ?? () {},
             padding: const EdgeInsets.symmetric(
               horizontal: 20.0,

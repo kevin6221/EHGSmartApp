@@ -5,10 +5,13 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
+import '../../blocs/navigation/navigation_bloc.dart';
+import '../../blocs/navigation/navigation_event.dart';
 import '../../blocs/profile/profile_bloc.dart';
 import '../../blocs/profile/profile_event.dart';
 import '../../blocs/profile/profile_state.dart';
 import '../../widgets/common/screen_header.dart';
+import '../../widgets/custom_bottom_nav_bar.dart';
 import 'widgets/profile_account_card.dart';
 import 'widgets/profile_appearance_card.dart';
 import 'widgets/profile_band_card.dart';
@@ -29,6 +32,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   late final TextEditingController _emailController;
   late final TextEditingController _usernameController;
+  bool _isNavigating = false;
 
   @override
   void initState() {
@@ -42,6 +46,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _emailController.dispose();
     _usernameController.dispose();
     super.dispose();
+  }
+
+  void _onBottomNavTabSelected(int index) {
+    if (_isNavigating) return;
+    _isNavigating = true;
+
+    context.read<NavigationBloc>().add(TabChangedEvent(index));
+
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).popUntil(
+        (route) =>
+            route.settings.name == AppRoutes.dashboard || route.isFirst,
+      );
+    } else {
+      Navigator.of(context).pushReplacementNamed(AppRoutes.dashboard);
+    }
   }
 
   @override
@@ -59,6 +79,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
         return Scaffold(
           backgroundColor: AppColors.background,
+          extendBody: true,
           body: Stack(
             children: [
               SkyHeaderBackground(
@@ -222,6 +243,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ],
+          ),
+          bottomNavigationBar: CustomBottomNavBar(
+            activeIndex: -1,
+            onTabSelected: _onBottomNavTabSelected,
           ),
         );
       },
