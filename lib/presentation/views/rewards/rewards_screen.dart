@@ -41,6 +41,7 @@ class RewardsScreen extends StatelessWidget {
                     child: const ScreenHeader(
                       title: 'Rewards',
                       showAvatar: true,
+                      showBackButton: true,
                       showOnlineIndicator: true,
                     ),
                   ),

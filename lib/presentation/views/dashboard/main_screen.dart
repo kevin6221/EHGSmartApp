@@ -7,9 +7,6 @@ import '../../blocs/navigation/navigation_state.dart';
 import '../../widgets/custom_bottom_nav_bar.dart';
 import '../home/home_screen.dart';
 import '../journal/journal_screen.dart';
-import '../rewards/rewards_screen.dart';
-import '../systems/systems_screen.dart';
-import '../train/train_screen.dart';
 import '../vitals/vitals_screen.dart';
 import '../wardrobe/unlock_wardrobe_screen.dart';
 
@@ -20,11 +17,8 @@ class MainScreen extends StatelessWidget {
   static const List<Widget> _screens = [
     HomeScreen(),
     VitalsScreen(),
-    TrainScreen(),
     UnlockWardrobeScreen(),
-    SystemsScreen(),
     JournalScreen(),
-    RewardsScreen(),
   ];
 
   @override

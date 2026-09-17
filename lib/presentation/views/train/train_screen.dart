@@ -57,6 +57,7 @@ class TrainScreen extends StatelessWidget {
                       const ScreenHeader(
                         title: 'Train',
                         showAvatar: true,
+                        showBackButton: true,
                         showOnlineIndicator: true,
                       ),
                       SizedBox(

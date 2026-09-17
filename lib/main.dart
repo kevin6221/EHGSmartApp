@@ -68,7 +68,7 @@ class EHGWellnessApp extends StatelessWidget {
           BlocProvider<OnboardingCubit>(create: (_) => OnboardingCubit()),
         ],
         child: MaterialApp(
-          title: 'EHG Smart Wellness',
+          title: 'EHG Smart App',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           initialRoute: AppRouter.initialRoute,

@@ -8,49 +8,50 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/responsive.dart';
 import '../helpers/nav_bar_calculator.dart';
 
-/// Exact custom curved silhouette path matching Figma Node 118:917 / 118:1226 (Image 2).
-/// Features a beveled top edge, smooth outward slanted shoulder, mid-height blend,
-/// and rounded lower corner.
+/// Exact custom curved silhouette path with symmetric beveled curves on top and bottom,
+/// matching the exact curve on both left and right sides.
 Path getCurvedNavBarPath(Rect rect) {
   final h = rect.height;
 
-  final topInset = 0.3214 * h;
-  final botInset = 0.2083 * h;
+  // Symmetric inset and control offsets for both top and bottom curves
+  final inset = 0.3214 * h;
+  final dx = (18.0 / 168.0) * h;
+  final dy = (12.0 / 168.0) * h;
 
   final path = Path();
   // 1. Top horizontal line
-  path.moveTo(rect.left + topInset, rect.top);
-  path.lineTo(rect.right - topInset, rect.top);
+  path.moveTo(rect.left + inset, rect.top);
+  path.lineTo(rect.right - inset, rect.top);
 
   // 2. Top-Right curve & shoulder slant
   path.cubicTo(
-    rect.right - topInset + (18.0 / 168.0 * h),
+    rect.right - inset + dx,
     rect.top,
     rect.right,
-    rect.top + 0.5 * h - (12.0 / 168.0 * h),
+    rect.top + 0.5 * h - dy,
     rect.right,
     rect.top + 0.5 * h,
   );
 
-  // 3. Bottom-Right curve & lower fillet
+  // 3. Bottom-Right curve (symmetric mirror of top-right curve)
   path.cubicTo(
     rect.right,
-    rect.top + 0.5 * h + (8.0 / 168.0 * h),
-    rect.right - botInset + (32.0 / 168.0 * h),
+    rect.top + 0.5 * h + dy,
+    rect.right - inset + dx,
     rect.bottom,
-    rect.right - botInset,
+    rect.right - inset,
     rect.bottom,
   );
 
   // 4. Bottom horizontal line
-  path.lineTo(rect.left + botInset, rect.bottom);
+  path.lineTo(rect.left + inset, rect.bottom);
 
-  // 5. Bottom-Left curve & lower fillet
+  // 5. Bottom-Left curve (symmetric mirror of top-left curve)
   path.cubicTo(
-    rect.left + botInset - (32.0 / 168.0 * h),
+    rect.left + inset - dx,
     rect.bottom,
     rect.left,
-    rect.top + 0.5 * h + (8.0 / 168.0 * h),
+    rect.top + 0.5 * h + dy,
     rect.left,
     rect.top + 0.5 * h,
   );
@@ -58,10 +59,10 @@ Path getCurvedNavBarPath(Rect rect) {
   // 6. Top-Left curve & shoulder slant
   path.cubicTo(
     rect.left,
-    rect.top + 0.5 * h - (12.0 / 168.0 * h),
-    rect.left + topInset - (18.0 / 168.0 * h),
+    rect.top + 0.5 * h - dy,
+    rect.left + inset - dx,
     rect.top,
-    rect.left + topInset,
+    rect.left + inset,
     rect.top,
   );
 
@@ -142,11 +143,8 @@ class CustomBottomNavBar extends StatefulWidget {
   static const List<_NavTabData> _tabs = [
     _NavTabData(label: 'Activity', svgPath: AppIcons.activity),
     _NavTabData(label: 'Vitals', svgPath: AppIcons.heartGrey),
-    _NavTabData(label: 'Train', svgPath: AppIcons.burnGrey),
     _NavTabData(label: 'Unlock', svgPath: AppIcons.tagScanner),
-    _NavTabData(label: 'Systems', svgPath: AppIcons.systems),
     _NavTabData(label: 'Journal', svgPath: AppIcons.journal),
-    _NavTabData(label: 'Rewards', svgPath: AppIcons.rewards),
   ];
 
   @override
@@ -353,7 +351,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
                                     onTap: () {
                                       if (!_hasSelection ||
                                           widget.activeIndex != index ||
-                                          index == 3) {
+                                          index == 2) {
                                         HapticFeedback.lightImpact();
                                         widget.onTabSelected(index);
                                       }

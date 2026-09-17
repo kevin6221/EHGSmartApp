@@ -96,6 +96,7 @@ class _SystemsScreenState extends State<SystemsScreen> {
                     title: 'Four systems, one wardrobe',
                     titleFontSize: 20.0,
                     showAvatar: true,
+                    showBackButton: true,
                     showOnlineIndicator: true,
                   ),
 

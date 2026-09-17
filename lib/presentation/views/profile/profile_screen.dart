@@ -17,7 +17,7 @@ import 'widgets/profile_appearance_card.dart';
 import 'widgets/profile_band_card.dart';
 import 'widgets/profile_data_privacy_section.dart';
 import 'widgets/profile_membership_banner.dart';
-import 'widgets/profile_notifications_card.dart';
+import 'widgets/profile_menu_listing_card.dart';
 import 'widgets/profile_picker_sheets.dart';
 import 'widgets/profile_rewards_card.dart';
 
@@ -127,7 +127,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         height: (screenHeight * 0.022).clamp(16.0, 20.0),
                       ),
 
-                      // 3. Profile Details Section (Figma Node 75:2928)
+                      // 3. Features & Settings Listing (Train, Systems, Rewards, Notifications)
+                      Text(
+                        'More Features',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: r.font(14.0),
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.secondary,
+                        ),
+                      ),
+                      const SizedBox(height: 12.0),
+                      const ProfileMenuListingCard(),
+                      SizedBox(
+                        height: (screenHeight * 0.022).clamp(16.0, 20.0),
+                      ),
+
+                      // 4. Profile Details Section (Figma Node 75:2928)
                       Text(
                         'Profile',
                         style: GoogleFonts.plusJakartaSans(
@@ -169,7 +184,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         height: (screenHeight * 0.022).clamp(16.0, 20.0),
                       ),
 
-                      // 4. Appearance Section (Figma Nodes 75:2952 & 75:2966)
+                      // 5. Appearance Section (Figma Nodes 75:2952 & 75:2966)
                       Text(
                         'Appearance',
                         style: GoogleFonts.plusJakartaSans(
@@ -190,19 +205,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         onUnitSystemChanged: (unit) {
                           context.read<ProfileBloc>().add(
                             UpdateUnitSystemEvent(unit),
-                          );
-                        },
-                      ),
-                      SizedBox(
-                        height: (screenHeight * 0.022).clamp(16.0, 20.0),
-                      ),
-
-                      // 5. Notifications Section with CupertinoSwitch (Figma Nodes 82:2984, 82:2977, 82:3002)
-                      ProfileNotificationsCard(
-                        data: data,
-                        onToggleNotification: (key, value) {
-                          context.read<ProfileBloc>().add(
-                            ToggleNotificationEvent(key, value),
                           );
                         },
                       ),

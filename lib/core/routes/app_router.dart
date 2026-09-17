@@ -10,6 +10,7 @@ import '../../presentation/views/onboarding/onboarding_screen_5.dart';
 import '../../presentation/views/onboarding/welcome_screen_1.dart';
 import '../../presentation/views/onboarding/welcome_screen_2.dart';
 import '../../presentation/views/splash/splash_screen.dart';
+import '../../presentation/views/train/train_screen.dart';
 import '../../presentation/views/train/training_session_screen.dart';
 import '../../presentation/views/membership/membership_screen.dart';
 import '../../presentation/views/systems/systems_screen.dart';
@@ -17,6 +18,7 @@ import '../../presentation/views/journal/journal_screen.dart';
 import '../../presentation/views/rewards/rewards_screen.dart';
 import '../../presentation/views/wardrobe/unlock_wardrobe_screen.dart';
 import '../../presentation/views/profile/profile_screen.dart';
+import '../../presentation/views/profile/profile_notifications_screen.dart';
 import 'app_routes.dart';
 
 /// Supported custom transition animations for route generation.
@@ -103,6 +105,14 @@ abstract class AppRouter {
           duration: AppDurations.pageTransitionSlow,
         );
 
+      case AppRoutes.train:
+        return _buildRoute(
+          page: const TrainScreen(),
+          settings: settings,
+          transitionType: TransitionType.slideRight,
+          duration: AppDurations.pageTransition,
+        );
+
       case AppRoutes.trainingSession:
         return _buildRoute(
           page: const TrainingSessionScreen(),
@@ -154,6 +164,14 @@ abstract class AppRouter {
       case AppRoutes.profile:
         return _buildRoute(
           page: const ProfileScreen(),
+          settings: settings,
+          transitionType: TransitionType.slideRight,
+          duration: AppDurations.pageTransition,
+        );
+
+      case AppRoutes.notifications:
+        return _buildRoute(
+          page: const ProfileNotificationsScreen(),
           settings: settings,
           transitionType: TransitionType.slideRight,
           duration: AppDurations.pageTransition,
