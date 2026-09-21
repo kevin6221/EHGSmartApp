@@ -30,3 +30,53 @@ class AddHydrationEvent extends WellnessEvent {
   @override
   List<Object?> get props => [amountMl];
 }
+
+class SyncBandVitalsEvent extends WellnessEvent {
+  final int steps;
+  final int calories;
+  final int distance;
+  final int sleepMinutes;
+  final int deepSleepMinutes;
+  final int? liveHeartRate;
+  final double bloodOxygen;
+  final int systolicBP;
+  final int diastolicBP;
+  final double skinTemperature;
+  final int stressLevel;
+  final int hrvMs;
+  final int restingHeartRate;
+
+  const SyncBandVitalsEvent({
+    required this.steps,
+    required this.calories,
+    required this.distance,
+    required this.sleepMinutes,
+    required this.deepSleepMinutes,
+    this.liveHeartRate,
+    this.bloodOxygen = 0,
+    this.systolicBP = 0,
+    this.diastolicBP = 0,
+    this.skinTemperature = 0,
+    this.stressLevel = 0,
+    this.hrvMs = 0,
+    this.restingHeartRate = 0,
+  });
+
+  @override
+  List<Object?> get props => [
+        steps,
+        calories,
+        distance,
+        sleepMinutes,
+        deepSleepMinutes,
+        liveHeartRate,
+        bloodOxygen,
+        systolicBP,
+        diastolicBP,
+        skinTemperature,
+        stressLevel,
+        hrvMs,
+        restingHeartRate,
+      ];
+}
+

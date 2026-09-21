@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
+import '../../../data/repositories/band_repository.dart';
+import '../../blocs/band/band_bloc.dart';
+import '../../blocs/band/band_event.dart';
 import '../../blocs/navigation/navigation_bloc.dart';
 import '../../blocs/navigation/navigation_event.dart';
 import '../../blocs/profile/profile_bloc.dart';
@@ -62,6 +66,88 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } else {
       Navigator.of(context).pushReplacementNamed(AppRoutes.dashboard);
     }
+  }
+
+  void _showExportDialog(BuildContext context) {
+    final jsonStr = context.read<BandRepository>().exportHealthDataJson();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(
+          'Export Health Data',
+          style: GoogleFonts.plusJakartaSans(
+            fontWeight: FontWeight.w700,
+            color: AppColors.secondary,
+          ),
+        ),
+        content: SingleChildScrollView(
+          child: Text(
+            jsonStr,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 12.0),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Close'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: jsonStr));
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Exported data copied to clipboard!')),
+              );
+            },
+            child: const Text('Copy JSON'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(
+          'Delete Everything?',
+          style: GoogleFonts.plusJakartaSans(
+            fontWeight: FontWeight.w700,
+            color: AppColors.secondary,
+          ),
+        ),
+        content: Text(
+          'This will disconnect your EHG Smart Band and permanently clear all locally stored vitals and health history.',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 14.0,
+            color: AppColors.tertiary,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.systemRed,
+            ),
+            onPressed: () {
+              context.read<BandRepository>().clearLocalData();
+              context.read<BandBloc>().add(DisconnectBandEvent());
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('All local health data cleared.')),
+              );
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -238,7 +324,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
 
                       // 8. Data & Privacy + Disclaimer (Figma Node 82:3035)
-                      const ProfileDataPrivacySection(),
+                      ProfileDataPrivacySection(
+                        onExportData: () => _showExportDialog(context),
+                        onDeleteData: () => _showDeleteConfirmation(context),
+                      ),
                       // const SizedBox(height: 12.0),
                     ],
                   ),

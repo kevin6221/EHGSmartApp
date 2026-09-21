@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
+import '../../blocs/band/band_bloc.dart';
+import '../../blocs/band/band_state.dart';
 import '../../blocs/vitals/vitals_bloc.dart';
 import '../../blocs/vitals/vitals_state.dart';
 import '../../widgets/charts/capsule_bar_chart.dart';
@@ -98,9 +100,17 @@ class _VitalsScreenState extends State<VitalsScreen> {
                       SizedBox(height: cardSpacing),
 
                       // 2. Heart Rate Card (Figma Node 73:1418)
-                      VitalsHeartRateCard(
-                        currentHeartRate: data.currentHeartRate,
-                        weeklyHeartRate: data.weeklyHeartRate,
+                      BlocBuilder<BandBloc, BandState>(
+                        buildWhen: (prev, curr) => prev.liveHeartRate != curr.liveHeartRate,
+                        builder: (context, bandState) {
+                          final hr = bandState.liveHeartRate > 0
+                              ? bandState.liveHeartRate
+                              : data.currentHeartRate;
+                          return VitalsHeartRateCard(
+                            currentHeartRate: hr,
+                            weeklyHeartRate: data.weeklyHeartRate,
+                          );
+                        },
                       ),
                       SizedBox(height: cardSpacing),
 

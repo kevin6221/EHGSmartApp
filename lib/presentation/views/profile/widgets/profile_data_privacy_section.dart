@@ -41,9 +41,17 @@ class ProfileDataPrivacySection extends StatelessWidget {
             ),
             Row(
               children: [
-                SvgPicture.asset(AppIcons.shareIcon, fit: BoxFit.contain),
+                GestureDetector(
+                  onTap: onExportData,
+                  behavior: HitTestBehavior.opaque,
+                  child: SvgPicture.asset(AppIcons.shareIcon, fit: BoxFit.contain),
+                ),
                 const SizedBox(width: 14.0),
-                SvgPicture.asset(AppIcons.deleteIcon, fit: BoxFit.contain),
+                GestureDetector(
+                  onTap: onDeleteData,
+                  behavior: HitTestBehavior.opaque,
+                  child: SvgPicture.asset(AppIcons.deleteIcon, fit: BoxFit.contain),
+                ),
               ],
             ),
           ],

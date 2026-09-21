@@ -4,6 +4,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/constants/app_animations.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
+import '../../blocs/band/band_bloc.dart';
+import '../../blocs/band/band_state.dart';
 import '../../blocs/wellness/wellness_bloc.dart';
 import '../../blocs/wellness/wellness_event.dart';
 import '../../blocs/wellness/wellness_state.dart';
@@ -117,10 +119,18 @@ class _HomeScreenState extends State<HomeScreen>
                       // SizedBox(height: itemSpacing),
 
                       // Quick-Glance Vitals Carousel (Heart Rate & Sleep)
-                      HomeVitalsSummaryRow(
-                        heartRate: data.currentHeartRate,
-                        weeklyHeartRate: data.weeklyHeartRate,
-                        sleepHours: data.sleepHours,
+                      BlocBuilder<BandBloc, BandState>(
+                        buildWhen: (prev, curr) => prev.liveHeartRate != curr.liveHeartRate,
+                        builder: (context, bandState) {
+                          final hr = bandState.liveHeartRate > 0
+                              ? bandState.liveHeartRate
+                              : data.currentHeartRate;
+                          return HomeVitalsSummaryRow(
+                            heartRate: hr,
+                            weeklyHeartRate: data.weeklyHeartRate,
+                            sleepHours: data.sleepHours,
+                          );
+                        },
                       ),
                       SizedBox(height: itemSpacing),
 

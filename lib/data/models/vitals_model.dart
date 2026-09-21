@@ -62,6 +62,52 @@ class VitalsModel extends Equatable {
     required this.isSkinTempDown,
   });
 
+  VitalsModel copyWith({
+    String? totalSleep,
+    String? sleepWindow,
+    List<SleepInterval>? sleepIntervals,
+    int? currentHeartRate,
+    List<double>? weeklyHeartRate,
+    int? stressScore,
+    String? stressStatus,
+    List<double>? stressTimeline,
+    int? hrvMs,
+    List<double>? weeklyHrv,
+    int? restingHr,
+    List<double>? weeklyRestingHr,
+    int? bloodOxygen,
+    List<double>? weeklyOxygen,
+    double? breathingRate,
+    List<double>? weeklyBreathing,
+    String? bloodPressure,
+    bool? isBloodPressureUp,
+    double? skinTempDiff,
+    bool? isSkinTempDown,
+  }) {
+    return VitalsModel(
+      totalSleep: totalSleep ?? this.totalSleep,
+      sleepWindow: sleepWindow ?? this.sleepWindow,
+      sleepIntervals: sleepIntervals ?? this.sleepIntervals,
+      currentHeartRate: currentHeartRate ?? this.currentHeartRate,
+      weeklyHeartRate: weeklyHeartRate ?? this.weeklyHeartRate,
+      stressScore: stressScore ?? this.stressScore,
+      stressStatus: stressStatus ?? this.stressStatus,
+      stressTimeline: stressTimeline ?? this.stressTimeline,
+      hrvMs: hrvMs ?? this.hrvMs,
+      weeklyHrv: weeklyHrv ?? this.weeklyHrv,
+      restingHr: restingHr ?? this.restingHr,
+      weeklyRestingHr: weeklyRestingHr ?? this.weeklyRestingHr,
+      bloodOxygen: bloodOxygen ?? this.bloodOxygen,
+      weeklyOxygen: weeklyOxygen ?? this.weeklyOxygen,
+      breathingRate: breathingRate ?? this.breathingRate,
+      weeklyBreathing: weeklyBreathing ?? this.weeklyBreathing,
+      bloodPressure: bloodPressure ?? this.bloodPressure,
+      isBloodPressureUp: isBloodPressureUp ?? this.isBloodPressureUp,
+      skinTempDiff: skinTempDiff ?? this.skinTempDiff,
+      isSkinTempDown: isSkinTempDown ?? this.isSkinTempDown,
+    );
+  }
+
   @override
   List<Object?> get props => [
     totalSleep,

@@ -38,5 +38,37 @@ class WellnessBloc extends Bloc<WellnessEvent, WellnessState> {
         emit(state.copyWith(data: updated));
       }
     });
+
+    on<SyncBandVitalsEvent>((event, emit) {
+      if (state.data != null) {
+        final double sleepHours = event.sleepMinutes > 0
+            ? double.parse((event.sleepMinutes / 60.0).toStringAsFixed(1))
+            : state.data!.sleepHours;
+        final int energy = event.calories > 0
+            ? event.calories
+            : state.data!.energyBurned;
+        final int hr = (event.liveHeartRate != null && event.liveHeartRate! > 0)
+            ? event.liveHeartRate!
+            : state.data!.currentHeartRate;
+
+        // Recalculate move and recover scores from actual band data
+        final moveScore = (energy / 600.0 * 50.0).clamp(10.0, 100.0).round();
+        final recoverScore = (sleepHours / 8.0 * 60.0 + (event.deepSleepMinutes / 90.0 * 40.0))
+            .clamp(20.0, 100.0)
+            .round();
+        final wellnessScore = ((moveScore + recoverScore + state.data!.mindScore + state.data!.fuelScore) / 4)
+            .round();
+
+        final updated = state.data!.copyWith(
+          currentHeartRate: hr,
+          sleepHours: sleepHours,
+          energyBurned: energy,
+          moveScore: moveScore,
+          recoverScore: recoverScore,
+          wellnessScore: wellnessScore,
+        );
+        emit(state.copyWith(data: updated));
+      }
+    });
   }
 }

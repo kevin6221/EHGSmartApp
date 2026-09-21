@@ -10,14 +10,14 @@ import '../../../core/theme/responsive.dart';
 class OnboardingDeviceCard extends StatelessWidget {
   final String deviceName;
   final String deviceId;
-  final String batteryDays;
+  final String? batteryDays;
   final VoidCallback? onTap;
 
   const OnboardingDeviceCard({
     super.key,
     this.deviceName = 'EHG Smart Band',
     this.deviceId = 'EH-9F2C',
-    this.batteryDays = '4 days',
+    this.batteryDays,
     this.onTap,
   });
 
@@ -64,6 +64,8 @@ class OnboardingDeviceCard extends StatelessWidget {
                 children: [
                   Text(
                     deviceName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 16.0,
                       fontWeight: FontWeight.w600,
@@ -73,37 +75,43 @@ class OnboardingDeviceCard extends StatelessWidget {
                   const SizedBox(height: 4.0),
                   Row(
                     children: [
-                      Text(
-                        deviceId,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12.0,
-                          fontWeight: FontWeight.w400,
-                          color: AppColors.textSecondary,
+                      Flexible(
+                        child: Text(
+                          deviceId,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12.0,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 8.0),
-                      const Text(
-                        '|',
-                        style: TextStyle(
-                          color: AppColors.deviceTrackBorder,
-                          fontSize: 12.0,
+                      if (batteryDays != null) ...[
+                        const SizedBox(width: 8.0),
+                        const Text(
+                          '|',
+                          style: TextStyle(
+                            color: AppColors.deviceTrackBorder,
+                            fontSize: 12.0,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8.0),
-                      const Icon(
-                        Icons.battery_5_bar_rounded,
-                        size: 14.0,
-                        color: AppColors.deviceConnectedGreen,
-                      ),
-                      const SizedBox(width: 4.0),
-                      Text(
-                        batteryDays,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12.0,
-                          fontWeight: FontWeight.w400,
-                          color: AppColors.textSecondary,
+                        const SizedBox(width: 8.0),
+                        const Icon(
+                          Icons.battery_5_bar_rounded,
+                          size: 14.0,
+                          color: AppColors.deviceConnectedGreen,
                         ),
-                      ),
+                        const SizedBox(width: 4.0),
+                        Text(
+                          batteryDays!,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12.0,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ],

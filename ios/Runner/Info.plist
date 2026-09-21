@@ -26,6 +26,14 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>EHG Smart App uses Bluetooth to connect with your EHG Smart Band and sync your wellness vitals.</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>EHG Smart App uses Bluetooth to connect with your EHG Smart Band and sync your wellness vitals.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-central</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

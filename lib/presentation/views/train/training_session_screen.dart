@@ -8,6 +8,9 @@ import '../../../core/constants/app_icons.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
+import '../../blocs/band/band_bloc.dart';
+import '../../blocs/band/band_event.dart';
+import '../../blocs/band/band_state.dart';
 import '../../blocs/training/training_bloc.dart';
 import '../../blocs/training/training_event.dart';
 import '../../blocs/training/training_state.dart';
@@ -35,6 +38,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
   void initState() {
     super.initState();
     _selectedZoneNotifier = ValueNotifier<int>(1);
+    context.read<BandBloc>().add(StartLiveHeartRateEvent());
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) context.read<TrainingBloc>().add(const TickWorkoutEvent());
     });
@@ -44,6 +48,9 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
   void dispose() {
     _ticker?.cancel();
     _selectedZoneNotifier.dispose();
+    try {
+      context.read<BandBloc>().add(StopLiveHeartRateEvent());
+    } catch (_) {}
     super.dispose();
   }
 
@@ -104,13 +111,21 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                             IntrinsicHeight(
                               child: Row(
                                 children: [
-                                  const Expanded(
-                                    child: TrainingMetricCard(
-                                      icon: AppIcons.heartPulse,
-                                      label: 'Heart Rate',
-                                      color: AppColors.primary,
-                                      value: '72',
-                                      unit: 'bpm',
+                                  Expanded(
+                                    child: BlocBuilder<BandBloc, BandState>(
+                                      buildWhen: (prev, curr) => prev.liveHeartRate != curr.liveHeartRate,
+                                      builder: (context, bandState) {
+                                        final hrValue = bandState.liveHeartRate > 0
+                                            ? '${bandState.liveHeartRate}'
+                                            : '72';
+                                        return TrainingMetricCard(
+                                          icon: AppIcons.heartPulse,
+                                          label: 'Heart Rate',
+                                          color: AppColors.primary,
+                                          value: hrValue,
+                                          unit: 'bpm',
+                                        );
+                                      },
                                     ),
                                   ),
                                   const SizedBox(width: 14),
