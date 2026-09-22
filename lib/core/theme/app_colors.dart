@@ -37,6 +37,12 @@ class AppColors {
   /// Brand tertiary mid slate (#4B5563) used for body copy, secondary text, muted indicators.
   static const Color tertiary = Color(0xFF4B5563);
 
+  /// Semantic alias for tertiary text (#4B5563).
+  static const Color textTertiary = tertiary;
+
+  /// Card background pure white (#FFFFFF), semantic alias for [surface].
+  static const Color cardBackground = surface;
+
   /// Brand background light slate (#F8FAFC) used for page scaffold, subtle card fills.
   static const Color background = Color(0xFFF8FAFC);
 

@@ -5,6 +5,7 @@ import '../../../core/constants/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
 import '../../blocs/band/band_bloc.dart';
+import '../../blocs/band/band_event.dart';
 import '../../blocs/band/band_state.dart';
 import '../../blocs/vitals/vitals_bloc.dart';
 import '../../blocs/vitals/vitals_state.dart';
@@ -76,19 +77,29 @@ class _VitalsScreenState extends State<VitalsScreen> {
 
               SafeArea(
                 bottom: false,
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(
-                    r.horizontalPadding,
-                    r.verticalPadding,
-                    r.horizontalPadding,
-                    r.hp(0.12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Header Row
-                      const ScreenHeader(title: 'Vitals',showAvatar: true,showOnlineIndicator: true,),
+                child: RefreshIndicator(
+                  color: AppColors.primary,
+                  backgroundColor: AppColors.surface,
+                  onRefresh: () async {
+                    context.read<BandBloc>().add(SyncVitalsEvent());
+                    context.read<BandBloc>().add(StartLiveHeartRateEvent());
+                    await Future.delayed(const Duration(milliseconds: 1200));
+                  },
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    padding: EdgeInsets.fromLTRB(
+                      r.horizontalPadding,
+                      r.verticalPadding,
+                      r.horizontalPadding,
+                      r.hp(0.12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header Row
+                        const ScreenHeader(title: 'Vitals',showAvatar: true,showOnlineIndicator: true,),
                       SizedBox(height: cardSpacing),
 
                       // 1. Last night Sleep Summary Card (Figma Node 73:1319)
@@ -137,9 +148,9 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         svgIcon: AppIcons.restingLounger,
                         iconColor: AppColors.orangeMetric,
                         title: 'Resting Heart Rate',
-                        value: '${data.restingHr}',
+                        value: data.restingHr > 0 ? '${data.restingHr}' : '--',
                         unit: 'bpm',
-                        status: 'Above your usual',
+                        status: data.restingHr > 0 ? 'In your range' : '--',
                         showWeekdays: true,
                         isExpandedNotifier: _expandNotifiers[1],
                         onTap: () => _onToggleCard(1),
@@ -150,8 +161,9 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         ),
                         whatItIs:
                             'Your heart rate when completely at rest, measured during deep sleep or quiet wakefulness. A lower resting heart rate indicates stronger cardiovascular efficiency.',
-                        yourReading:
-                            'Above your usual baseline. Your body is working slightly harder to recover from recent fatigue, training load, or late meals.',
+                        yourReading: data.restingHr > 0
+                            ? 'In your optimal range. Your resting heart rate indicates healthy autonomic recovery.'
+                            : 'No resting heart rate data recorded yet. Wear your band during sleep to track baseline readings.',
                         doThis:
                             'Prioritize an extra hour of sleep tonight and avoid heavy meals or alcohol before bed.',
                       ),
@@ -162,9 +174,9 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         svgIcon: AppIcons.bloodDroplets,
                         iconColor: AppColors.greenMetric,
                         title: 'Blood oxygen',
-                        value: '${data.bloodOxygen}',
+                        value: data.bloodOxygen > 0 ? '${data.bloodOxygen}' : '--',
                         unit: '%',
-                        status: 'In your range',
+                        status: data.bloodOxygen > 0 ? 'In your range' : '--',
                         showWeekdays: false, // CapsuleBarChart already renders weekdays
                         isExpandedNotifier: _expandNotifiers[2],
                         onTap: () => _onToggleCard(2),
@@ -174,8 +186,9 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         ),
                         whatItIs:
                             'The percentage of oxygen your red blood cells carry from your lungs to the rest of your body. Normal levels range from 95% to 100%.',
-                        yourReading:
-                            'In your optimal range. Your blood oxygen saturation has remained healthy and stable throughout the past 7 days.',
+                        yourReading: data.bloodOxygen > 0
+                            ? 'In your optimal range. Your blood oxygen saturation has remained healthy and stable.'
+                            : 'No blood oxygen data recorded yet. Sync your band or trigger a measurement to view saturation levels.',
                         doThis:
                             'Maintain optimal hydration and practice deep diaphragmatic breathing throughout your day.',
                       ),
@@ -186,9 +199,9 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         svgIcon: AppIcons.lotusFlower,
                         iconColor: AppColors.cyanAccent,
                         title: 'Breathing rate',
-                        value: '${data.breathingRate}',
+                        value: data.breathingRate > 0 ? '${data.breathingRate}' : '--',
                         unit: '/min.',
-                        status: 'Above your usual',
+                        status: data.breathingRate > 0 ? 'Normal' : '--',
                         showWeekdays: true,
                         isExpandedNotifier: _expandNotifiers[3],
                         onTap: () => _onToggleCard(3),
@@ -215,6 +228,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
                       SizedBox(height: cardSpacing),
                     ],
                   ),
+                ),
                 ),
               ),
             ],

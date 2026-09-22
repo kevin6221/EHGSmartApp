@@ -76,7 +76,7 @@ class VitalsTwinTrendCards extends StatelessWidget {
                         children: [
                           Flexible(
                             child: Text(
-                              bloodPressure,
+                              bloodPressure.isNotEmpty ? bloodPressure : '--/--',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: r.font(25.0),
                                 fontWeight: FontWeight.w600,
@@ -99,9 +99,9 @@ class VitalsTwinTrendCards extends StatelessWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(13.0),
                           fontWeight: FontWeight.w400,
-                          color: AppColors.tertiary,
+                          color: AppColors.textSecondary,
+                          height: 1.1,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -110,18 +110,9 @@ class VitalsTwinTrendCards extends StatelessWidget {
             ),
           ),
 
-          // Divider Line
-          Padding(
-            padding: EdgeInsets.symmetric(
-              vertical: (r.height * 0.018).clamp(12.0, 18.0),
-            ),
-            child: Container(
-              height: 1.0,
-              color: AppColors.tertiary.withValues(alpha: 0.15),
-            ),
-          ),
+          SizedBox(height: (r.height * 0.024).clamp(16.0, 24.0)),
 
-          // 2. Skin Temperature Row
+          // 2. Skin Temperature Trend Row
           InkWell(
             onTap: onSkinTempTap,
             borderRadius: BorderRadius.circular(12.0),
@@ -149,7 +140,7 @@ class VitalsTwinTrendCards extends StatelessWidget {
                         children: [
                           Flexible(
                             child: Text(
-                              '${skinTempDiff > 0 ? '+' : ''}$skinTempDiff°C',
+                              skinTempDiff != 0.0 ? '${skinTempDiff > 0 ? '+' : ''}$skinTempDiff°C' : '--',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: r.font(25.0),
                                 fontWeight: FontWeight.w600,

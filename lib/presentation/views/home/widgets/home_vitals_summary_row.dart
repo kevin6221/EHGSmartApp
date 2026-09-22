@@ -120,7 +120,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Text(
-                          '$heartRate',
+                          heartRate > 0 ? '$heartRate' : '--',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: r.font(20.0),
                             fontWeight: FontWeight.w700,
@@ -248,7 +248,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Text(
-                          '$sleepHours',
+                          sleepHours > 0 ? '$sleepHours' : '--',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: r.font(20.0),
                             fontWeight: FontWeight.w700,

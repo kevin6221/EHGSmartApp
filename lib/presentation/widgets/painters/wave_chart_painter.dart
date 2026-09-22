@@ -21,8 +21,6 @@ class WaveChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (points.isEmpty) return;
-
     final double width = size.width;
     final double height = size.height;
     const double bottomPadding = 24.0;
@@ -72,6 +70,8 @@ class WaveChartPainter extends CustomPainter {
       final double labelX = (x - (textPainter.width / 2)).clamp(0.0, width - textPainter.width);
       textPainter.paint(canvas, Offset(labelX, 4));
     }
+
+    if (points.isEmpty) return;
 
     // 2. Determine Pin Index
     int effectivePinIndex = -1;

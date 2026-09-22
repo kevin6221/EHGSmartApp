@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/constants/app_icons.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
 import '../../blocs/onboarding/onboarding_cubit.dart';
+import '../../blocs/profile/profile_bloc.dart';
+import '../../blocs/profile/profile_event.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/onboarding/onboarding_progress_bar.dart';
 
@@ -36,7 +39,19 @@ class _OnboardingScreen5State extends State<OnboardingScreen5> {
   void _onPlanSelected(String plan) {
     _selectedPlan.value = plan;
     try {
-      context.read<OnboardingCubit>().setSelectedPlan(plan);
+      final cubit = context.read<OnboardingCubit>();
+      cubit.setSelectedPlan(plan);
+      final enteredName = cubit.state.userName.trim();
+      final enteredAge = cubit.state.userAge;
+      if (enteredName.isNotEmpty) {
+        context.read<ProfileBloc>().add(UpdateUsernameEvent(enteredName));
+      }
+      if (enteredAge > 0) {
+        context.read<ProfileBloc>().add(UpdateAgeEvent(enteredAge));
+      }
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setBool('ehg_onboarding_completed', true);
+      });
     } catch (_) {}
 
     Navigator.pushNamedAndRemoveUntil(

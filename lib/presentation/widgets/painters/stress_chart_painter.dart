@@ -25,8 +25,6 @@ class StressChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (values.length < 2) return;
-
     final width = size.width;
     final height = size.height;
 
@@ -38,15 +36,17 @@ class StressChartPainter extends CustomPainter {
         ..style = PaintingStyle.stroke;
 
       final yPositions = [
-        height * 0.15,
-        height * 0.52,
-        height * 0.88,
+        height * 0.25,
+        height * 0.50,
+        height * 0.75,
       ];
 
       for (final y in yPositions) {
         _drawDashedLine(canvas, Offset(0, y), Offset(width, y), dashPaint);
       }
     }
+
+    if (values.length < 2) return;
 
     // 2. Compute normalized points
     final points = VitalsCardCalculator.computeNormalizedPoints(

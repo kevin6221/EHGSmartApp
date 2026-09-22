@@ -150,83 +150,98 @@ class _HypnogramChartState extends State<HypnogramChart> {
                     ],
                   ),
 
-                  // Floating Tooltip Popup overlay: "01:05 pm → 03:33 pm \n 2h 28m"
-                  ValueListenableBuilder<int>(
-                    valueListenable: _selectedIndexNotifier,
-                    builder: (context, selectedIndex, _) {
-                      final selectedInterval = widget.intervals.isNotEmpty &&
-                              selectedIndex < widget.intervals.length
-                          ? widget.intervals[selectedIndex]
-                          : null;
-
-                      final String phaseName = selectedInterval != null
-                          ? switch (selectedInterval.phase) {
-                              SleepPhase.deep => 'Deep Sleep',
-                              SleepPhase.rem => 'REM Sleep',
-                              SleepPhase.light => 'Light Sleep',
-                              SleepPhase.awake => 'Awake',
-                            }
-                          : 'Deep Sleep';
-
-                      final double tooltipLeft;
-                      if (selectedInterval != null) {
-                        final centerFraction = selectedInterval.startOffset +
-                            (selectedInterval.widthFraction / 2);
-                        final rawX =
-                            yAxisWidth + (centerFraction * chartAreaWidth);
-                        tooltipLeft = (rawX - 60.0)
-                            .clamp(yAxisWidth, totalWidth - 125.0);
-                      } else {
-                        tooltipLeft = totalWidth - 140.0;
-                      }
-
-                      return Positioned(
-                        top: 0,
-                        left: tooltipLeft,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10.0,
-                            vertical: 6.0,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.chartDarkBg,
-                            borderRadius: BorderRadius.circular(6.0),
-                            boxShadow: [
-                              BoxShadow(
-                                color:
-                                    AppColors.black.withValues(alpha: 0.15),
-                                blurRadius: 8.0,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                phaseName,
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: AppColors.white,
-                                  fontSize: 9.0,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 2.0),
-                              Text(
-                                '01:05 pm → 03:33 pm (2h 28m)',
-                                style: GoogleFonts.plusJakartaSans(
-                                  color: AppColors.white70,
-                                  fontSize: 8.0,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ],
+                  // Empty State Message or Floating Tooltip Popup overlay
+                  if (widget.intervals.isEmpty)
+                    Positioned.fill(
+                      left: yAxisWidth,
+                      child: Center(
+                        child: Text(
+                          'No sleep recorded yet',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12.0,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.tertiary,
                           ),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                  if (widget.intervals.isNotEmpty)
+                    ValueListenableBuilder<int>(
+                      valueListenable: _selectedIndexNotifier,
+                      builder: (context, selectedIndex, _) {
+                        final selectedInterval = widget.intervals.isNotEmpty &&
+                                selectedIndex < widget.intervals.length
+                            ? widget.intervals[selectedIndex]
+                            : null;
+
+                        final String phaseName = selectedInterval != null
+                            ? switch (selectedInterval.phase) {
+                                SleepPhase.deep => 'Deep Sleep',
+                                SleepPhase.rem => 'REM Sleep',
+                                SleepPhase.light => 'Light Sleep',
+                                SleepPhase.awake => 'Awake',
+                              }
+                            : 'Deep Sleep';
+
+                        final double tooltipLeft;
+                        if (selectedInterval != null) {
+                          final centerFraction = selectedInterval.startOffset +
+                              (selectedInterval.widthFraction / 2);
+                          final rawX =
+                              yAxisWidth + (centerFraction * chartAreaWidth);
+                          tooltipLeft = (rawX - 60.0)
+                              .clamp(yAxisWidth, totalWidth - 125.0);
+                        } else {
+                          tooltipLeft = totalWidth - 140.0;
+                        }
+
+                        return Positioned(
+                          top: 0,
+                          left: tooltipLeft,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10.0,
+                              vertical: 6.0,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.chartDarkBg,
+                              borderRadius: BorderRadius.circular(6.0),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      AppColors.black.withValues(alpha: 0.15),
+                                  blurRadius: 8.0,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  phaseName,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: AppColors.white,
+                                    fontSize: 9.0,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 2.0),
+                                Text(
+                                  '01:05 pm → 03:33 pm (2h 28m)',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    color: AppColors.white70,
+                                    fontSize: 8.0,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                 ],
               ),
             );

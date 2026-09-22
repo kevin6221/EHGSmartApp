@@ -46,3 +46,20 @@ class TickWorkoutEvent extends TrainingEvent {
 class FinishWorkoutEvent extends TrainingEvent {
   const FinishWorkoutEvent();
 }
+
+class UpdateLiveTrainingHeartRateEvent extends TrainingEvent {
+  final int bpm;
+  const UpdateLiveTrainingHeartRateEvent(this.bpm);
+
+  @override
+  List<Object?> get props => [bpm];
+}
+
+class UpdateLiveTrainingCaloriesEvent extends TrainingEvent {
+  final int calories;
+  const UpdateLiveTrainingCaloriesEvent(this.calories);
+
+  @override
+  List<Object?> get props => [calories];
+}
+

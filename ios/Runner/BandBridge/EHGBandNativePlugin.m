@@ -28,6 +28,7 @@ typedef void (^EHGBandWork)(EHGBandDone done);
 @property (nonatomic, assign) QCMeasuringType activeMeasureType;
 @property (nonatomic, strong) NSTimer *connectTimeoutTimer;
 @property (nonatomic, strong) NSTimer *commandWatchdogTimer;
+@property (nonatomic, strong) NSTimer *realtimeHrHoldTimer;
 @end
 
 @implementation EHGBandNativePlugin
@@ -275,8 +276,19 @@ typedef void (^EHGBandWork)(EHGBandDone done);
                 done();
             }];
         }];
+        [self.realtimeHrHoldTimer invalidate];
+        __weak typeof(self) weakSelf = self;
+        self.realtimeHrHoldTimer = [NSTimer scheduledTimerWithTimeInterval:15.0 repeats:YES block:^(NSTimer * _Nonnull timer) {
+            [weakSelf enqueueCommand:^(EHGBandDone done) {
+                [QCSDKCmdCreator realTimeHeartRateWithCmd:QCBandRealTimeHeartRateCmdTypeHold finished:^(BOOL success) {
+                    done();
+                }];
+            }];
+        }];
     }
     else if ([@"stopRealtimeHeartRate" isEqualToString:call.method]) {
+        [self.realtimeHrHoldTimer invalidate];
+        self.realtimeHrHoldTimer = nil;
         [self enqueueCommand:^(EHGBandDone done) {
             [QCSDKCmdCreator realTimeHeartRateWithCmd:QCBandRealTimeHeartRateCmdTypeEnd finished:^(BOOL success) {
                 result(@(success));
@@ -347,6 +359,8 @@ typedef void (^EHGBandWork)(EHGBandDone done);
 }
 
 - (void)handleDisconnect:(FlutterResult)result {
+    [self.realtimeHrHoldTimer invalidate];
+    self.realtimeHrHoldTimer = nil;
     [self.connectTimeoutTimer invalidate];
     self.connectTimeoutTimer = nil;
     self.pendingDisconnectResult = result;
@@ -411,6 +425,17 @@ typedef void (^EHGBandWork)(EHGBandDone done);
             }];
             done();
         } failed:^{
+            done();
+        }];
+    }];
+
+    // Command 4: Enable scheduled continuous heart rate monitoring (5-minute interval)
+    [self enqueueCommand:^(EHGBandDone done) {
+        [QCSDKCmdCreator setSchedualHeartRateStatus:YES timeInterval:5 success:^{
+            NSLog(@"[EHGBandNative] Scheduled heart rate monitoring enabled (5m)");
+            done();
+        } fail:^{
+            NSLog(@"[EHGBandNative] Scheduled heart rate monitoring setting failed or unsupported");
             done();
         }];
     }];

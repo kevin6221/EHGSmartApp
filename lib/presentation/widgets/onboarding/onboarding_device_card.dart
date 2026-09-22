@@ -12,6 +12,9 @@ class OnboardingDeviceCard extends StatelessWidget {
   final String deviceId;
   final String? batteryDays;
   final VoidCallback? onTap;
+  final bool isSelected;
+  final bool showRadio;
+  final int? rssi;
 
   const OnboardingDeviceCard({
     super.key,
@@ -19,6 +22,9 @@ class OnboardingDeviceCard extends StatelessWidget {
     this.deviceId = 'EH-9F2C',
     this.batteryDays,
     this.onTap,
+    this.isSelected = false,
+    this.showRadio = false,
+    this.rssi,
   });
 
   @override
@@ -26,16 +32,32 @@ class OnboardingDeviceCard extends StatelessWidget {
     final r = context.responsive;
     final badgeDim = (r.width * 0.095).clamp(32.0, 42.0);
     final badgeIconDim = (badgeDim * 0.5).clamp(16.0, 20.0);
-    final verticalPad = (r.height * 0.016).clamp(10.0, 16.0);
+    final verticalPad = (r.height * 0.016).clamp(10.0, 14.0);
 
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
-      child: Container(
+      borderRadius: BorderRadius.circular(16.0),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
         padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: verticalPad),
         decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
+          color: isSelected
+              ? AppColors.primaryLight.withValues(alpha: 0.45)
+              : AppColors.surface,
           borderRadius: BorderRadius.circular(16.0),
-          border: Border.all(color: AppColors.divider, width: 1.0),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : AppColors.border,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Row(
           children: [
@@ -43,15 +65,16 @@ class OnboardingDeviceCard extends StatelessWidget {
             Container(
               width: badgeDim,
               height: badgeDim,
-              decoration: const BoxDecoration(
-                gradient: AppGradients.primary,
+              decoration: BoxDecoration(
+                gradient: isSelected ? AppGradients.primary : null,
+                color: isSelected ? null : AppColors.borderLight,
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
               child: AppSvgIcon(
                 AppIcons.band,
                 size: badgeIconDim,
-                color: AppColors.white,
+                color: isSelected ? AppColors.white : AppColors.tertiary,
               ),
             ),
             const SizedBox(width: 12.0),
@@ -72,7 +95,7 @@ class OnboardingDeviceCard extends StatelessWidget {
                       color: AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 4.0),
+                  const SizedBox(height: 3.0),
                   Row(
                     children: [
                       Flexible(
@@ -87,6 +110,24 @@ class OnboardingDeviceCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (rssi != null) ...[
+                        const SizedBox(width: 6.0),
+                        Text(
+                          '•',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12.0,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(width: 6.0),
+                        Icon(
+                          Icons.signal_cellular_alt_rounded,
+                          size: 14.0,
+                          color: rssi! > -70
+                              ? AppColors.deviceConnectedGreen
+                              : AppColors.tertiary,
+                        ),
+                      ],
                       if (batteryDays != null) ...[
                         const SizedBox(width: 8.0),
                         const Text(
@@ -117,6 +158,16 @@ class OnboardingDeviceCard extends StatelessWidget {
                 ],
               ),
             ),
+            if (showRadio) ...[
+              const SizedBox(width: 10.0),
+              Icon(
+                isSelected
+                    ? Icons.radio_button_checked_rounded
+                    : Icons.radio_button_unchecked_rounded,
+                size: 22.0,
+                color: isSelected ? AppColors.primary : AppColors.divider,
+              ),
+            ],
           ],
         ),
       ),

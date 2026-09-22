@@ -199,8 +199,16 @@ class BandSyncedVitals extends Equatable {
   final int stressLevel;
   final int hrvMs;
   final int restingHeartRate;
+  final double breathingRate;
   final List<BandSleepPhase> sleepPhases;
   final List<BandHeartRateEntry> heartRateHistory;
+  final List<double> weeklyHeartRate;
+  final List<double> weeklySleep;
+  final List<double> weeklyHrv;
+  final List<double> weeklyStress;
+  final List<double> weeklyOxygen;
+  final List<double> weeklyRestingHr;
+  final List<double> weeklyBreathing;
 
   const BandSyncedVitals({
     this.steps = 0,
@@ -215,13 +223,28 @@ class BandSyncedVitals extends Equatable {
     this.stressLevel = 0,
     this.hrvMs = 0,
     this.restingHeartRate = 0,
+    this.breathingRate = 0,
     this.sleepPhases = const [],
     this.heartRateHistory = const [],
+    this.weeklyHeartRate = const [],
+    this.weeklySleep = const [],
+    this.weeklyHrv = const [],
+    this.weeklyStress = const [],
+    this.weeklyOxygen = const [],
+    this.weeklyRestingHr = const [],
+    this.weeklyBreathing = const [],
   });
 
   factory BandSyncedVitals.fromMap(Map<dynamic, dynamic> map) {
     final rawPhases = map['sleepPhases'] as List<dynamic>?;
     final rawHr = map['heartRateHistory'] as List<dynamic>?;
+
+    List<double> parseDoubleList(dynamic val) {
+      if (val is List) {
+        return val.map((e) => (e as num).toDouble()).toList();
+      }
+      return const [];
+    }
 
     return BandSyncedVitals(
       steps: (map['steps'] as num?)?.toInt() ?? 0,
@@ -236,6 +259,7 @@ class BandSyncedVitals extends Equatable {
       stressLevel: (map['stressLevel'] as num?)?.toInt() ?? 0,
       hrvMs: (map['hrvMs'] as num?)?.toInt() ?? 0,
       restingHeartRate: (map['restingHeartRate'] as num?)?.toInt() ?? 0,
+      breathingRate: (map['breathingRate'] as num?)?.toDouble() ?? 0,
       sleepPhases: rawPhases
               ?.map((e) => BandSleepPhase.fromMap(e as Map<dynamic, dynamic>))
               .toList() ??
@@ -244,7 +268,41 @@ class BandSyncedVitals extends Equatable {
               ?.map((e) => BandHeartRateEntry.fromMap(e as Map<dynamic, dynamic>))
               .toList() ??
           const [],
+      weeklyHeartRate: parseDoubleList(map['weeklyHeartRate']),
+      weeklySleep: parseDoubleList(map['weeklySleep']),
+      weeklyHrv: parseDoubleList(map['weeklyHrv']),
+      weeklyStress: parseDoubleList(map['weeklyStress']),
+      weeklyOxygen: parseDoubleList(map['weeklyOxygen']),
+      weeklyRestingHr: parseDoubleList(map['weeklyRestingHr']),
+      weeklyBreathing: parseDoubleList(map['weeklyBreathing']),
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'steps': steps,
+      'calories': calories,
+      'distance': distance,
+      'sleepMinutes': sleepMinutes,
+      'deepSleepMinutes': deepSleepMinutes,
+      'bloodOxygen': bloodOxygen,
+      'systolicBP': systolicBP,
+      'diastolicBP': diastolicBP,
+      'skinTemperature': skinTemperature,
+      'stressLevel': stressLevel,
+      'hrvMs': hrvMs,
+      'restingHeartRate': restingHeartRate,
+      'breathingRate': breathingRate,
+      'sleepPhases': sleepPhases.map((e) => e.toMap()).toList(),
+      'heartRateHistory': heartRateHistory.map((e) => e.toMap()).toList(),
+      'weeklyHeartRate': weeklyHeartRate,
+      'weeklySleep': weeklySleep,
+      'weeklyHrv': weeklyHrv,
+      'weeklyStress': weeklyStress,
+      'weeklyOxygen': weeklyOxygen,
+      'weeklyRestingHr': weeklyRestingHr,
+      'weeklyBreathing': weeklyBreathing,
+    };
   }
 
   /// Returns a formatted blood pressure string like "121/79" or empty if no data.
@@ -265,8 +323,16 @@ class BandSyncedVitals extends Equatable {
         stressLevel,
         hrvMs,
         restingHeartRate,
+        breathingRate,
         sleepPhases,
         heartRateHistory,
+        weeklyHeartRate,
+        weeklySleep,
+        weeklyHrv,
+        weeklyStress,
+        weeklyOxygen,
+        weeklyRestingHr,
+        weeklyBreathing,
       ];
 }
 
@@ -292,6 +358,15 @@ class BandSleepPhase extends Equatable {
       endTime: map['endTime']?.toString() ?? '',
       durationMinutes: (map['durationMinutes'] as num?)?.toInt() ?? 0,
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'type': type,
+      'startTime': startTime,
+      'endTime': endTime,
+      'durationMinutes': durationMinutes,
+    };
   }
 
   String get phaseName {
@@ -325,6 +400,13 @@ class BandHeartRateEntry extends Equatable {
       bpm: (map['bpm'] as num?)?.toInt() ?? 0,
       timestamp: map['timestamp']?.toString() ?? '',
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'bpm': bpm,
+      'timestamp': timestamp,
+    };
   }
 
   @override

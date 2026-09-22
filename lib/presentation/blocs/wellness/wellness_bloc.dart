@@ -70,5 +70,14 @@ class WellnessBloc extends Bloc<WellnessEvent, WellnessState> {
         emit(state.copyWith(data: updated));
       }
     });
+
+    on<SyncBandFullVitalsEvent>((event, emit) {
+      if (event.vitals != null) {
+        repository.updateFromBandVitals(event.vitals);
+        final data = repository.getWellnessData();
+        emit(state.copyWith(status: WellnessStatus.loaded, data: data));
+      }
+    });
   }
 }
+

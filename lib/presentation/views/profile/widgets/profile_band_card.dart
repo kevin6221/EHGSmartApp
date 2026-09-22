@@ -83,12 +83,16 @@ class ProfileBandCard extends StatelessWidget {
                         ),
                         Row(
                           children: [
-                            Text(
-                              deviceId,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: r.font(12.0),
-                                fontWeight: FontWeight.w400,
-                                color: AppColors.tertiary,
+                            Expanded(
+                              child: Text(
+                                deviceId,
+                                maxLines: 1,
+                                 overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: r.font(12.0),
+                                  fontWeight: FontWeight.w400,
+                                  color: AppColors.tertiary,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8.0),
@@ -128,19 +132,45 @@ class ProfileBandCard extends StatelessWidget {
               ),
               const SizedBox(height: 16.0),
 
-              // 2. Action Button (Forgot this Band vs Pair Band)
+              // 2. Action Buttons (Find Band / Forgot this Band vs Pair Band)
               if (isConnected)
-                AppButton.outlined(
-                  text: 'Forgot this band',
-                  onPressed: () {
-                    context.read<BandBloc>().add(DisconnectBandEvent());
-                    onForgetBand?.call();
-                  },
-                  showArrow: false,
-                  borderRadius: BorderRadius.circular(8.0),
-                  padding: const EdgeInsets.symmetric(vertical: 10.0),
-                  fontSize: r.font(16.0),
-                  fontWeight: FontWeight.w500,
+                Row(
+                  children: [
+                    Expanded(
+                      child: AppButton.outlined(
+                        text: 'Find band',
+                        onPressed: () {
+                          context.read<BandBloc>().add(FindBandEvent());
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Vibrating band...'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        showArrow: false,
+                        borderRadius: BorderRadius.circular(8.0),
+                        padding: const EdgeInsets.symmetric(vertical: 10.0),
+                        fontSize: r.font(15.0),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(width: 8.0),
+                    Expanded(
+                      child: AppButton.outlined(
+                        text: 'Forgot band',
+                        onPressed: () {
+                          context.read<BandBloc>().add(DisconnectBandEvent());
+                          onForgetBand?.call();
+                        },
+                        showArrow: false,
+                        borderRadius: BorderRadius.circular(8.0),
+                        padding: const EdgeInsets.symmetric(vertical: 10.0),
+                        fontSize: r.font(15.0),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 )
               else
                 AppButton(

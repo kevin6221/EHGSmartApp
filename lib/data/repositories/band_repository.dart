@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/band_device_model.dart';
 import '../services/band_service.dart';
 import '../services/mock_band_service.dart';
@@ -10,17 +12,77 @@ import '../services/native_band_service.dart';
 /// Repository managing the EHG Smart Band connectivity, caching paired device metadata,
 /// and dispatching hardware synchronization.
 class BandRepository {
+  static const String _cachedVitalsKey = 'ehg_cached_vitals';
+  static const String _cachedDeviceKey = 'ehg_cached_device';
+
   final BandService _service;
+  final StreamController<BandSyncedVitals> _syncedVitalsController =
+      StreamController<BandSyncedVitals>.broadcast();
+
   BandDeviceInfo? _connectedDevice;
   BandBatteryInfo _battery = const BandBatteryInfo(percentage: 0);
   DiscoveredBandDevice? _lastPairedDevice;
   BandSyncedVitals _lastSyncedVitals = const BandSyncedVitals();
+  StreamSubscription<BandConnectionStatus>? _statusSubscription;
 
   BandRepository({BandService? service})
       : _service = service ??
             ((Platform.isIOS || Platform.isAndroid)
                 ? NativeBandService()
-                : MockBandService());
+                : MockBandService()) {
+    _loadCachedData();
+    _listenToConnectionStatus();
+  }
+
+  void _listenToConnectionStatus() {
+    _statusSubscription = _service.connectionStatusStream.listen((status) {
+      if (status == BandConnectionStatus.connected) {
+        // Automatically sync all health data when band connects
+        syncFullHealthData();
+      }
+    });
+  }
+
+  Future<void> _loadCachedData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final vitalsJson = prefs.getString(_cachedVitalsKey);
+      if (vitalsJson != null && vitalsJson.isNotEmpty) {
+        final Map<String, dynamic> map = jsonDecode(vitalsJson);
+        _lastSyncedVitals = BandSyncedVitals.fromMap(map);
+        _syncedVitalsController.add(_lastSyncedVitals);
+      }
+
+      final deviceJson = prefs.getString(_cachedDeviceKey);
+      if (deviceJson != null && deviceJson.isNotEmpty) {
+        final Map<String, dynamic> map = jsonDecode(deviceJson);
+        _lastPairedDevice = DiscoveredBandDevice.fromMap(map);
+      }
+    } catch (_) {
+      // Non-fatal cache load error
+    }
+  }
+
+  Future<void> _persistVitals(BandSyncedVitals vitals) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_cachedVitalsKey, jsonEncode(vitals.toMap()));
+    } catch (_) {}
+  }
+
+  Future<void> _persistDevice(DiscoveredBandDevice device) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_cachedDeviceKey, jsonEncode({
+        'id': device.id,
+        'name': device.name,
+        'mac': device.mac,
+        'rssi': device.rssi,
+      }));
+    } catch (_) {}
+  }
+
+  Stream<BandSyncedVitals> get syncedVitalsStream => _syncedVitalsController.stream;
 
   Stream<BandConnectionStatus> get connectionStatusStream =>
       _service.connectionStatusStream;
@@ -74,6 +136,7 @@ class BandRepository {
     final success = await _service.connect(device.id);
     if (success) {
       _lastPairedDevice = device;
+      _persistDevice(device);
       _connectedDevice = BandDeviceInfo(
         name: device.name,
         id: device.id,
@@ -136,6 +199,8 @@ class BandRepository {
   Future<BandSyncedVitals> syncHistoricalVitals() async {
     final vitals = await _service.syncHistoricalVitals();
     _lastSyncedVitals = vitals;
+    _persistVitals(vitals);
+    _syncedVitalsController.add(vitals);
     return vitals;
   }
 
@@ -143,6 +208,8 @@ class BandRepository {
   Future<BandSyncedVitals> syncFullHealthData() async {
     final vitals = await _service.syncFullHealthData();
     _lastSyncedVitals = vitals;
+    _persistVitals(vitals);
+    _syncedVitalsController.add(vitals);
     return vitals;
   }
 
@@ -195,10 +262,20 @@ class BandRepository {
     await disconnect();
     _lastPairedDevice = null;
     _lastSyncedVitals = const BandSyncedVitals();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_cachedVitalsKey);
+      await prefs.remove(_cachedDeviceKey);
+      await prefs.remove('ehg_onboarding_completed');
+    } catch (_) {}
+    _syncedVitalsController.add(_lastSyncedVitals);
   }
 
   /// Disposes background resources.
   void dispose() {
+    _statusSubscription?.cancel();
+    _syncedVitalsController.close();
     _service.dispose();
   }
 }
+

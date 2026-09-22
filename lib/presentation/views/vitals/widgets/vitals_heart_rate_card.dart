@@ -131,7 +131,7 @@ class _VitalsHeartRateCardState extends State<VitalsHeartRateCard> {
                     textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text(
-                        '$displayRate',
+                        displayRate > 0 ? '$displayRate' : '--',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: dims.valueFontSize,
                           fontWeight: FontWeight.w700,
@@ -224,53 +224,66 @@ class _VitalsHeartRateCardState extends State<VitalsHeartRateCard> {
                         clipBehavior: Clip.none,
                         children: [
                           // Area Chart with Scrubber and Line
-                          RepaintBoundary(
-                            child: CustomPaint(
-                              size: Size(chartWidth, chartHeight),
-                              painter: HeartRateChartPainter(
-                                values: widget.weeklyHeartRate,
-                                activeIndex: activeIndex,
-                                lineColor: AppColors.primary,
-                                strokeWidth: 2.5,
-                                showFill: true,
+                          if (widget.weeklyHeartRate.length >= 2)
+                            RepaintBoundary(
+                              child: CustomPaint(
+                                size: Size(chartWidth, chartHeight),
+                                painter: HeartRateChartPainter(
+                                  values: widget.weeklyHeartRate,
+                                  activeIndex: activeIndex,
+                                  lineColor: AppColors.primary,
+                                  strokeWidth: 2.5,
+                                  showFill: true,
+                                ),
+                              ),
+                            )
+                          else
+                            Center(
+                              child: Text(
+                                'No heart rate history yet',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 12.0,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.tertiary,
+                                ),
                               ),
                             ),
-                          ),
 
                           // Floating Callout Bubble with Heart Rate Value
-                          Positioned(
-                            left: bubbleLeft,
-                            top: bubbleTop,
-                            child: Container(
-                              width: bubbleWidth,
-                              height: bubbleHeight,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: AppColors.white,
-                                borderRadius: BorderRadius.circular(10.0),
-                                border: Border.all(
-                                  color: AppColors.primary
-                                      .withValues(alpha: 0.35),
-                                  width: 1.0,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.shadowNavy
-                                        .withValues(alpha: 0.08),
-                                    blurRadius: 8.0,
-                                    offset: const Offset(0, 2),
+                          if (widget.weeklyHeartRate.length >= 2 && currentBpm > 0)
+                            Positioned(
+                              left: bubbleLeft,
+                              top: bubbleTop,
+                              child: Container(
+                                width: bubbleWidth,
+                                height: bubbleHeight,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: AppColors.white,
+                                  borderRadius: BorderRadius.circular(10.0),
+                                  border: Border.all(
+                                    color: AppColors.primary
+                                        .withValues(alpha: 0.35),
+                                    width: 1.0,
                                   ),
-                                ],
-                              ),
-                              child: Text(
-                                '$currentBpm',
-                                style: GoogleFonts.plusJakartaSans(
-                                    fontSize: r.font(15.0),
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.primary),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.shadowNavy
+                                          .withValues(alpha: 0.08),
+                                      blurRadius: 8.0,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  '$currentBpm',
+                                  style: GoogleFonts.plusJakartaSans(
+                                      fontSize: r.font(15.0),
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.primary),
+                                ),
                               ),
                             ),
-                          ),
                         ],
                       );
                     },

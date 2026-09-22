@@ -126,7 +126,7 @@ class HomeReadinessCard extends StatelessWidget {
                 textBaseline: TextBaseline.alphabetic,
                 children: [
                   Text(
-                    '${data.readinessScore}',
+                    data.readinessScore > 0 ? '${data.readinessScore}' : '--',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: r.font(28.0),
                       fontWeight: FontWeight.w700,
@@ -136,7 +136,7 @@ class HomeReadinessCard extends StatelessWidget {
                   ),
                   SizedBox(width: dims.headerGap),
                   Text(
-                    data.readinessTag,
+                    data.readinessScore > 0 ? data.readinessTag : 'No data',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: r.font(14.0),
                       fontWeight: FontWeight.w500,
@@ -249,7 +249,7 @@ class HomeReadinessCard extends StatelessWidget {
               Expanded(
                 child: _buildTile(
                   title: 'Sleep',
-                  value: data.sleepDetail,
+                  value: data.sleepHours > 0 ? data.sleepDetail : '--',
                   accentColor: AppColors.readinessSleep,
                   tileBg: AppColors.tileSleepBg,
                   r: r,
@@ -260,7 +260,7 @@ class HomeReadinessCard extends StatelessWidget {
               Expanded(
                 child: _buildTile(
                   title: 'HRV',
-                  value: '${data.hrvMs}ms',
+                  value: data.hrvMs > 0 ? '${data.hrvMs}ms' : '--',
                   accentColor: AppColors.readinessHrv,
                   tileBg: AppColors.tileHrvBg,
                   r: r,
@@ -275,7 +275,7 @@ class HomeReadinessCard extends StatelessWidget {
               Expanded(
                 child: _buildTile(
                   title: 'Rest HR',
-                  value: '${data.restHr}',
+                  value: data.restHr > 0 ? '${data.restHr} bpm' : '--',
                   accentColor: AppColors.readinessRest,
                   tileBg: AppColors.tileGreenBg,
                   r: r,
@@ -286,7 +286,7 @@ class HomeReadinessCard extends StatelessWidget {
               Expanded(
                 child: _buildTile(
                   title: 'Stress',
-                  value: '${data.stressScore}',
+                  value: data.stressScore > 0 ? '${data.stressScore}' : '--',
                   accentColor: AppColors.readinessStress,
                   tileBg: AppColors.tileRoseBg,
                   r: r,

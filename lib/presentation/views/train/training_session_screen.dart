@@ -39,8 +39,14 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
     super.initState();
     _selectedZoneNotifier = ValueNotifier<int>(1);
     context.read<BandBloc>().add(StartLiveHeartRateEvent());
-    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) context.read<TrainingBloc>().add(const TickWorkoutEvent());
+    context.read<BandBloc>().add(SyncVitalsEvent());
+    _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        context.read<TrainingBloc>().add(const TickWorkoutEvent());
+        if (timer.tick % 15 == 0) {
+          context.read<BandBloc>().add(SyncVitalsEvent());
+        }
+      }
     });
   }
 
@@ -82,7 +88,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          'Recording · Mobility',
+                          'Recording · ${state.data?.title ?? "Workout"}',
                           style: GoogleFonts.plusJakartaSans(
                             color: AppColors.white,
                             fontSize: r.font(24),
@@ -99,7 +105,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                           r.horizontalPadding,
                           (screenHeight * 0.018).clamp(12.0, 16.0),
                           r.horizontalPadding,
-                          r.hp(0.14),
+                          (screenHeight * 0.04).clamp(24.0, 36.0),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -117,7 +123,20 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                                       builder: (context, bandState) {
                                         final hrValue = bandState.liveHeartRate > 0
                                             ? '${bandState.liveHeartRate}'
-                                            : '72';
+                                            : '--';
+                                        if (bandState.liveHeartRate > 0) {
+                                          int zone = 1;
+                                          if (bandState.liveHeartRate >= 170) {
+                                            zone = 5;
+                                          } else if (bandState.liveHeartRate >= 150) {
+                                            zone = 4;
+                                          } else if (bandState.liveHeartRate >= 130) {
+                                            zone = 3;
+                                          } else if (bandState.liveHeartRate >= 110) {
+                                            zone = 2;
+                                          }
+                                          _selectedZoneNotifier.value = zone;
+                                        }
                                         return TrainingMetricCard(
                                           icon: AppIcons.heartPulse,
                                           label: 'Heart Rate',
@@ -134,7 +153,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                                       icon: AppIcons.trainFlame,
                                       color: AppColors.mindPillar,
                                       label: 'Calories',
-                                      value: '${19 + state.elapsedSeconds ~/ 60}',
+                                      value: '${state.burnedCalories}',
                                       unit: 'kcal',
                                     ),
                                   ),

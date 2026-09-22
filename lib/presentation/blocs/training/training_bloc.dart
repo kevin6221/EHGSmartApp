@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../data/models/band_device_model.dart';
+import '../../../data/repositories/band_repository.dart';
 import '../../../data/repositories/wellness_repository.dart';
 import '../../../data/models/workout_model.dart';
 import 'training_event.dart';
@@ -7,8 +10,20 @@ import 'training_state.dart';
 
 class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
   final WellnessRepository repository;
+  final BandRepository? bandRepository;
+  StreamSubscription<int>? _hrSubscription;
+  StreamSubscription<BandSyncedVitals>? _vitalsSubscription;
 
-  TrainingBloc({required this.repository}) : super(const TrainingState()) {
+  TrainingBloc({required this.repository, this.bandRepository}) : super(const TrainingState()) {
+    if (bandRepository != null) {
+      _hrSubscription = bandRepository!.liveHeartRateStream.listen((bpm) {
+        add(UpdateLiveTrainingHeartRateEvent(bpm));
+      });
+      _vitalsSubscription = bandRepository!.syncedVitalsStream.listen((vitals) {
+        add(UpdateLiveTrainingCaloriesEvent(vitals.calories));
+      });
+    }
+
     on<LoadTrainingDataEvent>((event, emit) {
       emit(state.copyWith(status: TrainingStatus.loading));
       try {
@@ -80,10 +95,12 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
     });
 
     on<StartWorkoutEvent>((event, emit) {
+      final initialCalories = bandRepository?.lastSyncedVitals.calories ?? 0;
       emit(
         state.copyWith(
           sessionStatus: TrainingSessionStatus.running,
           elapsedSeconds: 0,
+          burnedCalories: initialCalories,
         ),
       );
     });
@@ -98,7 +115,34 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
 
     on<TickWorkoutEvent>((event, emit) {
       if (state.sessionStatus == TrainingSessionStatus.running) {
-        emit(state.copyWith(elapsedSeconds: state.elapsedSeconds + 1));
+        final newSec = state.elapsedSeconds + 1;
+        emit(
+          state.copyWith(
+            elapsedSeconds: newSec,
+          ),
+        );
+      }
+    });
+
+    on<UpdateLiveTrainingCaloriesEvent>((event, emit) {
+      emit(state.copyWith(burnedCalories: event.calories));
+    });
+
+    on<UpdateLiveTrainingHeartRateEvent>((event, emit) {
+      if (event.bpm > 0) {
+        int zone = 1;
+        if (event.bpm >= 170) {
+          zone = 5;
+        } else if (event.bpm >= 150) {
+          zone = 4;
+        } else if (event.bpm >= 130) {
+          zone = 3;
+        } else if (event.bpm >= 110) {
+          zone = 2;
+        } else {
+          zone = 1;
+        }
+        emit(state.copyWith(liveHeartRate: event.bpm, currentZone: zone));
       }
     });
 
@@ -106,4 +150,13 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
       emit(state.copyWith(sessionStatus: TrainingSessionStatus.completed));
     });
   }
+
+  @override
+  Future<void> close() {
+    _hrSubscription?.cancel();
+    _vitalsSubscription?.cancel();
+    return super.close();
+  }
 }
+
+

@@ -261,6 +261,15 @@ class BandBloc extends Bloc<BandEvent, BandState> {
 
       // Trigger immediate health vitals synchronization upon successful connection
       add(SyncVitalsEvent());
+
+      // Activate the PPG sensor (green LEDs) after a delay so the post-connect
+      // handshake commands (vibration, time sync, battery read) finish first.
+      // The native SDK uses a sequential command queue — overlapping causes drops.
+      Future.delayed(const Duration(seconds: 3), () {
+        if (!isClosed && state.status == BandConnectionStatus.connected) {
+          add(StartLiveHeartRateEvent());
+        }
+      });
     } else {
       final errorMsg = repository.lastConnectionError ??
           'Failed to connect to ${event.device.name}. Ensure it is charged, nearby, and unlinked from other apps (like QwatchPro).';
@@ -280,6 +289,13 @@ class BandBloc extends Bloc<BandEvent, BandState> {
         battery: repository.currentBattery,
       ));
       add(SyncVitalsEvent());
+
+      // Activate the PPG sensor after post-connect handshake completes
+      Future.delayed(const Duration(seconds: 3), () {
+        if (!isClosed && state.status == BandConnectionStatus.connected) {
+          add(StartLiveHeartRateEvent());
+        }
+      });
     }
   }
 
@@ -331,25 +347,12 @@ class BandBloc extends Bloc<BandEvent, BandState> {
       final vitals = await repository.syncFullHealthData();
       emit(state.copyWith(lastSyncedVitals: vitals));
 
-      wellnessBloc?.add(SyncBandVitalsEvent(
-        steps: vitals.steps,
-        calories: vitals.calories,
-        distance: vitals.distance,
-        sleepMinutes: vitals.sleepMinutes,
-        deepSleepMinutes: vitals.deepSleepMinutes,
-        liveHeartRate: state.liveHeartRate,
-        bloodOxygen: vitals.bloodOxygen,
-        systolicBP: vitals.systolicBP,
-        diastolicBP: vitals.diastolicBP,
-        skinTemperature: vitals.skinTemperature,
-        stressLevel: vitals.stressLevel,
-        hrvMs: vitals.hrvMs,
-        restingHeartRate: vitals.restingHeartRate,
-      ));
+      wellnessBloc?.add(SyncBandFullVitalsEvent(vitals));
     } finally {
       emit(state.copyWith(isSyncingVitals: false));
     }
   }
+
 
   @override
   Future<void> close() {

@@ -15,6 +15,7 @@ class ProfileAccountCard extends StatelessWidget {
   final int weight;
   final VoidCallback? onAgeTap;
   final VoidCallback? onWeightTap;
+  final ValueChanged<String>? onUsernameChanged;
 
   const ProfileAccountCard({
     super.key,
@@ -23,6 +24,7 @@ class ProfileAccountCard extends StatelessWidget {
     required this.weight,
     this.onAgeTap,
     this.onWeightTap,
+    this.onUsernameChanged,
   });
 
   @override
@@ -59,6 +61,8 @@ class ProfileAccountCard extends StatelessWidget {
             controller: usernameController,
             hintText: 'John',
             fontSize: r.font(14.0),
+            onChanged: onUsernameChanged,
+            onSubmitted: onUsernameChanged,
           ),
           const SizedBox(height: 14.0),
 

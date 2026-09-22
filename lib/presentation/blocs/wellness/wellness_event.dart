@@ -80,3 +80,11 @@ class SyncBandVitalsEvent extends WellnessEvent {
       ];
 }
 
+class SyncBandFullVitalsEvent extends WellnessEvent {
+  final dynamic vitals; // BandSyncedVitals
+  const SyncBandFullVitalsEvent(this.vitals);
+
+  @override
+  List<Object?> get props => [vitals];
+}
+

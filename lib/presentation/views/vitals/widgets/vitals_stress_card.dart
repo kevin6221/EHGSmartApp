@@ -124,7 +124,7 @@ class _VitalsStressCardState extends State<VitalsStressCard> {
                   borderRadius: BorderRadius.circular(7.0),
                 ),
                 child: Text(
-                  widget.stressStatus.toUpperCase(),
+                  widget.stressScore > 0 ? widget.stressStatus.toUpperCase() : '--',
                   style: GoogleFonts.plusJakartaSans(
                     color: AppColors.primary,
                     fontWeight: FontWeight.w500,
@@ -148,7 +148,7 @@ class _VitalsStressCardState extends State<VitalsStressCard> {
                 bottomPadding: 16.0,
               );
 
-              const bubbleWidth = 46.0;
+              const bubbleWidth = 48.0;
               const bubbleHeight = 32.0;
 
               return GestureDetector(
@@ -202,39 +202,52 @@ class _VitalsStressCardState extends State<VitalsStressCard> {
                             ),
                           ),
 
-                          // Floating Callout Bubble with Score
-                          Positioned(
-                            left: bubbleLeft,
-                            top: bubbleTop,
-                            child: Container(
-                              width: bubbleWidth,
-                              height: bubbleHeight,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: AppColors.white,
-                                borderRadius: BorderRadius.circular(10.0),
-                                border: Border.all(
-                                  color: AppColors.cyanAccent.withValues(alpha: 0.4),
-                                  width: 1.0,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.shadowNavy.withValues(alpha: 0.08),
-                                    blurRadius: 8.0,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                              ),
+                          if (widget.stressTimeline.length < 2)
+                            Center(
                               child: Text(
-                                '$currentScore',
+                                'No stress records yet',
                                 style: GoogleFonts.plusJakartaSans(
-                                  fontSize: r.font(16.0),
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.primary,
+                                  fontSize: 12.0,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.tertiary,
                                 ),
                               ),
                             ),
-                          ),
+
+                          // Floating Callout Bubble with Score
+                          if (widget.stressTimeline.length >= 2 && currentScore > 0)
+                            Positioned(
+                              left: bubbleLeft,
+                              top: bubbleTop,
+                              child: Container(
+                                width: bubbleWidth,
+                                height: bubbleHeight,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: AppColors.white,
+                                  borderRadius: BorderRadius.circular(10.0),
+                                  border: Border.all(
+                                    color: AppColors.cyanAccent.withValues(alpha: 0.4),
+                                    width: 1.0,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.shadowNavy.withValues(alpha: 0.08),
+                                      blurRadius: 8.0,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  '$currentScore',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: r.font(16.0),
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            ),
                         ],
                       );
                     },

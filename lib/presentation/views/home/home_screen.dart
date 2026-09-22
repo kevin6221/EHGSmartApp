@@ -5,7 +5,10 @@ import '../../../core/constants/app_animations.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
 import '../../blocs/band/band_bloc.dart';
+import '../../blocs/band/band_event.dart';
 import '../../blocs/band/band_state.dart';
+import '../../blocs/profile/profile_bloc.dart';
+import '../../blocs/profile/profile_state.dart';
 import '../../blocs/wellness/wellness_bloc.dart';
 import '../../blocs/wellness/wellness_event.dart';
 import '../../blocs/wellness/wellness_state.dart';
@@ -74,18 +77,37 @@ class _HomeScreenState extends State<HomeScreen>
               // 2. Main Scrollable Dashboard Content
               SafeArea(
                 bottom: false,
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(
-                    r.horizontalPadding,
-                    r.verticalPadding,
-                    r.horizontalPadding,
-                    r.hp(0.12),
-                  ),
+                child: RefreshIndicator(
+                  color: AppColors.primary,
+                  backgroundColor: AppColors.surface,
+                  onRefresh: () async {
+                    context.read<BandBloc>().add(SyncVitalsEvent());
+                    context.read<BandBloc>().add(StartLiveHeartRateEvent());
+                    await Future.delayed(const Duration(milliseconds: 1200));
+                  },
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    padding: EdgeInsets.fromLTRB(
+                      r.horizontalPadding,
+                      r.verticalPadding,
+                      r.horizontalPadding,
+                      r.hp(0.12),
+                    ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const HomeHeaderGreeting(),
+                      BlocBuilder<ProfileBloc, ProfileState>(
+                        builder: (context, profileState) {
+                          final userName = profileState.data?.username;
+                          return HomeHeaderGreeting(
+                            userName: (userName != null && userName.isNotEmpty)
+                                ? userName
+                                : 'there',
+                          );
+                        },
+                      ),
                       SizedBox(height: itemSpacing),
 
                       // Wellness Score Banner Card
@@ -161,6 +183,7 @@ class _HomeScreenState extends State<HomeScreen>
                       SizedBox(height: itemSpacing),
                     ],
                   ),
+                ),
                 ),
               ),
             ],

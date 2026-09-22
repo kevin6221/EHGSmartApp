@@ -61,13 +61,17 @@ class EHGWellnessApp extends StatelessWidget {
           BlocProvider<NavigationBloc>(create: (_) => NavigationBloc()),
           BlocProvider<VitalsBloc>(
             create: (_) =>
-                VitalsBloc(repository: wellnessRepository)
-                  ..add(LoadVitalsEvent()),
+                VitalsBloc(
+                  repository: wellnessRepository,
+                  bandRepository: bandRepository,
+                )..add(LoadVitalsEvent()),
           ),
           BlocProvider<TrainingBloc>(
             create: (_) =>
-                TrainingBloc(repository: wellnessRepository)
-                  ..add(LoadTrainingDataEvent()),
+                TrainingBloc(
+                  repository: wellnessRepository,
+                  bandRepository: bandRepository,
+                )..add(LoadTrainingDataEvent()),
           ),
           BlocProvider<ProfileBloc>(
             create: (_) =>

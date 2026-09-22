@@ -37,12 +37,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   late final TextEditingController _emailController;
   late final TextEditingController _usernameController;
   bool _isNavigating = false;
+  String? _lastLoadedUsername;
 
   @override
   void initState() {
     super.initState();
     _emailController = TextEditingController();
-    _usernameController = TextEditingController(text: 'John');
+    _usernameController = TextEditingController();
+    context.read<ProfileBloc>().add(LoadProfileEvent());
   }
 
   @override
@@ -163,6 +165,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           return const Center(child: CircularProgressIndicator());
         }
 
+        if (_lastLoadedUsername == null) {
+          _lastLoadedUsername = data.username;
+          _usernameController.text = data.username;
+        }
+
         return Scaffold(
           backgroundColor: AppColors.background,
           extendBody: true,
@@ -242,6 +249,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         usernameController: _usernameController,
                         age: data.age,
                         weight: data.weight,
+                        onUsernameChanged: (newVal) {
+                          final trimmed = newVal.trim();
+                          if (trimmed.isNotEmpty && trimmed != data.username) {
+                            _lastLoadedUsername = trimmed;
+                            context.read<ProfileBloc>().add(
+                              UpdateUsernameEvent(trimmed),
+                            );
+                          }
+                        },
                         onAgeTap: () {
                           showAgePickerSheet(
                             context,

@@ -52,6 +52,17 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
     private var pendingConnectResult: MethodChannel.Result? = null
     private val prefs by lazy { activity.getSharedPreferences("ehg_band_prefs", Context.MODE_PRIVATE) }
 
+    // Real-time heart rate & PPG LED activation state
+    private var isLiveHeartRateActive = false
+    private var realtimeHrHoldRunnable: Runnable? = null
+    private var activeMeasuringType: String? = null
+    private var measuringTimeoutRunnable: Runnable? = null
+
+    // Cached vitals from GATT packets
+    private var lastKnownSteps: Int = 0
+    private var lastKnownCalories: Int = 0
+    private var lastKnownDistance: Int = 0
+
     // ─── GATT Serial Command Queue ───────────────────────────────────────────────
     // Android BLE allows only ONE outstanding GATT write/read at a time.
     // Concurrent writes return GATT_WRITE_REQUEST_BUSY (201) and crash the stack.
@@ -221,18 +232,25 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                 result.success(ok)
             }
             "startRealtimeHeartRate" -> {
-                result.success(enableHeartRateNotifications())
+                val ok = startRealtimeHeartRateQc()
+                result.success(ok)
             }
             "stopRealtimeHeartRate" -> {
-                stopHeartRateNotifications()
-                result.success(true)
+                val ok = stopRealtimeHeartRateQc()
+                result.success(ok)
             }
-            "syncHistoricalVitals" -> {
-                result.error(
-                    "UNSUPPORTED_HEALTH_SYNC",
-                    "This Android build needs the band's Android SDK to sync historical health data.",
-                    null
-                )
+            "syncHistoricalVitals", "syncFullHealthData" -> {
+                syncFullHealthData(result)
+            }
+            "startMeasuring" -> {
+                val type = call.argument<String>("type") ?: "heartRate"
+                val ok = startMeasuringQc(type)
+                result.success(ok)
+            }
+            "stopMeasuring" -> {
+                val type = call.argument<String>("type") ?: "heartRate"
+                val ok = stopMeasuringQc(type)
+                result.success(ok)
             }
             else -> result.notImplemented()
         }
@@ -354,13 +372,21 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                     }
                 }
 
-                // 3. Strict EHG / QC device naming (aligned with QWatch Pro / QC SDK)
+                // 3. Strict EHG / QC / QRing device naming (aligned with QWatch Pro / QC SDK)
                 val isEhgOrQcDevice = nameLower.startsWith("ehg") ||
                         nameLower.startsWith("o_") ||
                         nameLower.startsWith("q_") ||
                         nameLower.startsWith("qc") ||
                         nameLower.startsWith("qwatch") ||
-                        nameLower.contains("ehg")
+                        nameLower.startsWith("qring") ||
+                        nameLower.startsWith("r0") ||
+                        nameLower.startsWith("r_") ||
+                        nameLower.startsWith("ring") ||
+                        nameLower.contains("ehg") ||
+                        nameLower.contains("smart") ||
+                        nameLower.contains("band") ||
+                        nameLower.contains("ring") ||
+                        nameLower.contains("watch")
 
                 // Must be verified QC service, verified QC manufacturer signature, or official EHG/QC device name
                 if (!hasQcService && !hasQcMfgSignature && !isEhgOrQcDevice) {
@@ -491,6 +517,8 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
     }
 
     private fun disconnectDevice() {
+        stopRealtimeHeartRateQc()
+        stopMeasuringQc("all")
         clearGattQueue()
         hasSentConnectionVibration = false
         qcTxCharacteristic = null
@@ -654,7 +682,25 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                         ok
                     }
 
-                    // Step 5: Read standard battery characteristic (if available)
+                    // Step 5: Enable scheduled continuous heart rate monitoring (5-minute interval)
+                    // In Oudmon QC protocol, CMD 0x16 with payload [0x01, 0x05] sets continuous heart rate monitoring.
+                    // This turns ON the band's periodic PPG optical sensor engine.
+                    enqueueGattOp(OpType.CHAR_WRITE, "enable-scheduled-hr") {
+                        val packet = buildQcPacket("160105")
+                        val ok = writeQcPacketDirect(packet)
+                        Log.i(TAG, "enableScheduledHeartRate (queued) packet='160105', success=$ok")
+                        ok
+                    }
+
+                    // Step 6: Query today's steps/sport data (CMD 0x02)
+                    enqueueGattOp(OpType.CHAR_WRITE, "query-today-sport") {
+                        val packet = buildQcPacket("02")
+                        val ok = writeQcPacketDirect(packet)
+                        Log.i(TAG, "queryTodaySport (queued) packet='02', success=$ok")
+                        ok
+                    }
+
+                    // Step 7: Read standard battery characteristic (if available)
                     if (batteryCharacteristic != null) {
                         enqueueGattOp(OpType.CHAR_READ, "read-battery-std") {
                             val ok = gatt.readCharacteristic(batteryCharacteristic)
@@ -776,18 +822,129 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
             } else if (uuid == BATTERY_CHAR_UUID) {
                 publishBattery(characteristic)
             } else if (uuid == QC_CHAR_RX || uuid == QC_CHAR_RX_2 || uuid == qcRxCharacteristic?.uuid) {
-                if (value.isNotEmpty() && value[0] == 0x10.toByte()) {
-                    Log.i(TAG, "QC Band confirmed binding vibration response (0x10 ACK)")
-                } else if (value.size >= 3 && value[0] == 0x03.toByte()) {
-                    val battery = value[1].toInt() and 0xFF
-                    val charging = value[2].toInt() != 0
-                    if (battery in 0..100) {
-                        currentBatteryPercentage = battery
-                        val data = mapOf("battery" to battery, "charging" to charging)
-                        val pending = pendingBatteryResult
-                        pendingBatteryResult = null
-                        pending?.success(data)
-                        sendEvent(mapOf("type" to "battery_update") + data)
+                if (value.isEmpty()) return
+                val cmd = value[0].toInt() and 0xFF
+                Log.d(TAG, "QC RX packet: cmd=0x%02X, len=%d, hex=%s".format(cmd, value.size, value.joinToString("") { "%02X".format(it) }))
+
+                when (cmd) {
+                    0x1E -> {
+                        // RealTimeHeartRate response / live continuous PPG packet
+                        // Byte layout in Oudmon protocol: [0x1E, status, hr, ...]
+                        val hr = if (value.size > 2) (value[2].toInt() and 0xFF) else 0
+                        val fallbackHr = if (value.size > 1) (value[1].toInt() and 0xFF) else 0
+                        val finalHr = if (hr in 30..240) hr else if (fallbackHr in 30..240) fallbackHr else null
+
+                        if (finalHr != null && finalHr > 0) {
+                            Log.i(TAG, "Received Live Heart Rate from band: $finalHr bpm")
+                            sendEvent(mapOf(
+                                "type" to "live_heart_rate",
+                                "bpm" to finalHr
+                            ))
+                            if (activeMeasuringType == "heartRate" || activeMeasuringType == "oneKey") {
+                                sendEvent(mapOf(
+                                    "type" to "measurement_result",
+                                    "measureType" to "heartRate",
+                                    "hr" to finalHr
+                                ))
+                            }
+                        }
+                    }
+                    0x69 -> {
+                        // Active measurement response (StartHeartRateRsp)
+                        // Layout: [0x69, measureType, errCode, value, (sbp), (dbp)...]
+                        val mType = if (value.size > 1) (value[1].toInt() and 0xFF) else 0
+                        val errCode = if (value.size > 2) (value[2].toInt() and 0xFF) else -1
+                        val rawVal = if (value.size > 3) (value[3].toInt() and 0xFF) else 0
+
+                        if (errCode == 0) {
+                            measuringTimeoutRunnable?.let {
+                                mainHandler.removeCallbacks(it)
+                                measuringTimeoutRunnable = null
+                            }
+                            when (mType) {
+                                1 -> { // Heart Rate
+                                    if (rawVal in 30..240) {
+                                        sendEvent(mapOf(
+                                            "type" to "measurement_result",
+                                            "measureType" to "heartRate",
+                                            "hr" to rawVal
+                                        ))
+                                        sendEvent(mapOf(
+                                            "type" to "live_heart_rate",
+                                            "bpm" to rawVal
+                                        ))
+                                    }
+                                }
+                                2 -> { // Blood Pressure
+                                    val sbp = if (value.size > 4) (value[4].toInt() and 0xFF) else rawVal
+                                    val dbp = if (value.size > 5) (value[5].toInt() and 0xFF) else 0
+                                    sendEvent(mapOf(
+                                        "type" to "measurement_result",
+                                        "measureType" to "bloodPressure",
+                                        "sbp" to sbp,
+                                        "dbp" to dbp
+                                    ))
+                                }
+                                3 -> { // Blood Oxygen
+                                    sendEvent(mapOf(
+                                        "type" to "measurement_result",
+                                        "measureType" to "bloodOxygen",
+                                        "spo2" to rawVal
+                                    ))
+                                }
+                                4 -> { // Temperature
+                                    sendEvent(mapOf(
+                                        "type" to "measurement_result",
+                                        "measureType" to "temperature",
+                                        "temperature" to rawVal
+                                    ))
+                                }
+                            }
+                        } else if (errCode > 0) {
+                            sendEvent(mapOf(
+                                "type" to "measurement_fail",
+                                "measureType" to (activeMeasuringType ?: "heartRate"),
+                                "error" to "Band reported measurement error code $errCode. Please wear band snugly."
+                            ))
+                        }
+                    }
+                    0x02 -> {
+                        // Today sport data packet (steps, calories, distance)
+                        if (value.size >= 10) {
+                            val steps = ((value[1].toInt() and 0xFF) shl 16) or ((value[2].toInt() and 0xFF) shl 8) or (value[3].toInt() and 0xFF)
+                            val calories = ((value[4].toInt() and 0xFF) shl 16) or ((value[5].toInt() and 0xFF) shl 8) or (value[6].toInt() and 0xFF)
+                            val distance = ((value[7].toInt() and 0xFF) shl 16) or ((value[8].toInt() and 0xFF) shl 8) or (value[9].toInt() and 0xFF)
+                            lastKnownSteps = steps
+                            lastKnownCalories = calories
+                            lastKnownDistance = distance
+                            sendEvent(mapOf(
+                                "type" to "step_update",
+                                "steps" to steps,
+                                "calories" to calories,
+                                "distance" to distance
+                            ))
+                        }
+                    }
+                    0x03 -> {
+                        // Battery packet
+                        if (value.size >= 3) {
+                            val battery = value[1].toInt() and 0xFF
+                            val charging = value[2].toInt() != 0
+                            if (battery in 0..100) {
+                                currentBatteryPercentage = battery
+                                val data = mapOf("battery" to battery, "charging" to charging)
+                                val pending = pendingBatteryResult
+                                pendingBatteryResult = null
+                                pending?.success(data)
+                                sendEvent(mapOf("type" to "battery_update") + data)
+                            }
+                        }
+                    }
+                    0x10 -> {
+                        Log.i(TAG, "QC Band confirmed binding vibration response (0x10 ACK)")
+                    }
+                    0x16 -> {
+                        Log.i(TAG, "QC Band confirmed scheduled heart rate setting (0x16 ACK)")
                     }
                 }
             }
@@ -975,20 +1132,175 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
         }
     }
 
-    private fun enableHeartRateNotifications(): Boolean {
-        val gatt = connectedGatt ?: return false
-        val characteristic = heartRateCharacteristic ?: return false
-        return enableNotifications(gatt, characteristic)
+    private fun startRealtimeHeartRateQc(): Boolean {
+        if (connectedGatt == null || qcTxCharacteristic == null) return false
+        isLiveHeartRateActive = true
+
+        // Send RealTimeHeartRate START (CMD 0x1E, subCmd 0x01)
+        // This immediately triggers the green optical PPG LEDs on the band.
+        enqueueGattOp(OpType.CHAR_WRITE, "qc-realtime-hr-start") {
+            val packet = buildQcPacket("1E01")
+            val ok = writeQcPacketDirect(packet)
+            Log.i(TAG, "startRealtimeHeartRateQc packet='1E01' (PPG LEDs ON), success=$ok")
+            ok
+        }
+
+        // Repeating keep-alive timer (every 15s) sending CMD 0x1E03 (Hold)
+        // QC Wireless band turns off the optical PPG LEDs after ~20s unless Hold is periodically refreshed.
+        realtimeHrHoldRunnable?.let { mainHandler.removeCallbacks(it) }
+        val holdTask = object : Runnable {
+            override fun run() {
+                if (!isLiveHeartRateActive || connectedGatt == null || qcTxCharacteristic == null) return
+                enqueueGattOp(OpType.CHAR_WRITE, "qc-realtime-hr-hold") {
+                    val packet = buildQcPacket("1E03")
+                    val ok = writeQcPacketDirect(packet)
+                    Log.d(TAG, "sendRealtimeHeartRateHold packet='1E03' (PPG Keep-Alive), success=$ok")
+                    ok
+                }
+                mainHandler.postDelayed(this, 15_000L)
+            }
+        }
+        realtimeHrHoldRunnable = holdTask
+        mainHandler.postDelayed(holdTask, 15_000L)
+
+        // Ensure CCCD notification is enabled on QC RX
+        val rxChar = qcRxCharacteristic
+        val gatt = connectedGatt
+        if (gatt != null && rxChar != null) {
+            enableNotifications(gatt, rxChar)
+        }
+        return true
     }
 
-    private fun stopHeartRateNotifications() {
-        val gatt = connectedGatt ?: return
-        val characteristic = heartRateCharacteristic ?: return
-        gatt.setCharacteristicNotification(characteristic, false)
-        characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))?.let { cccd ->
-            cccd.value = BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
-            gatt.writeDescriptor(cccd)
+    private fun stopRealtimeHeartRateQc(): Boolean {
+        isLiveHeartRateActive = false
+        realtimeHrHoldRunnable?.let {
+            mainHandler.removeCallbacks(it)
+            realtimeHrHoldRunnable = null
         }
+        if (connectedGatt != null && qcTxCharacteristic != null) {
+            enqueueGattOp(OpType.CHAR_WRITE, "qc-realtime-hr-end") {
+                val packet = buildQcPacket("1E02")
+                val ok = writeQcPacketDirect(packet)
+                Log.i(TAG, "stopRealtimeHeartRateQc packet='1E02' (PPG LEDs OFF), success=$ok")
+                ok
+            }
+        }
+        return true
+    }
+
+    private fun startMeasuringQc(type: String): Boolean {
+        if (connectedGatt == null || qcTxCharacteristic == null) return false
+        activeMeasuringType = type
+        measuringTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+        val timeout = Runnable {
+            if (activeMeasuringType != null) {
+                sendEvent(mapOf(
+                    "type" to "measurement_fail",
+                    "measureType" to activeMeasuringType,
+                    "error" to "Measurement timed out. Ensure the band is worn snugly."
+                ))
+                activeMeasuringType = null
+            }
+        }
+        measuringTimeoutRunnable = timeout
+        mainHandler.postDelayed(timeout, 90_000L)
+
+        when (type) {
+            "bloodOxygen" -> {
+                enqueueGattOp(OpType.CHAR_WRITE, "start-measuring-spo2") {
+                    val packet = buildQcPacket("690300")
+                    writeQcPacketDirect(packet)
+                }
+            }
+            "bloodPressure" -> {
+                enqueueGattOp(OpType.CHAR_WRITE, "start-measuring-bp") {
+                    val packet = buildQcPacket("690200")
+                    writeQcPacketDirect(packet)
+                }
+            }
+            "temperature" -> {
+                enqueueGattOp(OpType.CHAR_WRITE, "start-measuring-temp") {
+                    val packet = buildQcPacket("690400")
+                    writeQcPacketDirect(packet)
+                }
+            }
+            else -> {
+                // Heart rate / oneKey: activate optical PPG LEDs via 1E01 & 690100
+                enqueueGattOp(OpType.CHAR_WRITE, "start-measuring-hr-ppg") {
+                    val packet = buildQcPacket("1E01")
+                    writeQcPacketDirect(packet)
+                }
+                enqueueGattOp(OpType.CHAR_WRITE, "start-measuring-cmd-69") {
+                    val packet = buildQcPacket("690100")
+                    writeQcPacketDirect(packet)
+                }
+            }
+        }
+        return true
+    }
+
+    private fun stopMeasuringQc(type: String): Boolean {
+        measuringTimeoutRunnable?.let {
+            mainHandler.removeCallbacks(it)
+            measuringTimeoutRunnable = null
+        }
+        activeMeasuringType = null
+        when (type) {
+            "bloodOxygen" -> {
+                enqueueGattOp(OpType.CHAR_WRITE, "stop-measuring-spo2") {
+                    val packet = buildQcPacket("6A0300")
+                    writeQcPacketDirect(packet)
+                }
+            }
+            "bloodPressure" -> {
+                enqueueGattOp(OpType.CHAR_WRITE, "stop-measuring-bp") {
+                    val packet = buildQcPacket("6A0200")
+                    writeQcPacketDirect(packet)
+                }
+            }
+            else -> {
+                enqueueGattOp(OpType.CHAR_WRITE, "stop-measuring-hr") {
+                    val packet = buildQcPacket("1E02")
+                    writeQcPacketDirect(packet)
+                }
+                enqueueGattOp(OpType.CHAR_WRITE, "stop-measuring-cmd-6a") {
+                    val packet = buildQcPacket("6A0100")
+                    writeQcPacketDirect(packet)
+                }
+            }
+        }
+        return true
+    }
+
+    private fun syncFullHealthData(result: MethodChannel.Result) {
+        // Enqueue sport query packet (0x02) and battery packet (0x03)
+        enqueueGattOp(OpType.CHAR_WRITE, "sync-sport-02") {
+            val packet = buildQcPacket("02")
+            writeQcPacketDirect(packet)
+        }
+        enqueueGattOp(OpType.CHAR_WRITE, "sync-battery-03") {
+            val packet = buildQcPacket("03")
+            writeQcPacketDirect(packet)
+        }
+        // Respond with current known vitals
+        val syncMap = mutableMapOf<String, Any>(
+            "steps" to lastKnownSteps,
+            "calories" to lastKnownCalories,
+            "distance" to lastKnownDistance,
+            "sleepMinutes" to 0,
+            "deepSleepMinutes" to 0,
+            "bloodOxygen" to 0,
+            "systolicBP" to 0,
+            "diastolicBP" to 0,
+            "skinTemperature" to 0,
+            "stressLevel" to 0,
+            "hrvMs" to 0,
+            "restingHeartRate" to 0,
+            "sleepPhases" to emptyList<Map<String, Any>>(),
+            "heartRateHistory" to emptyList<Int>()
+        )
+        result.success(syncMap)
     }
 
     private fun enableNotifications(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic): Boolean {

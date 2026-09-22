@@ -145,7 +145,7 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
           ),
           alignment: Alignment.center,
           child: Text(
-            '${widget.score}',
+            widget.score > 0 ? '${widget.score}' : '--',
             style: GoogleFonts.plusJakartaSans(
               fontSize: dims.badgeFontSize,
               fontWeight: FontWeight.w700,
@@ -173,26 +173,28 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
                       color: AppColors.secondary,
                     ),
                   ),
-                  const SizedBox(width: 6.0),
-                  Icon(
-                    widget.isNegativeChange
-                        ? Icons.arrow_downward_outlined
-                        : Icons.arrow_upward_outlined,
-                    size: 10.0,
-                    color: widget.isNegativeChange
-                        ? AppColors.scoreDownRed
-                        : AppColors.primary,
-                  ),
-                  Text(
-                    widget.scoreChange,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: r.font(12.0),
-                      fontWeight: FontWeight.w500,
+                  if (widget.score > 0) ...[
+                    const SizedBox(width: 6.0),
+                    Icon(
+                      widget.isNegativeChange
+                          ? Icons.arrow_downward_outlined
+                          : Icons.arrow_upward_outlined,
+                      size: 10.0,
                       color: widget.isNegativeChange
                           ? AppColors.scoreDownRed
                           : AppColors.primary,
                     ),
-                  ),
+                    Text(
+                      widget.scoreChange,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: r.font(12.0),
+                        fontWeight: FontWeight.w500,
+                        color: widget.isNegativeChange
+                            ? AppColors.scoreDownRed
+                            : AppColors.primary,
+                      ),
+                    ),
+                  ],
                   const SizedBox(width: 4.0),
                   Text(
                     'from yesterday',
@@ -325,7 +327,7 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '${widget.score}',
+                        widget.score > 0 ? '${widget.score}' : '--',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: dims.ringsFontSize,
                           fontWeight: FontWeight.w700,
@@ -335,7 +337,13 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
                       ),
                       const SizedBox(height: 2.0),
                       Text(
-                        'Depleted',
+                        widget.score > 0
+                            ? (widget.score >= 75
+                                ? 'Optimal'
+                                : widget.score >= 50
+                                    ? 'Steady'
+                                    : 'Completed')
+                            : 'No Data',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(12.0),
                           fontWeight: FontWeight.w500,
