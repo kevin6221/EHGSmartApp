@@ -6,7 +6,7 @@ import '../../../core/theme/app_colors.dart';
 class DashedContainer extends StatelessWidget {
   final Widget child;
   final Color color;
-  final Color backgroundColor;
+  final Color? backgroundColor;
   final double strokeWidth;
   final double dashWidth;
   final double dashSpace;
@@ -17,7 +17,7 @@ class DashedContainer extends StatelessWidget {
     super.key,
     required this.child,
     this.color = AppColors.rewardsCodeBorder,
-    this.backgroundColor = AppColors.white,
+    this.backgroundColor,
     this.strokeWidth = 1.0,
     this.dashWidth = 4.0,
     this.dashSpace = 3.0,
@@ -27,10 +27,11 @@ class DashedContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final effectiveBg = backgroundColor ?? context.cardBackground;
     return CustomPaint(
       painter: _DashedRRectPainter(
         color: color,
-        backgroundColor: backgroundColor,
+        backgroundColor: effectiveBg,
         strokeWidth: strokeWidth,
         dashWidth: dashWidth,
         dashSpace: dashSpace,

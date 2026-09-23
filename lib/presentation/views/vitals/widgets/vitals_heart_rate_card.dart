@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -35,27 +36,41 @@ class _VitalsHeartRateCardState extends State<VitalsHeartRateCard> {
   @override
   void initState() {
     super.initState();
-    // Default scrubber index to the point matching currentHeartRate (72 bpm), or representative point
+    // Default scrubber index to the recorded day or last non-zero day
     final foundIndex = widget.weeklyHeartRate.lastIndexOf(
       widget.currentHeartRate.toDouble(),
     );
+    final firstValidIndex = widget.weeklyHeartRate.indexWhere((v) => v > 0);
+
     _activeScrubIndexNotifier = ValueNotifier<int>(
       foundIndex != -1
           ? foundIndex
-          : (widget.weeklyHeartRate.length > 1
-              ? widget.weeklyHeartRate.length - 1
-              : 0),
+          : (firstValidIndex != -1
+              ? firstValidIndex
+              : (widget.weeklyHeartRate.length > 1
+                  ? widget.weeklyHeartRate.length - 1
+                  : 0)),
     );
   }
 
   @override
   void didUpdateWidget(covariant VitalsHeartRateCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.weeklyHeartRate != widget.weeklyHeartRate) {
-      _activeScrubIndexNotifier.value = _activeScrubIndexNotifier.value.clamp(
-        0,
-        widget.weeklyHeartRate.isEmpty ? 0 : widget.weeklyHeartRate.length - 1,
+    if (!listEquals(oldWidget.weeklyHeartRate, widget.weeklyHeartRate) ||
+        oldWidget.currentHeartRate != widget.currentHeartRate) {
+      final maxIdx = widget.weeklyHeartRate.isEmpty ? 0 : widget.weeklyHeartRate.length - 1;
+      final foundIndex = widget.weeklyHeartRate.lastIndexOf(
+        widget.currentHeartRate.toDouble(),
       );
+      final firstValidIndex = widget.weeklyHeartRate.indexWhere((v) => v > 0);
+
+      if (foundIndex != -1) {
+        _activeScrubIndexNotifier.value = foundIndex;
+      } else if (firstValidIndex != -1) {
+        _activeScrubIndexNotifier.value = firstValidIndex;
+      } else {
+        _activeScrubIndexNotifier.value = _activeScrubIndexNotifier.value.clamp(0, maxIdx);
+      }
     }
   }
 
@@ -114,7 +129,7 @@ class _VitalsHeartRateCardState extends State<VitalsHeartRateCard> {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: dims.titleFontSize,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.secondary,
+                      color: context.textPrimary,
                     ),
                   ),
                 ],
@@ -124,14 +139,14 @@ class _VitalsHeartRateCardState extends State<VitalsHeartRateCard> {
                 builder: (context, activeIndex, _) {
                   final displayRate = activeIndex < widget.weeklyHeartRate.length
                       ? widget.weeklyHeartRate[activeIndex].round()
-                      : widget.currentHeartRate;
+                      : 0;
 
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.baseline,
                     textBaseline: TextBaseline.alphabetic,
                     children: [
                       Text(
-                        displayRate > 0 ? '$displayRate' : '--',
+                        '$displayRate',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: dims.valueFontSize,
                           fontWeight: FontWeight.w700,
@@ -160,29 +175,13 @@ class _VitalsHeartRateCardState extends State<VitalsHeartRateCard> {
           LayoutBuilder(
             builder: (context, constraints) {
               final chartWidth = constraints.maxWidth;
-              final double minVal = widget.weeklyHeartRate.isNotEmpty
-                  ? widget.weeklyHeartRate.reduce((a, b) => a < b ? a : b)
-                  : 0.0;
-              final double maxVal = widget.weeklyHeartRate.isNotEmpty
-                  ? widget.weeklyHeartRate.reduce((a, b) => a > b ? a : b)
-                  : 1.0;
-              final double range =
-                  (maxVal - minVal) == 0 ? 1.0 : (maxVal - minVal);
+              final List<double> validValues = widget.weeklyHeartRate.where((v) => v > 0).toList();
+              final double maxVal = validValues.isNotEmpty
+                  ? validValues.reduce((a, b) => a > b ? a : b)
+                  : (widget.currentHeartRate > 0 ? widget.currentHeartRate.toDouble() : 100.0);
               const double topPadding = 6.0;
               const double bottomPadding = 6.0;
-              final double usableHeight =
-                  chartHeight - topPadding - bottomPadding;
-
-              final List<Offset> points = [];
-              for (int i = 0; i < widget.weeklyHeartRate.length; i++) {
-                final double x = (i / (widget.weeklyHeartRate.length - 1)) *
-                    chartWidth;
-                final double normalized =
-                    (widget.weeklyHeartRate[i] - minVal) / range;
-                final double y =
-                    chartHeight - bottomPadding - (normalized * usableHeight);
-                points.add(Offset(x, y));
-              }
+              final double usableHeight = chartHeight - topPadding - bottomPadding;
 
               const bubbleWidth = 48.0;
               const bubbleHeight = 32.0;
@@ -201,30 +200,28 @@ class _VitalsHeartRateCardState extends State<VitalsHeartRateCard> {
                   child: ValueListenableBuilder<int>(
                     valueListenable: _activeScrubIndexNotifier,
                     builder: (context, activeIndex, _) {
-                      final safeIndex = activeIndex.clamp(
-                        0,
-                        points.isNotEmpty ? points.length - 1 : 0,
-                      );
-                      final activePt = points.isNotEmpty
-                          ? points[safeIndex]
-                          : Offset(chartWidth * 0.5, chartHeight * 0.5);
+                      final totalSlots = widget.weeklyHeartRate.length >= 7 ? 7 : (widget.weeklyHeartRate.length > 1 ? widget.weeklyHeartRate.length : 1);
+                      final safeActiveIdx = activeIndex.clamp(0, totalSlots - 1);
+                      final double activeX = totalSlots > 1 ? (safeActiveIdx / (totalSlots - 1)) * chartWidth : chartWidth * 0.5;
 
-                      final currentBpm = widget.weeklyHeartRate.isNotEmpty &&
-                              safeIndex < widget.weeklyHeartRate.length
-                          ? widget.weeklyHeartRate[safeIndex].round()
-                          : widget.currentHeartRate;
+                      final currentBpm = safeActiveIdx < widget.weeklyHeartRate.length
+                          ? widget.weeklyHeartRate[safeActiveIdx].round()
+                          : 0;
+                      final double val = currentBpm > 0 ? currentBpm.toDouble() : 0.0;
+                      final double normalized = maxVal > 0 ? (val / maxVal).clamp(0.0, 1.0) : 0.0;
+                      final double activeY = chartHeight - bottomPadding - (normalized * usableHeight);
 
-                      final bubbleLeft = (activePt.dx - bubbleWidth / 2).clamp(
+                      final bubbleLeft = (activeX - bubbleWidth / 2).clamp(
                         0.0,
                         chartWidth - bubbleWidth,
                       );
-                      final bubbleTop = activePt.dy - bubbleHeight - 8.0;
+                      final bubbleTop = (activeY - bubbleHeight - 8.0).clamp(0.0, chartHeight - bubbleHeight);
 
                       return Stack(
                         clipBehavior: Clip.none,
                         children: [
                           // Area Chart with Scrubber and Line
-                          if (widget.weeklyHeartRate.length >= 2)
+                          if (widget.weeklyHeartRate.any((v) => v > 0))
                             RepaintBoundary(
                               child: CustomPaint(
                                 size: Size(chartWidth, chartHeight),
@@ -244,13 +241,13 @@ class _VitalsHeartRateCardState extends State<VitalsHeartRateCard> {
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 12.0,
                                   fontWeight: FontWeight.w500,
-                                  color: AppColors.tertiary,
+                                  color: context.textSecondary,
                                 ),
                               ),
                             ),
 
                           // Floating Callout Bubble with Heart Rate Value
-                          if (widget.weeklyHeartRate.length >= 2 && currentBpm > 0)
+                          if (widget.weeklyHeartRate.any((v) => v > 0) && currentBpm > 0)
                             Positioned(
                               left: bubbleLeft,
                               top: bubbleTop,
@@ -259,7 +256,7 @@ class _VitalsHeartRateCardState extends State<VitalsHeartRateCard> {
                                 height: bubbleHeight,
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
-                                  color: AppColors.white,
+                                  color: context.cardBackground,
                                   borderRadius: BorderRadius.circular(10.0),
                                   border: Border.all(
                                     color: AppColors.primary
@@ -316,7 +313,7 @@ class _VitalsHeartRateCardState extends State<VitalsHeartRateCard> {
                       fontWeight:
                           isSelected ? FontWeight.w700 : FontWeight.w400,
                       color:
-                          isSelected ? AppColors.primary : AppColors.tertiary,
+                          isSelected ? AppColors.primary : context.textSecondary,
                     ),
                   );
                 }),

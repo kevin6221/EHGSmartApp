@@ -140,7 +140,7 @@ class HomeReadinessCard extends StatelessWidget {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: r.font(14.0),
                       fontWeight: FontWeight.w500,
-                      color: AppColors.secondary,
+                      color: context.textPrimary,
                     ),
                   ),
                 ],
@@ -248,6 +248,7 @@ class HomeReadinessCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _buildTile(
+                  context: context,
                   title: 'Sleep',
                   value: data.sleepHours > 0 ? data.sleepDetail : '--',
                   accentColor: AppColors.readinessSleep,
@@ -259,6 +260,7 @@ class HomeReadinessCard extends StatelessWidget {
               SizedBox(width: dims.itemSpacing),
               Expanded(
                 child: _buildTile(
+                  context: context,
                   title: 'HRV',
                   value: data.hrvMs > 0 ? '${data.hrvMs}ms' : '--',
                   accentColor: AppColors.readinessHrv,
@@ -274,6 +276,7 @@ class HomeReadinessCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _buildTile(
+                  context: context,
                   title: 'Rest HR',
                   value: data.restHr > 0 ? '${data.restHr} bpm' : '--',
                   accentColor: AppColors.readinessRest,
@@ -285,6 +288,7 @@ class HomeReadinessCard extends StatelessWidget {
               SizedBox(width: dims.itemSpacing),
               Expanded(
                 child: _buildTile(
+                  context: context,
                   title: 'Stress',
                   value: data.stressScore > 0 ? '${data.stressScore}' : '--',
                   accentColor: AppColors.readinessStress,
@@ -301,6 +305,7 @@ class HomeReadinessCard extends StatelessWidget {
   }
 
   Widget _buildTile({
+    required BuildContext context,
     required String title,
     required String value,
     required Color accentColor,
@@ -315,7 +320,7 @@ class HomeReadinessCard extends StatelessWidget {
         LinearGradient(
           colors: [
             tileBg ?? accentColor.withValues(alpha: 0.12),
-            AppColors.white,
+            context.cardBackground,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -344,7 +349,7 @@ class HomeReadinessCard extends StatelessWidget {
           Text(
             title,
             style: GoogleFonts.plusJakartaSans(
-              color: AppColors.secondary,
+              color: context.isDark ? AppColors.black : context.textPrimary,
               fontWeight: FontWeight.w500,
               fontSize: r.font(14.0),
             ),
@@ -358,7 +363,9 @@ class HomeReadinessCard extends StatelessWidget {
               style: GoogleFonts.plusJakartaSans(
                 fontSize: r.font(18.0),
                 fontWeight: FontWeight.w700,
-                color: valueColor ?? AppColors.secondary,
+                color: context.isDark
+                    ? AppColors.black
+                    : (valueColor ?? context.textPrimary),
               ),
             ),
           ),
@@ -393,7 +400,7 @@ class _DotLegend extends StatelessWidget {
           style: GoogleFonts.plusJakartaSans(
             fontSize: r.font(12.0),
             fontWeight: FontWeight.w500,
-            color: AppColors.tertiary,
+            color: context.textSecondary,
           ),
         ),
       ],

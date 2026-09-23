@@ -25,10 +25,10 @@ class ProfileNotificationsCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 1. Top Divider (Figma Line 20, sw=0.5)
-        const Divider(
+        Divider(
           height: 1.0,
           thickness: 0.5,
-          color: AppColors.profileDivider,
+          color: context.cardBorder,
         ),
         const SizedBox(height: 16.0),
 
@@ -38,31 +38,35 @@ class ProfileNotificationsCard extends StatelessWidget {
           style: GoogleFonts.plusJakartaSans(
             fontSize: r.font(14.0),
             fontWeight: FontWeight.w600,
-            color: AppColors.secondary,
+            color: context.textPrimary,
           ),
         ),
         const SizedBox(height: 15.0),
 
         // 3. Four Notification Switch Rows (Figma Nodes 82:2983-3000)
         _buildSwitchRow(
+          context: context,
           title: 'Daily plan reminder',
           value: data.dailyPlanReminder,
           onChanged: (v) => onToggleNotification('dailyPlan', v),
           fontSize: r.font(14.0),
         ),
         _buildSwitchRow(
+          context: context,
           title: 'Hydration nudges',
           value: data.hydrationNudges,
           onChanged: (v) => onToggleNotification('hydration', v),
           fontSize: r.font(14.0),
         ),
         _buildSwitchRow(
+          context: context,
           title: 'Journey days',
           value: data.journeyDays,
           onChanged: (v) => onToggleNotification('journey', v),
           fontSize: r.font(14.0),
         ),
         _buildSwitchRow(
+          context: context,
           title: 'Sleep wind-down',
           value: data.sleepWindDown,
           onChanged: (v) => onToggleNotification('sleep', v),
@@ -71,16 +75,17 @@ class ProfileNotificationsCard extends StatelessWidget {
         const SizedBox(height: 12.0),
 
         // 4. Bottom Divider (Figma Line 21, sw=0.5)
-        const Divider(
+        Divider(
           height: 1.0,
           thickness: 0.5,
-          color: AppColors.profileDivider,
+          color: context.cardBorder,
         ),
       ],
     );
   }
 
   Widget _buildSwitchRow({
+    required BuildContext context,
     required String title,
     required bool value,
     required ValueChanged<bool> onChanged,
@@ -95,7 +100,7 @@ class ProfileNotificationsCard extends StatelessWidget {
             child: Text(
               title,
               style: GoogleFonts.plusJakartaSans(
-                color: AppColors.secondary,
+                color: context.textPrimary,
                 fontWeight: FontWeight.w400,
                 fontSize: fontSize,
               ),

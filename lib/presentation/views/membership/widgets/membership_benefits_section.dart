@@ -44,9 +44,9 @@ class MembershipBenefitsSection extends StatelessWidget {
           valueListenable: selectedTabNotifier,
           builder: (context, activeIndex, _) {
             return Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(color: AppColors.border, width: 1.0),
+                  bottom: BorderSide(color: context.dividerColor, width: 1.0),
                 ),
               ),
               child: Row(
@@ -77,7 +77,7 @@ class MembershipBenefitsSection extends StatelessWidget {
                                 : FontWeight.w500,
                             color: activeIndex == 0
                                 ? AppColors.primarySky
-                                : AppColors.tertiary,
+                                : context.textSecondary,
                           ),
                         ),
                       ),
@@ -109,7 +109,7 @@ class MembershipBenefitsSection extends StatelessWidget {
                                 : FontWeight.w500,
                             color: activeIndex == 1
                                 ? AppColors.primarySky
-                                : AppColors.tertiary,
+                                : context.textSecondary,
                           ),
                         ),
                       ),
@@ -131,13 +131,13 @@ class MembershipBenefitsSection extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: features
-                  .map((feature) => _buildFeatureItem(feature, r))
+                  .map((feature) => _buildFeatureItem(feature, r, context))
                   .toList(),
             );
           },
         ),
         SizedBox(height: screenHeight * 0.012),
-        const Divider(color: AppColors.profileDivider, height: 0.5),
+        Divider(color: context.dividerColor, height: 0.5),
         SizedBox(height: (screenHeight * 0.024).clamp(18.0, 24.0)),
 
         // Footer Disclaimer
@@ -146,7 +146,7 @@ class MembershipBenefitsSection extends StatelessWidget {
           style: GoogleFonts.plusJakartaSans(
             fontSize: r.font(10.0),
             fontWeight: FontWeight.w400,
-            color: AppColors.tertiary,
+            color: context.textSecondary,
             height: 1.45,
           ),
         ),
@@ -154,18 +154,18 @@ class MembershipBenefitsSection extends StatelessWidget {
     );
   }
 
-  Widget _buildFeatureItem(String text, Responsive r) {
+  Widget _buildFeatureItem(String text, Responsive r, BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 14.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 2.0),
+          Padding(
+            padding: const EdgeInsets.only(top: 2.0),
             child: AppSvgIcon(
               AppIcons.blackStar,
               size: 16.0,
-              color: AppColors.secondary,
+              color: context.textPrimary,
             ),
           ),
           const SizedBox(width: 12.0),
@@ -175,7 +175,7 @@ class MembershipBenefitsSection extends StatelessWidget {
               style: GoogleFonts.plusJakartaSans(
                 fontSize: r.font(12.0),
                 fontWeight: FontWeight.w400,
-                color: AppColors.secondary,
+                color: context.textPrimary,
                 height: 1.4,
               ),
             ),

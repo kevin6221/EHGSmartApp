@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../../../core/constants/app_icons.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../core/security/secure_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
 import '../../blocs/onboarding/onboarding_cubit.dart';
@@ -36,24 +35,30 @@ class _OnboardingScreen5State extends State<OnboardingScreen5> {
     super.dispose();
   }
 
-  void _onPlanSelected(String plan) {
+  void _onPlanSelected(String plan) async {
     _selectedPlan.value = plan;
     try {
       final cubit = context.read<OnboardingCubit>();
       cubit.setSelectedPlan(plan);
       final enteredName = cubit.state.userName.trim();
       final enteredAge = cubit.state.userAge;
+      final secureStorage = SecureStorageService();
       if (enteredName.isNotEmpty) {
-        context.read<ProfileBloc>().add(UpdateUsernameEvent(enteredName));
+        await secureStorage.saveUserName(enteredName);
+        if (mounted) {
+          context.read<ProfileBloc>().add(UpdateUsernameEvent(enteredName));
+        }
       }
       if (enteredAge > 0) {
-        context.read<ProfileBloc>().add(UpdateAgeEvent(enteredAge));
+        await secureStorage.saveUserAge(enteredAge);
+        if (mounted) {
+          context.read<ProfileBloc>().add(UpdateAgeEvent(enteredAge));
+        }
       }
-      SharedPreferences.getInstance().then((prefs) {
-        prefs.setBool('ehg_onboarding_completed', true);
-      });
+      await secureStorage.setOnboardingCompleted(true);
     } catch (_) {}
 
+    if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(
       context,
       AppRoutes.dashboard,

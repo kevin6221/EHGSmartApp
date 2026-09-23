@@ -47,6 +47,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
           children: [
             // 1. Heart Rate Card
             _buildHeartRateCard(
+              context,
               r,
               dims.chartWidth,
               dims.cardWidth,
@@ -56,6 +57,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
 
             // 2. Sleep Card
             _buildSleepCard(
+              context,
               r,
               dims.chartWidth,
               dims.sleepBarWidth,
@@ -69,6 +71,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
   }
 
   Widget _buildHeartRateCard(
+    BuildContext context,
     Responsive r,
     double chartWidth,
     double cardWidth,
@@ -124,7 +127,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: r.font(20.0),
                             fontWeight: FontWeight.w700,
-                            color: AppColors.secondary,
+                            color: context.textPrimary,
                           ),
                         ),
                         const SizedBox(width: 3.0),
@@ -133,7 +136,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: r.font(11.0),
                             fontWeight: FontWeight.w500,
-                            color: AppColors.textMuted,
+                            color: context.textMuted,
                           ),
                         ),
                       ],
@@ -144,7 +147,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: r.font(11.0),
                         fontWeight: FontWeight.w500,
-                        color: AppColors.textSecondary,
+                        color: context.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -195,6 +198,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
   }
 
   Widget _buildSleepCard(
+    BuildContext context,
     Responsive r,
     double chartWidth,
     double sleepBarWidth,
@@ -252,7 +256,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: r.font(20.0),
                             fontWeight: FontWeight.w700,
-                            color: AppColors.secondary,
+                            color: context.textPrimary,
                           ),
                         ),
                         const SizedBox(width: 3.0),
@@ -261,7 +265,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: r.font(11.0),
                             fontWeight: FontWeight.w500,
-                            color: AppColors.textMuted,
+                            color: context.textMuted,
                           ),
                         ),
                       ],
@@ -272,7 +276,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: r.font(11.0),
                         fontWeight: FontWeight.w500,
-                        color: AppColors.textSecondary,
+                        color: context.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

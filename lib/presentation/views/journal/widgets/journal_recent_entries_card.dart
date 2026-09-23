@@ -23,9 +23,9 @@ class JournalRecentEntriesCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: context.cardBackground,
         borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: AppColors.divider),
+        border: Border.all(color: context.cardBorder),
       ),
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -39,7 +39,7 @@ class JournalRecentEntriesCard extends StatelessWidget {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: r.font(10.0),
                   fontWeight: FontWeight.w500,
-                  color: AppColors.tertiary,
+                  color: context.textSecondary,
                 ),
               ),
               Text(
@@ -47,7 +47,7 @@ class JournalRecentEntriesCard extends StatelessWidget {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: r.font(10.0),
                   fontWeight: FontWeight.w500,
-                  color: AppColors.tertiary,
+                  color: context.textSecondary,
                 ),
               ),
             ],
@@ -58,7 +58,7 @@ class JournalRecentEntriesCard extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(12.0),
               fontWeight: FontWeight.w600,
-              color: AppColors.secondary,
+              color: context.textPrimary,
             ),
           ),
         ],

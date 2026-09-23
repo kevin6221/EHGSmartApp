@@ -28,15 +28,21 @@ class JournalCheckInCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: context.cardBackground,
         borderRadius: BorderRadius.circular(16.0),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.cardShadow,
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(
+          color: context.cardBorder,
+          width: 1.0,
+        ),
+        boxShadow: context.isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: AppColors.cardShadow,
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -47,7 +53,7 @@ class JournalCheckInCard extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(12.0),
               fontWeight: FontWeight.w400,
-              color: AppColors.secondary,
+              color: context.textPrimary,
             ),
           ),
           const SizedBox(height: 10.0),
@@ -67,12 +73,12 @@ class JournalCheckInCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: isSelected
                               ? AppColors.primary
-                              : AppColors.routineInputFill,
+                              : context.inputFill,
                           borderRadius: BorderRadius.circular(10.0),
                           border: Border.all(
                             color: isSelected
                                 ? AppColors.primary
-                                : AppColors.routineInputBorder,
+                                : context.inputBorder,
                             width: 1.0,
                           ),
                         ),
@@ -84,7 +90,7 @@ class JournalCheckInCard extends StatelessWidget {
                             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
                             color: isSelected
                                 ? AppColors.white
-                                : AppColors.tertiary,
+                                : context.textSecondary,
                           ),
                         ),
                       ),
@@ -100,7 +106,7 @@ class JournalCheckInCard extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(12.0),
               fontWeight: FontWeight.w400,
-              color: AppColors.secondary,
+              color: context.textPrimary,
             ),
           ),
           const SizedBox(height: 12.0),
@@ -123,12 +129,12 @@ class JournalCheckInCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: isSelected
                             ? AppColors.primary
-                            : AppColors.routineInputFill,
+                            : context.inputFill,
                         borderRadius: BorderRadius.circular(8.0),
                         border: Border.all(
                           color: isSelected
                               ? AppColors.primary
-                              : AppColors.routineInputBorder,
+                              : context.inputBorder,
                           width: 1.0,
                         ),
                       ),
@@ -141,7 +147,7 @@ class JournalCheckInCard extends StatelessWidget {
                               : FontWeight.w400,
                           color: isSelected
                               ? AppColors.white
-                              : AppColors.tertiary,
+                              : context.textSecondary,
                         ),
                       ),
                     ),
@@ -156,7 +162,7 @@ class JournalCheckInCard extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(12.0),
               fontWeight: FontWeight.w400,
-              color: AppColors.secondary,
+              color: context.textPrimary,
             ),
           ),
           const SizedBox(height: 8.0),
@@ -167,9 +173,9 @@ class JournalCheckInCard extends StatelessWidget {
             contentPadding: const EdgeInsets.all(16.0),
             hintText: 'Enter here...',
             borderRadius: BorderRadius.circular(10.0),
-            fillColor: AppColors.routineInputFill,
-            activeFillColor: AppColors.routineInputFill,
-            borderColor: AppColors.routineInputBorder,
+            fillColor: context.inputFill,
+            activeFillColor: context.inputFill,
+            borderColor: context.inputBorder,
             activeBorderColor: AppColors.primary,
             borderWidth: 0.8,
             focusedBorderWidth: 1.0,

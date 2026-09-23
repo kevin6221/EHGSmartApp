@@ -69,7 +69,7 @@ class _SystemsScreenState extends State<SystemsScreen> {
     final screenHeight = media.height;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           // Sky header gradient background
@@ -115,7 +115,7 @@ class _SystemsScreenState extends State<SystemsScreen> {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: r.font(16.0),
                       fontWeight: FontWeight.w400,
-                      color: AppColors.tertiary,
+                      color: context.textSecondary,
                       height: 1.45,
                     ),
                   ),

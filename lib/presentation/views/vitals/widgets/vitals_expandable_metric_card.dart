@@ -148,15 +148,17 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
         return Container(
           clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: AppColors.white,
+            color: context.cardBackground,
             borderRadius: BorderRadius.circular(dims.cardRadius),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.shadowNavy.withValues(alpha: 0.04),
-                blurRadius: 16.0,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            boxShadow: context.isDark
+                ? []
+                : [
+                    BoxShadow(
+                      color: AppColors.shadowNavy.withValues(alpha: 0.04),
+                      blurRadius: 16.0,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
           ),
           child: Stack(
               children: [
@@ -169,7 +171,7 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(dims.cardRadius),
                           border: Border.all(
-                            color: AppColors.borderLight,
+                            color: context.cardBorder,
                             width: 0.5,
                           ),
                         ),
@@ -185,7 +187,10 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(dims.cardRadius),
-                          gradient: AppGradients.vitalsExpandedCard,
+                          gradient: context.isDark
+                              ? null
+                              : AppGradients.vitalsExpandedCard,
+                          color: context.isDark ? context.cardBackground : null,
                           border: Border.all(
                             color: AppColors.primary,
                             width: 0.5,
@@ -226,7 +231,7 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
                                   style: GoogleFonts.plusJakartaSans(
                                     fontSize: dims.titleFontSize,
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.secondary,
+                                    color: context.textPrimary,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -256,7 +261,7 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
                                             style: GoogleFonts.plusJakartaSans(
                                               fontSize: dims.valueFontSize,
                                               fontWeight: FontWeight.w700,
-                                              color: AppColors.secondary,
+                                              color: context.textPrimary,
                                               height: 1.0,
                                             ),
                                             overflow: TextOverflow.ellipsis,
@@ -268,7 +273,7 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
                                           style: GoogleFonts.plusJakartaSans(
                                             fontSize: dims.unitFontSize,
                                             fontWeight: FontWeight.w500,
-                                            color: AppColors.tertiary,
+                                            color: context.textSecondary,
                                           ),
                                         ),
                                       ],
@@ -279,7 +284,7 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
                                       style: GoogleFonts.plusJakartaSans(
                                         fontSize: dims.subtitleFontSize,
                                         fontWeight: FontWeight.w400,
-                                        color: AppColors.tertiary,
+                                        color: context.textSecondary,
                                       ),
                                       overflow: TextOverflow.ellipsis,
                                     ),
@@ -309,7 +314,7 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
                                                     GoogleFonts.plusJakartaSans(
                                                   fontSize: 10.0,
                                                   fontWeight: FontWeight.w400,
-                                                  color: AppColors.tertiary,
+                                                  color: context.textSecondary,
                                                 ),
                                               ),
                                             )
@@ -352,7 +357,7 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
         // Divider
         Container(
           height: 1.0,
-          color: AppColors.vitalsDivider,
+          color: context.dividerColor,
         ),
         SizedBox(height: dims.itemSpacing),
 
@@ -362,7 +367,7 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
           style: GoogleFonts.plusJakartaSans(
             fontSize: r.font(14.0),
             fontWeight: FontWeight.w500,
-            color: AppColors.secondary,
+            color: context.textPrimary,
           ),
         ),
         const SizedBox(height: 4.0),
@@ -371,7 +376,7 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
           style: GoogleFonts.plusJakartaSans(
             fontSize: r.font(10.0),
             fontWeight: FontWeight.w400,
-            color: AppColors.tertiary,
+            color: context.textSecondary,
             height: 1.45,
           ),
         ),
@@ -383,7 +388,7 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
           style: GoogleFonts.plusJakartaSans(
             fontSize: r.font(14.0),
             fontWeight: FontWeight.w500,
-            color: AppColors.secondary,
+            color: context.textPrimary,
           ),
         ),
         const SizedBox(height: 4.0),
@@ -392,7 +397,7 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
           style: GoogleFonts.plusJakartaSans(
             fontSize: r.font(10.0),
             fontWeight: FontWeight.w400,
-            color: AppColors.tertiary,
+            color: context.textSecondary,
             height: 1.45,
           ),
         ),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
 import '../../widgets/common/screen_header.dart';
 import 'widgets/rewards_balance_card.dart';
@@ -21,7 +20,7 @@ class RewardsScreen extends StatelessWidget {
     final headerHeight = (r.height * 0.32).clamp(240.0, 300.0);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           SkyHeaderBackground(height: headerHeight),

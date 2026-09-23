@@ -43,7 +43,7 @@ class _JournalScreenState extends State<JournalScreen> {
     final r = Responsive(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           const SkyHeaderBackground(height: 250),
@@ -90,7 +90,7 @@ class _JournalScreenState extends State<JournalScreen> {
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: r.font(14.0),
                         fontWeight: FontWeight.w600,
-                        color: AppColors.secondary,
+                        color: context.textPrimary,
                       ),
                     ),
                   ),
@@ -130,7 +130,7 @@ class _JournalScreenState extends State<JournalScreen> {
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: r.font(14.0),
                         fontWeight: FontWeight.w600,
-                        color: AppColors.secondary,
+                        color: context.textPrimary,
                       ),
                     ),
                   ),

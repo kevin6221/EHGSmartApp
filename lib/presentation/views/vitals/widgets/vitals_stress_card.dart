@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -35,22 +36,28 @@ class _VitalsStressCardState extends State<VitalsStressCard> {
   @override
   void initState() {
     super.initState();
-    // Default scrubber index to the highest or representative point (index ~8-10 of timeline)
+    final firstValidIndex = widget.stressTimeline.indexWhere((v) => v > 0);
     _activeScrubIndexNotifier = ValueNotifier<int>(
-      widget.stressTimeline.length > 9
-          ? 9
-          : (widget.stressTimeline.length - 1),
+      firstValidIndex != -1
+          ? firstValidIndex
+          : (widget.stressTimeline.length > 9
+              ? 9
+              : (widget.stressTimeline.isEmpty ? 0 : widget.stressTimeline.length - 1)),
     );
   }
 
   @override
   void didUpdateWidget(covariant VitalsStressCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.stressTimeline != widget.stressTimeline) {
-      _activeScrubIndexNotifier.value = _activeScrubIndexNotifier.value.clamp(
-        0,
-        widget.stressTimeline.isEmpty ? 0 : widget.stressTimeline.length - 1,
-      );
+    if (!listEquals(oldWidget.stressTimeline, widget.stressTimeline) ||
+        oldWidget.stressScore != widget.stressScore) {
+      final maxIdx = widget.stressTimeline.isEmpty ? 0 : widget.stressTimeline.length - 1;
+      final firstValidIndex = widget.stressTimeline.indexWhere((v) => v > 0);
+      if (firstValidIndex != -1) {
+        _activeScrubIndexNotifier.value = firstValidIndex;
+      } else {
+        _activeScrubIndexNotifier.value = _activeScrubIndexNotifier.value.clamp(0, maxIdx);
+      }
     }
   }
 
@@ -109,7 +116,7 @@ class _VitalsStressCardState extends State<VitalsStressCard> {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: dims.titleFontSize,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.secondary,
+                      color: context.textPrimary,
                     ),
                   ),
                 ],
@@ -141,12 +148,13 @@ class _VitalsStressCardState extends State<VitalsStressCard> {
           LayoutBuilder(
             builder: (context, constraints) {
               final chartWidth = constraints.maxWidth;
-              final points = VitalsCardCalculator.computeNormalizedPoints(
-                values: widget.stressTimeline,
-                size: Size(chartWidth, chartHeight),
-                topPadding: 16.0,
-                bottomPadding: 16.0,
-              );
+              final List<double> validValues = widget.stressTimeline.where((v) => v > 0).toList();
+              final double maxVal = validValues.isNotEmpty
+                  ? validValues.reduce((a, b) => a > b ? a : b)
+                  : (widget.stressScore > 0 ? widget.stressScore.toDouble() : 100.0);
+              const double topPadding = 16.0;
+              const double bottomPadding = 16.0;
+              final double usableHeight = chartHeight - topPadding - bottomPadding;
 
               const bubbleWidth = 48.0;
               const bubbleHeight = 32.0;
@@ -165,23 +173,22 @@ class _VitalsStressCardState extends State<VitalsStressCard> {
                   child: ValueListenableBuilder<int>(
                     valueListenable: _activeScrubIndexNotifier,
                     builder: (context, activeIndex, _) {
-                      final safeIndex = activeIndex.clamp(
-                        0,
-                        points.isNotEmpty ? points.length - 1 : 0,
-                      );
-                      final activePt = points.isNotEmpty
-                          ? points[safeIndex]
-                          : Offset(chartWidth * 0.75, chartHeight * 0.3);
+                      final totalSlots = widget.stressTimeline.length >= 7 ? 7 : (widget.stressTimeline.length > 1 ? widget.stressTimeline.length : 1);
+                      final safeActiveIdx = activeIndex.clamp(0, totalSlots - 1);
+                      final double activeX = totalSlots > 1 ? (safeActiveIdx / (totalSlots - 1)) * chartWidth : chartWidth * 0.5;
 
-                      final currentScore = widget.stressTimeline.isNotEmpty
-                          ? widget.stressTimeline[safeIndex].round()
-                          : widget.stressScore;
+                      final currentScore = safeActiveIdx < widget.stressTimeline.length
+                          ? widget.stressTimeline[safeActiveIdx].round()
+                          : 0;
+                      final double val = currentScore > 0 ? currentScore.toDouble() : 0.0;
+                      final double normalized = maxVal > 0 ? (val / maxVal).clamp(0.0, 1.0) : 0.0;
+                      final double activeY = chartHeight - bottomPadding - (normalized * usableHeight);
 
-                      final bubbleLeft = (activePt.dx - bubbleWidth / 2).clamp(
+                      final bubbleLeft = (activeX - bubbleWidth / 2).clamp(
                         0.0,
                         chartWidth - bubbleWidth,
                       );
-                      final bubbleTop = (activePt.dy - bubbleHeight - 8.0).clamp(
+                      final bubbleTop = (activeY - bubbleHeight - 8.0).clamp(
                         0.0,
                         chartHeight - bubbleHeight,
                       );
@@ -202,20 +209,20 @@ class _VitalsStressCardState extends State<VitalsStressCard> {
                             ),
                           ),
 
-                          if (widget.stressTimeline.length < 2)
+                          if (!widget.stressTimeline.any((v) => v > 0))
                             Center(
                               child: Text(
                                 'No stress records yet',
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 12.0,
                                   fontWeight: FontWeight.w500,
-                                  color: AppColors.tertiary,
+                                  color: context.textSecondary,
                                 ),
                               ),
                             ),
 
                           // Floating Callout Bubble with Score
-                          if (widget.stressTimeline.length >= 2 && currentScore > 0)
+                          if (widget.stressTimeline.any((v) => v > 0))
                             Positioned(
                               left: bubbleLeft,
                               top: bubbleTop,
@@ -224,7 +231,7 @@ class _VitalsStressCardState extends State<VitalsStressCard> {
                                 height: bubbleHeight,
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
-                                  color: AppColors.white,
+                                  color: context.cardBackground,
                                   borderRadius: BorderRadius.circular(10.0),
                                   border: Border.all(
                                     color: AppColors.cyanAccent.withValues(alpha: 0.4),

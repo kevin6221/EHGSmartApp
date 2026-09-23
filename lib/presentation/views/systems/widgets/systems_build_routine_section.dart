@@ -70,7 +70,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
           style: GoogleFonts.plusJakartaSans(
             fontSize: r.font(14.0),
             fontWeight: FontWeight.w700,
-            color: AppColors.secondary,
+            color: context.textPrimary,
           ),
         ),
         const SizedBox(height: 14.0),
@@ -78,9 +78,9 @@ class SystemsBuildRoutineSection extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(16.0),
           decoration: BoxDecoration(
-            color: AppColors.white,
+            color: context.cardBackground,
             borderRadius: BorderRadius.circular(16.0),
-            border: Border.all(color: AppColors.border, width: 1.0),
+            border: Border.all(color: context.cardBorder, width: 1.0),
             boxShadow: [
               BoxShadow(
                 color: AppColors.black.withValues(alpha: 0.02),
@@ -98,7 +98,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: r.font(12.0),
                   fontWeight: FontWeight.w400,
-                  color: AppColors.tertiary,
+                  color: context.textSecondary,
                 ),
               ),
               const SizedBox(height: 8.0),
@@ -108,14 +108,14 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                 controller: routineNameController,
                 hintText: 'Enter here...',
                 fontSize: r.font(14.0),
-                fillColor: AppColors.routineInputFill,
-                activeFillColor: AppColors.routineInputFill,
-                borderColor: AppColors.routineInputBorder,
+                fillColor: context.inputFill,
+                activeFillColor: context.inputFill,
+                borderColor: context.inputBorder,
                 activeBorderColor: AppColors.primary,
                 borderWidth: 0.8,
                 focusedBorderWidth: 1.0,
                 hintStyle: GoogleFonts.plusJakartaSans(
-                  color: AppColors.tertiary,
+                  color: context.textMuted,
                   fontSize: r.font(13.0),
                   fontWeight: FontWeight.w400,
                 ),
@@ -128,7 +128,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: r.font(12.0),
                   fontWeight: FontWeight.w400,
-                  color: AppColors.tertiary,
+                  color: context.textSecondary,
                 ),
               ),
               const SizedBox(height: 10.0),
@@ -151,12 +151,12 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? AppColors.primary
-                                  : AppColors.routineInputFill,
+                                  : context.inputFill,
                               borderRadius: BorderRadius.circular(8.0),
                               border: Border.all(
                                 color: isSelected
                                     ? AppColors.primary
-                                    : AppColors.routineInputBorder,
+                                    : context.inputBorder,
                                 width: 1.0,
                               ),
                             ),
@@ -169,7 +169,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                                     : FontWeight.w500,
                                 color: isSelected
                                     ? AppColors.white
-                                    : AppColors.tertiary,
+                                    : context.textSecondary,
                               ),
                             ),
                           ),
@@ -187,7 +187,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: r.font(13.0),
                   fontWeight: FontWeight.w600,
-                  color: AppColors.secondary,
+                  color: context.textPrimary,
                 ),
               ),
               const SizedBox(height: 12.0),
@@ -207,6 +207,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                               isChecked: selected.contains(item),
                               onTap: () => _onToggleMovement(item),
                               r: r,
+                              context: context,
                             ),
                           );
                         }).toList(),
@@ -220,6 +221,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                               isChecked: selected.contains(item),
                               onTap: () => _onToggleMovement(item),
                               r: r,
+                              context: context,
                             ),
                           );
                         }).toList(),
@@ -236,7 +238,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: r.font(13.0),
                   fontWeight: FontWeight.w600,
-                  color: AppColors.secondary,
+                  color: context.textPrimary,
                 ),
               ),
               const SizedBox(height: 12.0),
@@ -258,6 +260,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                               isChecked: selected.contains('Mobile Flow'),
                               onTap: () => _onToggleWellness('Mobile Flow'),
                               r: r,
+                              context: context,
                             ),
                           ),
                           Expanded(
@@ -267,6 +270,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                               isChecked: selected.contains('Foam roll'),
                               onTap: () => _onToggleWellness('Foam roll'),
                               r: r,
+                              context: context,
                             ),
                           ),
                           Expanded(
@@ -276,6 +280,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                               isChecked: selected.contains('Sleep wind'),
                               onTap: () => _onToggleWellness('Sleep wind'),
                               r: r,
+                              context: context,
                             ),
                           ),
                         ],
@@ -290,6 +295,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                               isChecked: selected.contains('Box breathing'),
                               onTap: () => _onToggleWellness('Box breathing'),
                               r: r,
+                              context: context,
                             ),
                           ),
                           Expanded(
@@ -299,6 +305,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                               isChecked: selected.contains('Meditation'),
                               onTap: () => _onToggleWellness('Meditation'),
                               r: r,
+                              context: context,
                             ),
                           ),
                           const Spacer(flex: col3Flex),
@@ -322,8 +329,8 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 16.0),
-                      const DottedDivider(
-                        color: AppColors.divider,
+                      DottedDivider(
+                        color: context.dividerColor,
                         dashWidth: 3.0,
                         dashSpace: 3.0,
                         thickness: 1.0,
@@ -335,18 +342,18 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(12.0),
                           fontWeight: FontWeight.w400,
-                          color: AppColors.tertiary,
+                          color: context.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 12.0),
 
                       Container(
                         decoration: BoxDecoration(
-                          color: AppColors.white,
+                          color: context.isDark ? AppColors.midnightBackground : AppColors.white,
                           borderRadius: BorderRadius.circular(10.0),
                           border: Border.all(
-                            color: AppColors.primary,
-                            width: 0.5,
+                            color: context.isDark ? AppColors.midnightBorder : AppColors.primary,
+                            width: 0.8,
                           ),
                         ),
                         child: Column(
@@ -388,7 +395,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                                         style: GoogleFonts.plusJakartaSans(
                                           fontSize: r.font(12.0),
                                           fontWeight: FontWeight.w400,
-                                          color: AppColors.secondary,
+                                          color: context.textPrimary,
                                         ),
                                       ),
                                       const SizedBox(width: 10.0),
@@ -412,9 +419,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                                     child: Divider(
                                       height: 1.0,
                                       thickness: 0.8,
-                                      color: AppColors.tertiary.withValues(
-                                        alpha: 0.35,
-                                      ),
+                                      color: context.dividerColor,
                                     ),
                                   ),
                               ],
@@ -448,6 +453,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
     required bool isChecked,
     required VoidCallback onTap,
     required Responsive r,
+    required BuildContext context,
   }) {
     final boxDim = r.isSmall ? 16.0 : 18.0;
 
@@ -465,7 +471,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
               color: isChecked ? AppColors.primary : AppColors.transparent,
               borderRadius: BorderRadius.circular(4.0),
               border: Border.all(
-                color: isChecked ? AppColors.primary : AppColors.checkboxBorder,
+                color: isChecked ? AppColors.primary : context.inputBorder,
                 width: 1.2,
               ),
             ),
@@ -484,7 +490,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
               style: GoogleFonts.plusJakartaSans(
                 fontSize: r.font(r.isSmall ? 11.5 : 12.5),
                 fontWeight: FontWeight.w400,
-                color: AppColors.tertiary,
+                color: context.textSecondary,
               ),
               overflow: TextOverflow.ellipsis,
               maxLines: 1,

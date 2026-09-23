@@ -16,9 +16,9 @@ class WardrobeVerifiedTShirtCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: context.cardBackground,
         borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: AppColors.border, width: 1.0),
+        border: Border.all(color: context.cardBorder, width: 1.0),
         boxShadow: [
           BoxShadow(
             color: AppColors.shadowNavy.withValues(alpha: 0.03),
@@ -36,7 +36,7 @@ class WardrobeVerifiedTShirtCard extends StatelessWidget {
             height: 44.0,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.wardrobePieceIconBg,
+              color: context.isDark ? AppColors.midnightBackground : AppColors.wardrobePieceIconBg,
               border: Border.all(
                 color: AppColors.primarySky.withValues(alpha: 0.25),
                 width: 1.0,
@@ -59,7 +59,7 @@ class WardrobeVerifiedTShirtCard extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(14.0),
                     fontWeight: FontWeight.w600,
-                    color: AppColors.secondary,
+                    color: context.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 3.0),
@@ -119,9 +119,9 @@ class WardrobeLockedPieceCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14.0),
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
+        color: context.isDark ? AppColors.midnightSurface : AppColors.surfaceVariant,
         borderRadius: BorderRadius.circular(14.0),
-        border: Border.all(color: AppColors.border, width: 1.0),
+        border: Border.all(color: context.cardBorder, width: 1.0),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -132,14 +132,14 @@ class WardrobeLockedPieceCard extends StatelessWidget {
             height: 40.0,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.white,
-              border: Border.all(color: AppColors.border, width: 1.0),
+              color: context.isDark ? AppColors.midnightBackground : AppColors.white,
+              border: Border.all(color: context.cardBorder, width: 1.0),
             ),
             alignment: Alignment.center,
-            child: const AppSvgIcon(
+            child: AppSvgIcon(
               AppIcons.wardrobePieceBadge,
               size: 20.0,
-              color: AppColors.tertiary,
+              color: context.textSecondary,
             ),
           ),
           const SizedBox(width: 12.0),
@@ -152,7 +152,7 @@ class WardrobeLockedPieceCard extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(14.0),
                     fontWeight: FontWeight.w600,
-                    color: AppColors.secondary,
+                    color: context.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 2.0),
@@ -161,7 +161,7 @@ class WardrobeLockedPieceCard extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(12.0),
                     fontWeight: FontWeight.w500,
-                    color: AppColors.tertiary,
+                    color: context.textSecondary,
                   ),
                 ),
               ],
@@ -171,10 +171,10 @@ class WardrobeLockedPieceCard extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const AppSvgIcon(
+              AppSvgIcon(
                 AppIcons.lock,
                 size: 13.0,
-                color: AppColors.tertiary,
+                color: context.textSecondary,
               ),
               const SizedBox(width: 4.0),
               Text(
@@ -182,7 +182,7 @@ class WardrobeLockedPieceCard extends StatelessWidget {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: r.font(10.0),
                   fontWeight: FontWeight.w600,
-                  color: AppColors.tertiary,
+                  color: context.textSecondary,
                   letterSpacing: 0.4,
                 ),
               ),

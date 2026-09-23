@@ -34,7 +34,7 @@ class ProfileDataPrivacySection extends StatelessWidget {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: r.font(14.0),
                   fontWeight: FontWeight.w600,
-                  color: AppColors.secondary,
+                  color: context.textPrimary,
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -44,7 +44,11 @@ class ProfileDataPrivacySection extends StatelessWidget {
                 GestureDetector(
                   onTap: onExportData,
                   behavior: HitTestBehavior.opaque,
-                  child: SvgPicture.asset(AppIcons.shareIcon, fit: BoxFit.contain),
+                  child: SvgPicture.asset(
+                    AppIcons.shareIcon,
+                    fit: BoxFit.contain,
+                    colorFilter: ColorFilter.mode(context.textPrimary, BlendMode.srcIn),
+                  ),
                 ),
                 const SizedBox(width: 14.0),
                 GestureDetector(
@@ -64,17 +68,17 @@ class ProfileDataPrivacySection extends StatelessWidget {
           style: GoogleFonts.plusJakartaSans(
             fontSize: r.font(12.0),
             fontWeight: FontWeight.w400,
-            color: AppColors.tertiary,
+            color: context.textSecondary,
             height: 1.4,
           ),
         ),
         const SizedBox(height: 16.0),
 
         // 3. Bottom Divider Line (Figma Line 22, sw=0.5)
-        const Divider(
+        Divider(
           height: 1.0,
           thickness: 0.5,
-          color: AppColors.profileDivider,
+          color: context.cardBorder,
         ),
         const SizedBox(height: 16.0),
 
@@ -85,7 +89,7 @@ class ProfileDataPrivacySection extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(10.0),
               fontWeight: FontWeight.w400,
-              color: AppColors.tertiary,
+              color: context.textSecondary,
               height: 1.4,
             ),
             textAlign: TextAlign.center,

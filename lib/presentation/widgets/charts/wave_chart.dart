@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_colors.dart';
 import '../../../data/models/wellness_data_model.dart';
 import '../../helpers/wave_chart_calculator.dart';
 import '../painters/wave_chart_painter.dart';
@@ -97,6 +98,8 @@ class _WaveChartState extends State<WaveChart> {
                       points: widget.points,
                       progress: widget.animationProgress,
                       activePointIndex: activeIndex,
+                      labelColor: context.textSecondary,
+                      gridColor: context.dividerColor,
                     ),
                   ),
                 );

@@ -1,14 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../../../core/constants/app_animations.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/routes/app_routes.dart';
-import '../../../data/repositories/band_repository.dart';
-import '../../blocs/band/band_bloc.dart';
+import '../../../core/security/secure_storage_service.dart';
 import '../../widgets/common/figma_circular_loader.dart';
 import '../../widgets/splash/splash_pulsing_rings.dart';
 
@@ -32,19 +28,12 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _navigateToNext() async {
     if (!mounted) return;
     try {
-      final bandRepo = context.read<BandRepository>();
-      final bandBloc = context.read<BandBloc>();
-      final prefs = await SharedPreferences.getInstance();
-
-      final hasCachedDevice = prefs.getString('ehg_cached_device') != null ||
-          bandRepo.lastPairedDevice != null;
-      final isConnected =
-          bandBloc.state.isConnected || bandRepo.currentConnectedDevice != null;
-      final onboardingDone = prefs.getBool('ehg_onboarding_completed') ?? false;
+      final secureStorage = SecureStorageService();
+      final onboardingDone = await secureStorage.isOnboardingCompleted();
 
       if (!mounted) return;
 
-      if (isConnected || hasCachedDevice || onboardingDone) {
+      if (onboardingDone) {
         Navigator.of(context).pushReplacementNamed(AppRoutes.dashboard);
         return;
       }

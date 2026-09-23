@@ -12,11 +12,15 @@ class WaveChartPainter extends CustomPainter {
   final List<DayChartPoint> points;
   final double progress;
   final int? activePointIndex;
+  final Color? labelColor;
+  final Color? gridColor;
 
   const WaveChartPainter({
     required this.points,
     required this.progress,
     this.activePointIndex,
+    this.labelColor,
+    this.gridColor,
   });
 
   @override
@@ -39,7 +43,7 @@ class WaveChartPainter extends CustomPainter {
     final double stepX = width / (timeLabels.length - 1);
 
     final Paint gridPaint = Paint()
-      ..color = AppColors.border
+      ..color = gridColor ?? AppColors.border
       ..strokeWidth = 1.0
       ..style = PaintingStyle.stroke;
 
@@ -57,7 +61,7 @@ class WaveChartPainter extends CustomPainter {
       final textSpan = TextSpan(
         text: timeLabels[i],
         style: AppTypography.bodySmall.copyWith(
-          color: AppColors.textSecondary,
+          color: labelColor ?? AppColors.chartDotMuted,
           fontSize: 10,
           fontWeight: FontWeight.w500,
         ),

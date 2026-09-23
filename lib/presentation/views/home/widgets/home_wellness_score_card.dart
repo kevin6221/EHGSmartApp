@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:syncfusion_flutter_charts/charts.dart';
+import '../../../widgets/charts/wellness_doughnut_chart.dart';
 
 import '../../../../core/constants/app_animations.dart';
 import '../../../../core/constants/app_icons.dart';
@@ -102,18 +102,21 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
             padding: EdgeInsets.all(r.isSmall ? 12.0 : 16.0),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(22.0),
-              gradient: AppGradients.wellnessCard,
+              color: context.cardBackground,
+              gradient: context.isDark ? null : AppGradients.wellnessCard,
               border: Border.all(
-                color: AppColors.primary,
+                color: context.isDark ? context.cardBorder : AppColors.primary,
                 width: 0.5,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.black.withValues(alpha: 0.03),
-                  blurRadius: 8.0,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              boxShadow: context.isDark
+                  ? []
+                  : [
+                      BoxShadow(
+                        color: AppColors.black.withValues(alpha: 0.03),
+                        blurRadius: 8.0,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
             ),
             child: isExpanded
                 ? _buildExpandedView(context, r, dims)
@@ -136,7 +139,7 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
           width: dims.badgeDim,
           height: dims.badgeDim,
           decoration: BoxDecoration(
-            color: AppColors.white,
+            color: context.isDark ? AppColors.midnightBackground : AppColors.white,
             borderRadius: BorderRadius.circular(dims.badgeDim * 0.22),
             border: Border.all(
               color: AppColors.primary,
@@ -149,7 +152,7 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
             style: GoogleFonts.plusJakartaSans(
               fontSize: dims.badgeFontSize,
               fontWeight: FontWeight.w700,
-              color: AppColors.primary,
+              color: context.isDark ? AppColors.white : AppColors.primary,
               height: 1.0,
             ),
           ),
@@ -170,7 +173,7 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: r.font(16.0),
                       fontWeight: FontWeight.w600,
-                      color: AppColors.secondary,
+                      color: context.textPrimary,
                     ),
                   ),
                   if (widget.score > 0) ...[
@@ -201,7 +204,7 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: r.font(10.0),
                       fontWeight: FontWeight.w500,
-                      color: AppColors.tertiary,
+                      color: context.textSecondary,
                     ),
                   ),
                 ],
@@ -227,7 +230,7 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: r.font(12.0),
                             fontWeight: FontWeight.w500,
-                            color: AppColors.tertiary,
+                            color: context.textSecondary,
                           ),
                         ),
                         const SizedBox(width: 8.0),
@@ -251,7 +254,7 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: r.font(12.0),
                               fontWeight: FontWeight.w500,
-                              color: AppColors.tertiary,
+                              color: context.textSecondary,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -282,13 +285,6 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
     Responsive r,
     WellnessCardDimensions dims,
   ) {
-    final chartSegments = WellnessCardCalculator.buildChartSegments(
-      recoverScore: widget.recoverScore,
-      fuelScore: widget.fuelScore,
-      mindScore: widget.mindScore,
-      moveScore: widget.moveScore,
-    );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -303,25 +299,12 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  RepaintBoundary(
-                    child: SfCircularChart(
-                      margin: EdgeInsets.zero,
-                      series: <CircularSeries<PillarChartSegment, String>>[
-                        DoughnutSeries<PillarChartSegment, String>(
-                          dataSource: chartSegments,
-                          xValueMapper: (PillarChartSegment data, _) => data.label,
-                          yValueMapper: (PillarChartSegment data, _) => data.value,
-                          pointColorMapper: (PillarChartSegment data, _) =>
-                              data.color,
-                          radius: '100%',
-                          innerRadius: '80%',
-                          cornerStyle: CornerStyle.bothCurve,
-                          startAngle: 270,
-                          endAngle: 270,
-                          animationDuration: 600,
-                        ),
-                      ],
-                    ),
+                  WellnessDoughnutChart(
+                    recoverScore: widget.recoverScore,
+                    fuelScore: widget.fuelScore,
+                    mindScore: widget.mindScore,
+                    moveScore: widget.moveScore,
+                    size: dims.ringsDim,
                   ),
                   Column(
                     mainAxisSize: MainAxisSize.min,
@@ -331,23 +314,23 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: dims.ringsFontSize,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.secondary,
+                          color: context.textPrimary,
                           height: 1.0,
                         ),
                       ),
-                      const SizedBox(height: 2.0),
+                      const SizedBox(height: 3.0),
                       Text(
                         widget.score > 0
                             ? (widget.score >= 75
                                 ? 'Optimal'
                                 : widget.score >= 50
                                     ? 'Steady'
-                                    : 'Completed')
+                                    : 'Push')
                             : 'No Data',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: r.font(12.0),
+                          fontSize: r.font(12.5),
                           fontWeight: FontWeight.w500,
-                          color: AppColors.tertiary,
+                          color: context.textSecondary,
                         ),
                       ),
                     ],
@@ -355,11 +338,11 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
                 ],
               ),
             ),
-            SizedBox(width: (r.width * 0.03).clamp(8.0, 14.0)),
+            SizedBox(width: (r.width * 0.04).clamp(12.0, 18.0)),
 
             Expanded(
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   // Column 1: Move & Mind
                   Expanded(
@@ -367,13 +350,15 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildLegendItem(
+                          context: context,
                           color: AppColors.movePillar,
                           label: 'Move',
                           score: widget.moveScore,
                           r: r,
                         ),
-                        SizedBox(height: dims.rowSpacing * 1.5),
+                        const SizedBox(height: 14.0),
                         _buildLegendItem(
+                          context: context,
                           color: AppColors.mindPillar,
                           label: 'Mind',
                           score: widget.mindScore,
@@ -389,13 +374,15 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _buildLegendItem(
+                          context: context,
                           color: AppColors.recoverPillar,
                           label: 'Recover',
                           score: widget.recoverScore,
                           r: r,
                         ),
-                        SizedBox(height: dims.rowSpacing * 1.5),
+                        const SizedBox(height: 14.0),
                         _buildLegendItem(
+                          context: context,
                           color: AppColors.fuelPillar,
                           label: 'Fuel',
                           score: widget.fuelScore,
@@ -405,12 +392,12 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
                     ),
                   ),
 
-                  // Chevron indicator
-                  const RotatedBox(
-                    quarterTurns: 3,
+                  // Upward chevron indicator
+                  const Padding(
+                    padding: EdgeInsets.only(left: 4.0),
                     child: Icon(
-                      Icons.arrow_forward_ios_outlined,
-                      size: 16.0,
+                      Icons.keyboard_arrow_up_rounded,
+                      size: 24.0,
                       color: AppColors.primarySkyAccent,
                     ),
                   ),
@@ -419,17 +406,11 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
             ),
           ],
         ),
-        SizedBox(height: dims.rowSpacing),
-
-        // Divider (Line 11 in Figma)
-        Container(
-          height: 1.0,
-          color: AppColors.tertiary.withValues(alpha: 0.15),
-        ),
-        SizedBox(height: dims.rowSpacing),
+        const SizedBox(height: 22.0),
 
         // 4 Pillar Breakdown Rows (Figma 60:289)
         _buildPillarRow(
+          context: context,
           score: widget.moveScore,
           scoreColor: AppColors.movePillar,
           title: 'Move',
@@ -437,8 +418,9 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
           insight: 'Movement is your weakest pillar today.',
           r: r,
         ),
-        SizedBox(height: dims.rowSpacing * 0.85),
+        const SizedBox(height: 16.0),
         _buildPillarRow(
+          context: context,
           score: widget.recoverScore,
           scoreColor: AppColors.recoverPillar,
           title: 'Recover',
@@ -446,8 +428,9 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
           insight: 'Short sleep is holding this down.',
           r: r,
         ),
-        SizedBox(height: dims.rowSpacing * 0.85),
+        const SizedBox(height: 16.0),
         _buildPillarRow(
+          context: context,
           score: widget.mindScore,
           scoreColor: AppColors.mindPillar,
           title: 'Mind',
@@ -455,8 +438,9 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
           insight: 'Stress load is elevated. Five minutes of breathing moves this.',
           r: r,
         ),
-        SizedBox(height: dims.rowSpacing * 0.85),
+        const SizedBox(height: 16.0),
         _buildPillarRow(
+          context: context,
           score: widget.fuelScore,
           scoreColor: AppColors.fuelPillar,
           title: 'Fuel',
@@ -464,23 +448,16 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
           insight: 'Hydration is the quickest win available to you.',
           r: r,
         ),
-        SizedBox(height: dims.rowSpacing),
-
-        // Divider (Line 31 in Figma)
-        Container(
-          height: 1.0,
-          color: AppColors.tertiary.withValues(alpha: 0.15),
-        ),
-        const SizedBox(height: 10.0),
+        const SizedBox(height: 20.0),
 
         // Footer explanation note (Figma 60:289)
         Text(
           'Your Wellness Score is the average of the four systems, recalculated as the day goes on. Drink water, finish a session or log a breathing exercise and watch it move.',
           style: GoogleFonts.plusJakartaSans(
-            fontSize: r.font(10.0),
+            fontSize: r.font(11.0),
             fontWeight: FontWeight.w400,
-            color: AppColors.tertiary,
-            height: 1.4,
+            color: context.textSecondary,
+            height: 1.45,
           ),
         ),
       ],
@@ -488,6 +465,7 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
   }
 
   Widget _buildLegendItem({
+    required BuildContext context,
     required Color color,
     required String label,
     required int score,
@@ -501,8 +479,8 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 8.0,
-              height: 8.0,
+              width: 7.0,
+              height: 7.0,
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
@@ -512,19 +490,19 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
             Text(
               label,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: r.font(12.0),
-                fontWeight: FontWeight.w400,
-                color: AppColors.secondary,
+                fontSize: r.font(13.0),
+                fontWeight: FontWeight.w500,
+                color: context.textPrimary,
               ),
             ),
           ],
         ),
         Padding(
-          padding: const EdgeInsets.only(left: 14.0),
+          padding: const EdgeInsets.only(left: 13.0, top: 2.0),
           child: Text(
             '$score',
             style: GoogleFonts.plusJakartaSans(
-              fontSize: r.font(14.0),
+              fontSize: r.font(15.0),
               fontWeight: FontWeight.w600,
               color: color,
             ),
@@ -535,6 +513,7 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
   }
 
   Widget _buildPillarRow({
+    required BuildContext context,
     required int score,
     required Color scoreColor,
     required String title,
@@ -561,29 +540,31 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
             Text(
               title,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: r.font(14.0),
-                fontWeight: FontWeight.w500,
-                color: AppColors.secondary,
+                fontSize: r.font(15.0),
+                fontWeight: FontWeight.w600,
+                color: context.textPrimary,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 5.0),
-        // Progress Bar
-        LinearProgressIndicator(
-          value: fraction,
-          minHeight: 3.0,
+        const SizedBox(height: 6.0),
+        ClipRRect(
           borderRadius: BorderRadius.circular(2.0),
-          backgroundColor: scoreColor.withValues(alpha: 0.15),
-          valueColor: AlwaysStoppedAnimation<Color>(scoreColor),
+          child: LinearProgressIndicator(
+            value: fraction,
+            minHeight: 3.5,
+            backgroundColor: scoreColor.withValues(alpha: 0.12),
+            valueColor: AlwaysStoppedAnimation<Color>(scoreColor),
+          ),
         ),
-        const SizedBox(height: 5.0),
+        const SizedBox(height: 6.0),
         Text(
           insight,
           style: GoogleFonts.plusJakartaSans(
-            fontSize: r.font(11.0),
+            fontSize: r.font(12.0),
             fontWeight: FontWeight.w400,
-            color: AppColors.tertiary,
+            color: context.textSecondary,
+            height: 1.35,
           ),
         ),
       ],

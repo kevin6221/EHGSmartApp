@@ -100,10 +100,10 @@ class ProfileMenuListingCard extends StatelessWidget {
                           height: 40.0,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: AppColors.systemCardBgLight,
+                            color: context.isDark ? AppColors.midnightBackground : AppColors.systemCardBgLight,
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: AppColors.systemCardBorder,
+                              color: context.cardBorder,
                               width: 1.0,
                             ),
                           ),
@@ -129,7 +129,7 @@ class ProfileMenuListingCard extends StatelessWidget {
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: r.font(14.0),
                                   fontWeight: FontWeight.w600,
-                                  color: AppColors.secondary,
+                                  color: context.textPrimary,
                                 ),
                               ),
                               const SizedBox(height: 2.0),
@@ -138,7 +138,7 @@ class ProfileMenuListingCard extends StatelessWidget {
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: r.font(11.5),
                                   fontWeight: FontWeight.w400,
-                                  color: AppColors.tertiary,
+                                  color: context.textSecondary,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -157,12 +157,12 @@ class ProfileMenuListingCard extends StatelessWidget {
                   ),
                 ),
                 if (!isLast)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 14.0),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14.0),
                     child: Divider(
                       height: 1.0,
                       thickness: 0.5,
-                      color: AppColors.profileDivider,
+                      color: context.cardBorder,
                     ),
                   ),
               ],

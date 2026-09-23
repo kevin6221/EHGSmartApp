@@ -76,11 +76,13 @@ class VitalsTwinTrendCards extends StatelessWidget {
                         children: [
                           Flexible(
                             child: Text(
-                              bloodPressure.isNotEmpty ? bloodPressure : '--/--',
+                              (bloodPressure.isNotEmpty && bloodPressure != '0/0' && bloodPressure != '--/--')
+                                  ? bloodPressure
+                                  : '--',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: r.font(25.0),
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.secondary,
+                                color: context.textPrimary,
                                 height: 1.1,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -99,7 +101,7 @@ class VitalsTwinTrendCards extends StatelessWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(13.0),
                           fontWeight: FontWeight.w400,
-                          color: AppColors.textSecondary,
+                          color: context.textSecondary,
                           height: 1.1,
                         ),
                       ),
@@ -144,7 +146,7 @@ class VitalsTwinTrendCards extends StatelessWidget {
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: r.font(25.0),
                                 fontWeight: FontWeight.w600,
-                                color: AppColors.secondary,
+                                color: context.textPrimary,
                                 height: 1.1,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -163,7 +165,7 @@ class VitalsTwinTrendCards extends StatelessWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(13.0),
                           fontWeight: FontWeight.w400,
-                          color: AppColors.tertiary,
+                          color: context.textSecondary,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),

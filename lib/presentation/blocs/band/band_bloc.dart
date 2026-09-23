@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../data/models/band_device_model.dart';
@@ -17,8 +18,11 @@ class BandBloc extends Bloc<BandEvent, BandState> {
   StreamSubscription<int>? _hrSubscription;
   StreamSubscription<BandBatteryInfo>? _batterySubscription;
   StreamSubscription<BandBluetoothState>? _btSubscription;
+  StreamSubscription<BandPedometerInfo>? _pedometerSubscription;
+  StreamSubscription<BandSyncedVitals>? _syncedVitalsSubscription;
 
-  BandBloc({required this.repository, this.wellnessBloc}) : super(const BandState()) {
+  BandBloc({required this.repository, this.wellnessBloc})
+      : super(BandState(lastSyncedVitals: repository.lastSyncedVitals)) {
     _initSubscriptions();
 
     on<StartBandScanEvent>(_onStartScan);
@@ -29,6 +33,8 @@ class BandBloc extends Bloc<BandEvent, BandState> {
     on<ConnectionStatusChangedEvent>(_onConnectionStatusChanged);
     on<LiveHeartRateUpdatedEvent>(_onLiveHeartRateUpdated);
     on<BatteryUpdatedEvent>(_onBatteryUpdated);
+    on<PedometerUpdatedEvent>(_onPedometerUpdated);
+    on<SyncedVitalsUpdatedEvent>(_onSyncedVitalsUpdated);
     on<StartLiveHeartRateEvent>(_onStartLiveHeartRate);
     on<StopLiveHeartRateEvent>(_onStopLiveHeartRate);
     on<FindBandEvent>(_onFindBand);
@@ -41,6 +47,17 @@ class BandBloc extends Bloc<BandEvent, BandState> {
     on<OpenLocationSettingsEvent>(_onOpenLocationSettings);
     on<BluetoothStateChangedEvent>(_onBluetoothStateChanged);
     on<PermissionDetailsUpdatedEvent>(_onPermissionDetailsUpdated);
+
+    // Wait for cached vitals to be restored from SQLite before propagating to state & wellnessBloc
+    repository.ensureInitialized().then((_) {
+      final cached = repository.lastSyncedVitals;
+      if (cached.steps > 0 ||
+          cached.calories > 0 ||
+          cached.stressLevel > 0 ||
+          cached.hrvMs > 0) {
+        add(SyncedVitalsUpdatedEvent(cached));
+      }
+    });
 
     // Initial check of permissions and bluetooth state
     add(CheckBandPermissionsEvent());
@@ -65,6 +82,12 @@ class BandBloc extends Bloc<BandEvent, BandState> {
 
     _btSubscription = repository.bluetoothStateStream.listen((btState) {
       add(BluetoothStateChangedEvent(btState));
+    });
+
+    // Pedometer real-time stream subscription removed as requested; steps/calories update on sync/init/hot-reload, Heart Rate remains real-time.
+
+    _syncedVitalsSubscription = repository.syncedVitalsStream.listen((vitals) {
+      add(SyncedVitalsUpdatedEvent(vitals));
     });
   }
 
@@ -109,6 +132,7 @@ class BandBloc extends Bloc<BandEvent, BandState> {
     Emitter<BandState> emit,
   ) async {
     await repository.requestEnableBluetooth();
+    await repository.openAppSettings();
   }
 
   Future<void> _onOpenLocationSettings(
@@ -123,13 +147,31 @@ class BandBloc extends Bloc<BandEvent, BandState> {
     Emitter<BandState> emit,
   ) {
     final isPoweredOn = event.state == BandBluetoothState.poweredOn;
-    final clearBtError = isPoweredOn && (state.errorMessage?.contains('Bluetooth') ?? false);
-    emit(state.copyWith(
-      bluetoothState: event.state,
-      clearError: clearBtError,
-    ));
-    if (isPoweredOn) {
+
+    if (!isPoweredOn) {
+      // Gracefully reset transient connection/scan states without losing paired device info
+      emit(state.copyWith(
+        bluetoothState: event.state,
+        status: BandConnectionStatus.disconnected,
+        liveHeartRate: 0,
+        isSyncingVitals: false,
+        permissionDetails: state.permissionDetails?.copyWith(isBluetoothEnabled: false),
+        clearError: false,
+        errorMessage: 'Bluetooth is turned OFF. Please enable Bluetooth from Control Center or Settings.',
+      ));
+    } else {
+      final clearBtError = (state.errorMessage?.contains('Bluetooth') ?? false) ||
+          (state.errorMessage?.contains('turned OFF') ?? false);
+      emit(state.copyWith(
+        bluetoothState: event.state,
+        permissionDetails: state.permissionDetails?.copyWith(isBluetoothEnabled: true),
+        clearError: clearBtError,
+      ));
       add(CheckBandPermissionsEvent());
+      // If we have a previously paired band, auto-reconnect gracefully
+      if (repository.lastPairedDevice != null && !state.isConnected) {
+        add(AutoReconnectBandEvent());
+      }
     }
   }
 
@@ -141,9 +183,14 @@ class BandBloc extends Bloc<BandEvent, BandState> {
   }
 
   Future<void> _onStartScan(StartBandScanEvent event, Emitter<BandState> emit) async {
-    // Senior approach: 1. Verify OS permissions authorization first
+    emit(state.copyWith(clearError: true));
     final perm = await repository.checkPermissions();
-    emit(state.copyWith(permissionDetails: perm));
+    emit(state.copyWith(
+      permissionDetails: perm,
+      bluetoothState: perm.isBluetoothEnabled
+          ? BandBluetoothState.poweredOn
+          : BandBluetoothState.poweredOff,
+    ));
 
     if (perm.status != BandPermissionStatus.granted) {
       if (perm.isPermanentlyDenied) {
@@ -174,6 +221,7 @@ class BandBloc extends Bloc<BandEvent, BandState> {
       emit(state.copyWith(
         status: BandConnectionStatus.disconnected,
         bluetoothState: BandBluetoothState.poweredOff,
+        permissionDetails: currentPerm,
         errorMessage: 'Bluetooth is turned OFF. Please enable Bluetooth to search for your band.',
       ));
       return;
@@ -258,18 +306,6 @@ class BandBloc extends Bloc<BandEvent, BandState> {
         connectedDevice: info,
         battery: repository.currentBattery,
       ));
-
-      // Trigger immediate health vitals synchronization upon successful connection
-      add(SyncVitalsEvent());
-
-      // Activate the PPG sensor (green LEDs) after a delay so the post-connect
-      // handshake commands (vibration, time sync, battery read) finish first.
-      // The native SDK uses a sequential command queue — overlapping causes drops.
-      Future.delayed(const Duration(seconds: 3), () {
-        if (!isClosed && state.status == BandConnectionStatus.connected) {
-          add(StartLiveHeartRateEvent());
-        }
-      });
     } else {
       final errorMsg = repository.lastConnectionError ??
           'Failed to connect to ${event.device.name}. Ensure it is charged, nearby, and unlinked from other apps (like QwatchPro).';
@@ -281,26 +317,39 @@ class BandBloc extends Bloc<BandEvent, BandState> {
   }
 
   Future<void> _onAutoReconnect(AutoReconnectBandEvent event, Emitter<BandState> emit) async {
+    if (state.status == BandConnectionStatus.connected ||
+        state.status == BandConnectionStatus.connecting) {
+      return;
+    }
+    emit(state.copyWith(
+      status: BandConnectionStatus.connecting,
+      clearError: true,
+    ));
     final success = await repository.tryAutoReconnect();
     if (success) {
+      final info = repository.currentConnectedDevice ??
+          (repository.lastPairedDevice != null
+              ? BandDeviceInfo(
+                  name: repository.lastPairedDevice!.name,
+                  id: repository.lastPairedDevice!.id,
+                  macAddress: repository.lastPairedDevice!.mac,
+                )
+              : null);
       emit(state.copyWith(
         status: BandConnectionStatus.connected,
-        connectedDevice: repository.currentConnectedDevice,
+        connectedDevice: info,
         battery: repository.currentBattery,
+        clearError: true,
       ));
-      add(SyncVitalsEvent());
-
-      // Activate the PPG sensor after post-connect handshake completes
-      Future.delayed(const Duration(seconds: 3), () {
-        if (!isClosed && state.status == BandConnectionStatus.connected) {
-          add(StartLiveHeartRateEvent());
-        }
-      });
+    } else {
+      if (state.status != BandConnectionStatus.connected) {
+        emit(state.copyWith(status: BandConnectionStatus.disconnected));
+      }
     }
   }
 
   Future<void> _onDisconnect(DisconnectBandEvent event, Emitter<BandState> emit) async {
-    await repository.disconnect();
+    await repository.disconnect(unpair: event.unpair);
     emit(state.copyWith(
       status: BandConnectionStatus.disconnected,
       clearConnectedDevice: true,
@@ -309,50 +358,97 @@ class BandBloc extends Bloc<BandEvent, BandState> {
   }
 
   void _onConnectionStatusChanged(ConnectionStatusChangedEvent event, Emitter<BandState> emit) {
-    emit(state.copyWith(status: event.status));
+    if (event.status == BandConnectionStatus.connected) {
+      final info = repository.currentConnectedDevice ??
+          (repository.lastPairedDevice != null
+              ? BandDeviceInfo(
+                  name: repository.lastPairedDevice!.name,
+                  id: repository.lastPairedDevice!.id,
+                  macAddress: repository.lastPairedDevice!.mac,
+                )
+              : null);
+      emit(state.copyWith(
+        status: BandConnectionStatus.connected,
+        connectedDevice: info,
+        battery: repository.currentBattery,
+        clearError: true,
+      ));
+    } else if (event.status == BandConnectionStatus.disconnected) {
+      emit(state.copyWith(
+        status: BandConnectionStatus.disconnected,
+        clearConnectedDevice: true,
+        liveHeartRate: 0,
+      ));
+    } else {
+      emit(state.copyWith(status: event.status));
+    }
   }
 
   void _onLiveHeartRateUpdated(LiveHeartRateUpdatedEvent event, Emitter<BandState> emit) {
+    debugPrint('💓 [BAND BLOC] Live Heart Rate updated from band: ${event.bpm} bpm');
     emit(state.copyWith(liveHeartRate: event.bpm));
-    wellnessBloc?.add(SyncBandVitalsEvent(
-      steps: state.lastSyncedVitals?.steps ?? 0,
-      calories: state.lastSyncedVitals?.calories ?? 0,
-      distance: state.lastSyncedVitals?.distance ?? 0,
-      sleepMinutes: state.lastSyncedVitals?.sleepMinutes ?? 0,
-      deepSleepMinutes: state.lastSyncedVitals?.deepSleepMinutes ?? 0,
-      liveHeartRate: event.bpm,
-    ));
   }
 
   void _onBatteryUpdated(BatteryUpdatedEvent event, Emitter<BandState> emit) {
+    debugPrint('🔋 [BAND BLOC] Battery level updated from band: ${event.battery}%');
     emit(state.copyWith(battery: event.battery));
   }
 
   Future<void> _onStartLiveHeartRate(StartLiveHeartRateEvent event, Emitter<BandState> emit) async {
+    debugPrint('▶️ [BAND BLOC] Requesting real-time heart rate / optical PPG activation');
     await repository.startRealtimeHeartRate();
   }
 
   Future<void> _onStopLiveHeartRate(StopLiveHeartRateEvent event, Emitter<BandState> emit) async {
+    debugPrint('⏹️ [BAND BLOC] Stopping real-time heart rate / optical PPG');
     await repository.stopRealtimeHeartRate();
     emit(state.copyWith(liveHeartRate: 0));
   }
 
   Future<void> _onFindBand(FindBandEvent event, Emitter<BandState> emit) async {
+    debugPrint('📳 [BAND BLOC] Triggering find band vibration command');
     await repository.findBand();
   }
 
   Future<void> _onSyncVitals(SyncVitalsEvent event, Emitter<BandState> emit) async {
+    if (state.isSyncingVitals || state.status != BandConnectionStatus.connected) {
+      return;
+    }
     emit(state.copyWith(isSyncingVitals: true));
     try {
+      debugPrint('🔄 [BAND BLOC] Starting full health data sync from band...');
       final vitals = await repository.syncFullHealthData();
-      emit(state.copyWith(lastSyncedVitals: vitals));
+      debugPrint('✅ [BAND BLOC] Health data sync complete! Synced:');
+      debugPrint('   • Steps: ${vitals.steps}, Calories: ${vitals.calories} kcal, Distance: ${vitals.distance} m');
+      debugPrint('   • Sleep: ${vitals.sleepMinutes} min (Deep: ${vitals.deepSleepMinutes} min)');
+      debugPrint('   • SpO2: ${vitals.bloodOxygen}%, BP: ${vitals.systolicBP}/${vitals.diastolicBP}, Temp: ${vitals.skinTemperature}°C');
+      debugPrint('   • Stress: ${vitals.stressLevel}, HRV: ${vitals.hrvMs} ms, Rest HR: ${vitals.restingHeartRate} bpm');
 
+      emit(state.copyWith(lastSyncedVitals: vitals));
       wellnessBloc?.add(SyncBandFullVitalsEvent(vitals));
     } finally {
       emit(state.copyWith(isSyncingVitals: false));
     }
   }
 
+
+  void _onPedometerUpdated(PedometerUpdatedEvent event, Emitter<BandState> emit) {
+    debugPrint('👟 [BAND BLOC] Pedometer update: ${event.pedometer.steps} steps, ${event.pedometer.calories} kcal, ${event.pedometer.distance} m');
+    final current = state.lastSyncedVitals ?? repository.lastSyncedVitals;
+    final updatedVitals = current.copyWith(
+      steps: event.pedometer.steps,
+      calories: event.pedometer.calories,
+      distance: event.pedometer.distance,
+    );
+    emit(state.copyWith(lastSyncedVitals: updatedVitals));
+    wellnessBloc?.add(SyncBandFullVitalsEvent(updatedVitals));
+  }
+
+  void _onSyncedVitalsUpdated(SyncedVitalsUpdatedEvent event, Emitter<BandState> emit) {
+    debugPrint('📊 [BAND BLOC] Synced vitals stream emitted (steps: ${event.vitals.steps}, cal: ${event.vitals.calories})');
+    emit(state.copyWith(lastSyncedVitals: event.vitals));
+    wellnessBloc?.add(SyncBandFullVitalsEvent(event.vitals));
+  }
 
   @override
   Future<void> close() {
@@ -361,6 +457,8 @@ class BandBloc extends Bloc<BandEvent, BandState> {
     _hrSubscription?.cancel();
     _batterySubscription?.cancel();
     _btSubscription?.cancel();
+    _pedometerSubscription?.cancel();
+    _syncedVitalsSubscription?.cancel();
     repository.dispose();
     return super.close();
   }

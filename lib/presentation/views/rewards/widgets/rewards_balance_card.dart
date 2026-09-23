@@ -14,16 +14,22 @@ class RewardsBalanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        gradient: AppGradients.rewardsBalanceCard,
+        color: context.isDark ? context.cardBackground : null,
+        gradient: context.isDark ? null : AppGradients.rewardsBalanceCard,
         borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: AppColors.rewardsTierCardBorder, width: 1.0),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.cardShadow,
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(
+          color: context.isDark ? context.cardBorder : AppColors.rewardsTierCardBorder,
+          width: 1.0,
+        ),
+        boxShadow: context.isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: AppColors.cardShadow,
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 18.0),
       child: Row(
@@ -49,7 +55,7 @@ class RewardsBalanceCard extends StatelessWidget {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: r.font(11.0),
                   fontWeight: FontWeight.w500,
-                  color: AppColors.tertiary,
+                  color: context.textSecondary,
                   letterSpacing: 0.8,
                 ),
               ),

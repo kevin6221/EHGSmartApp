@@ -34,7 +34,13 @@ class ConnectBandEvent extends BandEvent {
   List<Object?> get props => [device];
 }
 
-class DisconnectBandEvent extends BandEvent {}
+class DisconnectBandEvent extends BandEvent {
+  final bool unpair;
+  const DisconnectBandEvent({this.unpair = false});
+
+  @override
+  List<Object?> get props => [unpair];
+}
 
 class ConnectionStatusChangedEvent extends BandEvent {
   final BandConnectionStatus status;
@@ -58,6 +64,22 @@ class BatteryUpdatedEvent extends BandEvent {
 
   @override
   List<Object?> get props => [battery];
+}
+
+class PedometerUpdatedEvent extends BandEvent {
+  final BandPedometerInfo pedometer;
+  const PedometerUpdatedEvent(this.pedometer);
+
+  @override
+  List<Object?> get props => [pedometer];
+}
+
+class SyncedVitalsUpdatedEvent extends BandEvent {
+  final BandSyncedVitals vitals;
+  const SyncedVitalsUpdatedEvent(this.vitals);
+
+  @override
+  List<Object?> get props => [vitals];
 }
 
 class StartLiveHeartRateEvent extends BandEvent {}

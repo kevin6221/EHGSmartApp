@@ -25,10 +25,13 @@ class WardrobeOrderUnlockCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        gradient: AppGradients.membershipCard,
+        color: context.isDark ? AppColors.midnightSurface : null,
+        gradient: context.isDark ? null : AppGradients.membershipCard,
         borderRadius: BorderRadius.circular(16.0),
         border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.40),
+          color: context.isDark
+              ? AppColors.midnightBorder
+              : AppColors.primary.withValues(alpha: 0.40),
           width: 1.0,
         ),
         boxShadow: [
@@ -60,13 +63,16 @@ class WardrobeOrderUnlockCard extends StatelessWidget {
             fontSize: r.font(14.5),
             borderRadius: BorderRadius.circular(8.0),
             borderWidth: 0.3,
+            fillColor: context.inputFill,
+            activeFillColor: context.inputFill,
+            borderColor: context.inputBorder,
             textWeight: FontWeight.w600,
             activeTextWeight: FontWeight.w600,
-            textColor: AppColors.secondary,
-            activeTextColor: AppColors.secondary,
+            textColor: context.textPrimary,
+            activeTextColor: context.textPrimary,
             hintStyle: GoogleFonts.plusJakartaSans(
               fontSize: r.font(12.0),
-              color: AppColors.textSecondary,
+              color: context.textMuted,
             ),
           ),
           const SizedBox(height: 12.0),
@@ -100,7 +106,7 @@ class WardrobeOrderUnlockCard extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(11.0),
               fontWeight: FontWeight.w400,
-              color: AppColors.tertiary,
+              color: context.textSecondary,
               height: 1.4,
             ),
           ),

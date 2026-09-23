@@ -84,7 +84,7 @@ class HomeModeSelector extends StatelessWidget {
                     style: GoogleFonts.plusJakartaSans(
                       color: isSelected
                           ? AppColors.primary
-                          : AppColors.textMuted,
+                          : context.textSecondary,
                       fontWeight: isSelected
                           ? FontWeight.w600
                           : FontWeight.w400,

@@ -22,11 +22,12 @@ class RewardsPiecesSection extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(14.0),
               fontWeight: FontWeight.w600,
-              color: AppColors.secondary,
+              color: context.textPrimary,
             ),
           ),
           const SizedBox(height: 14.0),
           _buildPieceEarningItem(
+            context: context,
             r: r,
             title: 'High Rise Flared Yoga Pants',
             tier: 'BRONZE',
@@ -35,6 +36,7 @@ class RewardsPiecesSection extends StatelessWidget {
           ),
           const SizedBox(height: 12.0),
           _buildPieceEarningItem(
+            context: context,
             r: r,
             title: 'Heavyweight Tank Top',
             tier: 'BRONZE',
@@ -47,6 +49,7 @@ class RewardsPiecesSection extends StatelessWidget {
   }
 
   Widget _buildPieceEarningItem({
+    required BuildContext context,
     required Responsive r,
     required String title,
     required String tier,
@@ -55,11 +58,12 @@ class RewardsPiecesSection extends StatelessWidget {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: context.cardBackground,
         borderRadius: BorderRadius.circular(12.0),
+        border: Border.all(color: context.cardBorder, width: 0.8),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
+            color: Colors.black.withValues(alpha: context.isDark ? 0.2 : 0.03),
             offset: const Offset(0, 4),
             blurRadius: 8,
             spreadRadius: 0,
@@ -79,7 +83,7 @@ class RewardsPiecesSection extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(12.0),
                     fontWeight: FontWeight.w600,
-                    color: AppColors.secondary,
+                    color: context.textPrimary,
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
@@ -100,7 +104,7 @@ class RewardsPiecesSection extends StatelessWidget {
           const SizedBox(height: 10.0),
           LinearProgressIndicator(
             value: progress,
-            backgroundColor: AppColors.surfaceVariant,
+            backgroundColor: context.isDark ? AppColors.midnightBorder : AppColors.surfaceVariant,
             color: AppColors.cyanLight,
             minHeight: 2.0,
             borderRadius: BorderRadius.circular(3.0),
@@ -111,7 +115,7 @@ class RewardsPiecesSection extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(10.0),
               fontWeight: FontWeight.w400,
-              color: AppColors.tertiary,
+              color: context.textSecondary,
             ),
           ),
         ],

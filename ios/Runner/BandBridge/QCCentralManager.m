@@ -171,8 +171,8 @@ static NSInteger const QCBleDefaultConnectTimeout = 6;
     [self stopTimer];
     [self connectCurrentPeripheral];
     
-    // Schedule one-shot connection timeout timer
-    self.reconTimer = [NSTimer scheduledTimerWithTimeInterval:self.connectTimeout target:self selector:@selector(stopConnectFinishTimer:) userInfo:nil repeats:NO];
+    // Official SDK: repeating timer to continuously re-attempt connection until successful
+    self.reconTimer = [NSTimer scheduledTimerWithTimeInterval:self.connectTimeout target:self selector:@selector(connectCurrentPeripheral) userInfo:nil repeats:YES];
     [[NSRunLoop currentRunLoop] addTimer:self.reconTimer forMode:NSRunLoopCommonModes];
 }
 
@@ -187,9 +187,15 @@ static NSInteger const QCBleDefaultConnectTimeout = 6;
         [self centralManager:_centerManager didConnectPeripheral:lastPer];
         return;
     }
-    NSDictionary *options = @{
-        CBConnectPeripheralOptionNotifyOnDisconnectionKey: @(YES)
-    };
+    NSMutableDictionary *options = [NSMutableDictionary new];
+    [options setValue:@(YES) forKey:CBConnectPeripheralOptionNotifyOnDisconnectionKey];
+    if (@available(iOS 13.0, *)) {
+        [options setValue:@(YES) forKey:CBConnectPeripheralOptionEnableTransportBridgingKey];
+        if (self.deviceType != QCDeviceTypeRing) {
+            // Be sure to use the following method to initialize, otherwise the ancs agent will not be executed
+            [options setValue:@(YES) forKey:CBConnectPeripheralOptionRequiresANCS];
+        }
+    }
     [_centerManager connectPeripheral:lastPer options:options];
 }
 
@@ -216,9 +222,7 @@ static NSInteger const QCBleDefaultConnectTimeout = 6;
 - (void)startToReconnect{
     
     if (self.bleState != QCBluetoothStatePoweredOn) {
-        if(self.delegate && [self.delegate respondsToSelector:@selector(didFailConnected:error:)]) {
-            [self.delegate didFailConnected:self.connectedPeripheral error:[NSError errorWithDomain:@"Bluetooth powered off" code:-1 userInfo:@{@"message":@"Bluetooth powered off"}]];
-        }
+        NSLog(@"[QCCentralManager] Bluetooth is not powered on (%ld), pausing reconnect until Bluetooth is powered on.", (long)self.bleState);
         return;
     }
     
@@ -431,8 +435,12 @@ static NSInteger const QCBleDefaultConnectTimeout = 6;
         self.deviceState = QCStateUnbind;
         self.connectedPeripheral = nil;
     } else {
+        // Official SDK: Persistent auto-reconnect for bound device
         [[QCSDKManager shareInstance] removeAllPeripheral];
-        self.deviceState = QCStateDisconnected;
+        self.deviceState = QCStateConnecting;
+        if (self.bleState == QCBluetoothStatePoweredOn) {
+            [self startToReconnect];
+        }
     }
 }
 

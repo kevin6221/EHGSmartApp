@@ -43,18 +43,21 @@ class ProfileAppearanceCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildRadioOption(
+                context: context,
                 label: 'Midnight',
                 isSelected: appearance == AppearanceTheme.midnight,
                 onTap: () => onAppearanceChanged(AppearanceTheme.midnight),
                 fontSize: r.font(12.0),
               ),
               _buildRadioOption(
+                context: context,
                 label: 'Day Light',
                 isSelected: appearance == AppearanceTheme.dayLight,
                 onTap: () => onAppearanceChanged(AppearanceTheme.dayLight),
                 fontSize: r.font(12.0),
               ),
               _buildRadioOption(
+                context: context,
                 label: 'System',
                 isSelected: appearance == AppearanceTheme.system,
                 onTap: () => onAppearanceChanged(AppearanceTheme.system),
@@ -80,12 +83,14 @@ class ProfileAppearanceCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildRadioOption(
+                context: context,
                 label: 'Metric KM, KG',
                 isSelected: unitSystem == UnitSystem.metric,
                 onTap: () => onUnitSystemChanged(UnitSystem.metric),
                 fontSize: r.font(12.0),
               ),
               _buildRadioOption(
+                context: context,
                 label: 'Imperial MI, LB',
                 isSelected: unitSystem == UnitSystem.imperial,
                 onTap: () => onUnitSystemChanged(UnitSystem.imperial),
@@ -99,11 +104,13 @@ class ProfileAppearanceCard extends StatelessWidget {
   }
 
   Widget _buildRadioOption({
+    required BuildContext context,
     required String label,
     required bool isSelected,
     required VoidCallback onTap,
     required double fontSize,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -117,7 +124,9 @@ class ProfileAppearanceCard extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isSelected ? AppColors.primary : AppColors.borderLight,
+                  color: isSelected
+                      ? AppColors.primary
+                      : (isDark ? AppColors.midnightBorder : AppColors.borderLight),
                   width: 1.0,
                 ),
               ),
@@ -138,7 +147,7 @@ class ProfileAppearanceCard extends StatelessWidget {
               child: Text(
                 label,
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppColors.secondary,
+                  color: isDark ? AppColors.midnightTextPrimary : AppColors.secondary,
                   fontWeight: isSelected ? FontWeight.w500 : FontWeight.w400,
                   fontSize: fontSize,
                 ),

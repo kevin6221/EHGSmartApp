@@ -30,7 +30,7 @@ class WardrobeSectionHeader extends StatelessWidget {
           style: GoogleFonts.plusJakartaSans(
             fontSize: r.font(14.0),
             fontWeight: FontWeight.w600,
-            color: AppColors.secondary,
+            color: context.textPrimary,
           ),
         ),
         Text(

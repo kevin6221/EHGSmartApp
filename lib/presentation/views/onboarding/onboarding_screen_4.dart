@@ -6,9 +6,12 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_icons.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../core/security/secure_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
 import '../../blocs/onboarding/onboarding_cubit.dart';
+import '../../blocs/profile/profile_bloc.dart';
+import '../../blocs/profile/profile_event.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/onboarding/onboarding_progress_bar.dart';
 
@@ -31,10 +34,32 @@ class _OnboardingScreen4State extends State<OnboardingScreen4> {
   @override
   void initState() {
     super.initState();
-    _selectedAge = ValueNotifier<int>(_defaultAge);
+    final cubitAge = context.read<OnboardingCubit>().state.userAge;
+    final profileAge = context.read<ProfileBloc>().state.data?.age;
+    final initialAge = (cubitAge > 0 && cubitAge != _defaultAge)
+        ? cubitAge
+        : (profileAge != null && profileAge > 0 ? profileAge : _defaultAge);
+
+    _selectedAge = ValueNotifier<int>(initialAge);
     _scrollController = FixedExtentScrollController(
-      initialItem: _defaultAge - _minAge,
+      initialItem: (initialAge - _minAge).clamp(0, _maxAge - _minAge),
     );
+
+    SecureStorageService().getUserAge().then((savedAge) {
+      if (mounted &&
+          savedAge != null &&
+          savedAge >= _minAge &&
+          savedAge <= _maxAge) {
+        if (_selectedAge.value != savedAge) {
+          _selectedAge.value = savedAge;
+          _scrollController
+              .jumpToItem((savedAge - _minAge).clamp(0, _maxAge - _minAge));
+          try {
+            context.read<OnboardingCubit>().setUserAge(savedAge);
+          } catch (_) {}
+        }
+      }
+    });
   }
 
   @override
@@ -46,7 +71,10 @@ class _OnboardingScreen4State extends State<OnboardingScreen4> {
 
   void _onContinuePressed() {
     try {
-      context.read<OnboardingCubit>().setUserAge(_selectedAge.value);
+      final age = _selectedAge.value;
+      context.read<OnboardingCubit>().setUserAge(age);
+      SecureStorageService().saveUserAge(age);
+      context.read<ProfileBloc>().add(UpdateAgeEvent(age));
     } catch (_) {}
     Navigator.pushNamed(context, AppRoutes.onboarding5);
   }
@@ -57,13 +85,15 @@ class _OnboardingScreen4State extends State<OnboardingScreen4> {
     final screenWidth = r.width;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
+      value: SystemUiOverlayStyle(
         statusBarColor: AppColors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
+        statusBarIconBrightness:
+            context.isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness:
+            context.isDark ? Brightness.dark : Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -98,7 +128,7 @@ class _OnboardingScreen4State extends State<OnboardingScreen4> {
                               fontWeight: FontWeight.w700,
                               height: 38.0 / 30.0,
                               letterSpacing: -0.39,
-                              color: AppColors.textPrimary,
+                              color: context.textPrimary,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -112,7 +142,7 @@ class _OnboardingScreen4State extends State<OnboardingScreen4> {
                               fontWeight: FontWeight.w400,
                               height: 25.6 / 16.0,
                               letterSpacing: 0.0,
-                              color: AppColors.textSecondary,
+                              color: context.textSecondary,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -131,10 +161,14 @@ class _OnboardingScreen4State extends State<OnboardingScreen4> {
                                 Container(
                                   height: _itemExtent,
                                   decoration: BoxDecoration(
-                                    color: AppColors.inputFilledBackground,
+                                    color: context.isDark
+                                        ? context.cardBackground
+                                        : AppColors.inputFilledBackground,
                                     borderRadius: BorderRadius.circular(16.0),
                                     border: Border.all(
-                                      color: AppColors.primary,
+                                      color: context.isDark
+                                          ? context.cardBorder
+                                          : AppColors.primary,
                                       width: 1.0,
                                     ),
                                   ),
@@ -229,7 +263,7 @@ class _OnboardingScreen4State extends State<OnboardingScreen4> {
                                     style: GoogleFonts.plusJakartaSans(
                                       fontSize: 14.0,
                                       fontWeight: FontWeight.w500,
-                                      color: AppColors.textPrimary,
+                                      color: context.textPrimary,
                                     ),
                                   ),
                                 ],
@@ -252,7 +286,7 @@ class _OnboardingScreen4State extends State<OnboardingScreen4> {
                               fontSize: 12.0,
                               fontWeight: FontWeight.w400,
                               height: 19.2 / 12.0,
-                              color: AppColors.textSecondary,
+                              color: context.textSecondary,
                             ),
                             textAlign: TextAlign.center,
                           ),

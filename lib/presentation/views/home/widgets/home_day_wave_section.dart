@@ -29,7 +29,7 @@ class HomeDayWaveSection extends StatelessWidget {
           style: GoogleFonts.plusJakartaSans(
             fontSize: r.font(16.0),
             fontWeight: FontWeight.w700,
-            color: AppColors.secondary,
+            color: context.textPrimary,
           ),
         ),
         const SizedBox(height: 12.0),

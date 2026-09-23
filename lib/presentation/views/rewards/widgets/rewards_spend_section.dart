@@ -22,7 +22,7 @@ class RewardsSpendSection extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(14.0),
               fontWeight: FontWeight.w600,
-              color: AppColors.secondary,
+              color: context.textPrimary,
             ),
           ),
           const SizedBox(height: 8.0),
@@ -31,7 +31,7 @@ class RewardsSpendSection extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(10.0),
               fontWeight: FontWeight.w500,
-              color: AppColors.tertiary,
+              color: context.textSecondary,
               height: 1.4,
             ),
           ),
@@ -39,9 +39,12 @@ class RewardsSpendSection extends StatelessWidget {
           // 800 - Activewear piece
           Container(
             decoration: BoxDecoration(
-              color: AppColors.white,
+              color: context.cardBackground,
               borderRadius: BorderRadius.circular(8.0),
-              border: Border.all(color: AppColors.primary, width: 0.5),
+              border: Border.all(
+                color: context.isDark ? context.cardBorder : AppColors.primary,
+                width: 0.5,
+              ),
             ),
             padding: const EdgeInsets.symmetric(
               horizontal: 16.0,
@@ -54,7 +57,7 @@ class RewardsSpendSection extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(14.0),
                     fontWeight: FontWeight.w600,
-                    color: AppColors.secondary,
+                    color: context.textPrimary,
                   ),
                 ),
                 Expanded(
@@ -65,7 +68,7 @@ class RewardsSpendSection extends StatelessWidget {
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: r.font(12.0),
                         fontWeight: FontWeight.w400,
-                        color: AppColors.tertiary,
+                        color: context.textSecondary,
                       ),
                     ),
                   ),
@@ -96,10 +99,10 @@ class RewardsSpendSection extends StatelessWidget {
           // 1200 - Free UK delivery (Redeemed)
           Container(
             decoration: BoxDecoration(
-              color: AppColors.white,
+              color: context.cardBackground,
               borderRadius: BorderRadius.circular(8.0),
               border: Border.all(
-                color: AppColors.rewardsRedeemedBorder,
+                color: context.isDark ? context.cardBorder : AppColors.rewardsRedeemedBorder,
                 width: 0.5,
               ),
             ),
@@ -114,7 +117,7 @@ class RewardsSpendSection extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(14.0),
                     fontWeight: FontWeight.w600,
-                    color: AppColors.secondary,
+                    color: context.textPrimary,
                   ),
                 ),
                 Expanded(
@@ -125,7 +128,7 @@ class RewardsSpendSection extends StatelessWidget {
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: r.font(12.0),
                         fontWeight: FontWeight.w400,
-                        color: AppColors.tertiary,
+                        color: context.textSecondary,
                       ),
                     ),
                   ),

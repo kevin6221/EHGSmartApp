@@ -65,6 +65,7 @@ class VitalsSleepSummaryCard extends StatelessWidget {
                 child: Text(
                   'Last night Sleep Summary',
                   style: AppTypography.titleMedium.copyWith(
+                    color: context.textPrimary,
                     fontWeight: FontWeight.w600,
                     fontSize: r.font(16),
                   ),
@@ -81,6 +82,7 @@ class VitalsSleepSummaryCard extends StatelessWidget {
                 child: Text(
                   totalSleep,
                   style: AppTypography.displayMedium.copyWith(
+                    color: context.textPrimary,
                     fontSize: r.font(18),
                     fontWeight: FontWeight.w700,
                   ),
@@ -91,7 +93,7 @@ class VitalsSleepSummaryCard extends StatelessWidget {
                 child: Text(
                   sleepWindow,
                   style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
+                    color: context.textSecondary,
                     fontWeight: FontWeight.w500,
                     fontSize: r.font(14),
                   ),

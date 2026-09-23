@@ -15,9 +15,13 @@ class RewardsTierCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        gradient: AppGradients.rewardsTierCard,
+        color: context.isDark ? context.cardBackground : null,
+        gradient: context.isDark ? null : AppGradients.rewardsTierCard,
         borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: AppColors.rewardsTierCardBorder, width: 1.0),
+        border: Border.all(
+          color: context.isDark ? context.cardBorder : AppColors.rewardsTierCardBorder,
+          width: 1.0,
+        ),
       ),
       padding: const EdgeInsets.all(20.0),
       child: Column(
@@ -35,7 +39,7 @@ class RewardsTierCard extends StatelessWidget {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: r.font(14.0),
                       fontWeight: FontWeight.w600,
-                      color: AppColors.secondary,
+                      color: context.textPrimary,
                     ),
                   ),
                   const SizedBox(width: 6.0),
@@ -63,7 +67,7 @@ class RewardsTierCard extends StatelessWidget {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: r.font(10.0),
                   fontWeight: FontWeight.w500,
-                  color: AppColors.tertiary,
+                  color: context.textSecondary,
                 ),
               ),
             ],
@@ -71,7 +75,7 @@ class RewardsTierCard extends StatelessWidget {
           const SizedBox(height: 14.0),
           LinearProgressIndicator(
             value: 0.35,
-            backgroundColor: AppColors.white,
+            backgroundColor: context.isDark ? AppColors.midnightBorder : AppColors.white,
             color: AppColors.primary,
             minHeight: 3.0,
             borderRadius: BorderRadius.circular(4.0),
@@ -82,12 +86,12 @@ class RewardsTierCard extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(12.0),
               fontWeight: FontWeight.w500,
-              color: AppColors.secondary,
+              color: context.textPrimary,
             ),
           ),
           const SizedBox(height: 14.0),
-          const DottedDivider(
-            color: AppColors.secondary,
+          DottedDivider(
+            color: context.cardBorder,
             dashWidth: 3.0,
             dashSpace: 3.0,
             thickness: 0.5,
@@ -98,7 +102,7 @@ class RewardsTierCard extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(10.0),
               fontWeight: FontWeight.w500,
-              color: AppColors.tertiary,
+              color: context.textSecondary,
               height: 1.4,
             ),
           ),

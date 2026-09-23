@@ -26,67 +26,59 @@ class ProfileBloc extends Bloc<ProfileEvent, ProfileState> {
     });
 
     on<UpdateUsernameEvent>((event, emit) async {
-      if (state.data != null) {
-        final updated = state.data!.copyWith(username: event.username);
-        emit(state.copyWith(data: updated));
-        await repository.saveUserProfile(updated);
-      }
+      final current = state.data ?? repository.getUserProfile();
+      final updated = current.copyWith(username: event.username);
+      emit(state.copyWith(data: updated, status: ProfileStatus.loaded));
+      await repository.saveUserProfile(updated);
     });
 
-    on<UpdateAppearanceEvent>((event, emit) {
-      if (state.data != null) {
-        emit(
-          state.copyWith(data: state.data!.copyWith(appearance: event.theme)),
-        );
-      }
+    on<UpdateAppearanceEvent>((event, emit) async {
+      final current = state.data ?? repository.getUserProfile();
+      final updated = current.copyWith(appearance: event.theme);
+      emit(state.copyWith(data: updated, status: ProfileStatus.loaded));
+      await repository.saveUserProfile(updated);
     });
 
-    on<UpdateUnitSystemEvent>((event, emit) {
-      if (state.data != null) {
-        emit(
-          state.copyWith(
-            data: state.data!.copyWith(unitSystem: event.unitSystem),
-          ),
-        );
-      }
+    on<UpdateUnitSystemEvent>((event, emit) async {
+      final current = state.data ?? repository.getUserProfile();
+      final updated = current.copyWith(unitSystem: event.unitSystem);
+      emit(state.copyWith(data: updated, status: ProfileStatus.loaded));
+      await repository.saveUserProfile(updated);
     });
 
-    on<ToggleNotificationEvent>((event, emit) {
-      if (state.data != null) {
-        final current = state.data!;
-        UserProfileModel updated = current;
-        switch (event.key) {
-          case 'dailyPlan':
-            updated = current.copyWith(dailyPlanReminder: event.value);
-            break;
-          case 'hydration':
-            updated = current.copyWith(hydrationNudges: event.value);
-            break;
-          case 'journey':
-            updated = current.copyWith(journeyDays: event.value);
-            break;
-          case 'sleep':
-            updated = current.copyWith(sleepWindDown: event.value);
-            break;
-        }
-        emit(state.copyWith(data: updated));
+    on<ToggleNotificationEvent>((event, emit) async {
+      final current = state.data ?? repository.getUserProfile();
+      UserProfileModel updated = current;
+      switch (event.key) {
+        case 'dailyPlan':
+          updated = current.copyWith(dailyPlanReminder: event.value);
+          break;
+        case 'hydration':
+          updated = current.copyWith(hydrationNudges: event.value);
+          break;
+        case 'journey':
+          updated = current.copyWith(journeyDays: event.value);
+          break;
+        case 'sleep':
+          updated = current.copyWith(sleepWindDown: event.value);
+          break;
       }
+      emit(state.copyWith(data: updated, status: ProfileStatus.loaded));
+      await repository.saveUserProfile(updated);
     });
 
     on<UpdateAgeEvent>((event, emit) async {
-      if (state.data != null) {
-        final updated = state.data!.copyWith(age: event.age);
-        emit(state.copyWith(data: updated));
-        await repository.saveUserProfile(updated);
-      }
+      final current = state.data ?? repository.getUserProfile();
+      final updated = current.copyWith(age: event.age);
+      emit(state.copyWith(data: updated, status: ProfileStatus.loaded));
+      await repository.saveUserProfile(updated);
     });
 
     on<UpdateWeightEvent>((event, emit) async {
-      if (state.data != null) {
-        final updated = state.data!.copyWith(weight: event.weight);
-        emit(state.copyWith(data: updated));
-        await repository.saveUserProfile(updated);
-      }
+      final current = state.data ?? repository.getUserProfile();
+      final updated = current.copyWith(weight: event.weight);
+      emit(state.copyWith(data: updated, status: ProfileStatus.loaded));
+      await repository.saveUserProfile(updated);
     });
   }
 }

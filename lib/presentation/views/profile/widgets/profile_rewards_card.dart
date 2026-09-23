@@ -59,7 +59,7 @@ class ProfileRewardsCard extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontWeight: FontWeight.w600,
                     fontSize: r.font(14.0),
-                    color: AppColors.secondary,
+                    color: context.textPrimary,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -99,7 +99,7 @@ class ProfileRewardsCard extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(12.0),
               fontWeight: FontWeight.w400,
-              color: AppColors.tertiary,
+              color: context.textSecondary,
             ),
           ),
         ],

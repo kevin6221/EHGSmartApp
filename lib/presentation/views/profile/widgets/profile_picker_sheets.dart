@@ -28,9 +28,9 @@ Future<void> showAgePickerSheet(
         top: false,
         child: Container(
           height: 310.0,
-          decoration: const BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24.0)),
+          decoration: BoxDecoration(
+            color: ctx.cardBackground,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -42,7 +42,7 @@ Future<void> showAgePickerSheet(
                   width: 36.0,
                   height: 4.0,
                   decoration: BoxDecoration(
-                    color: AppColors.border,
+                    color: ctx.cardBorder,
                     borderRadius: BorderRadius.circular(2.0),
                   ),
                 ),
@@ -59,7 +59,7 @@ Future<void> showAgePickerSheet(
                       child: Text(
                         'Cancel',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppColors.tertiary,
+                          color: ctx.textSecondary,
                           fontSize: 15.0,
                           fontWeight: FontWeight.w400,
                         ),
@@ -69,7 +69,7 @@ Future<void> showAgePickerSheet(
                   middle: Text(
                     'Select Age',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppColors.secondary,
+                      color: ctx.textPrimary,
                       fontSize: 16.0,
                       fontWeight: FontWeight.w600,
                     ),
@@ -94,7 +94,7 @@ Future<void> showAgePickerSheet(
                   ),
                 ),
               ),
-              const Divider(height: 1.0, color: AppColors.border),
+              Divider(height: 1.0, color: ctx.cardBorder),
 
               // Wheel Scroll View
               Expanded(
@@ -106,7 +106,7 @@ Future<void> showAgePickerSheet(
                       height: itemExtent,
                       margin: const EdgeInsets.symmetric(horizontal: 24.0),
                       decoration: BoxDecoration(
-                        color: AppColors.profileInputFill,
+                        color: ctx.inputFill,
                         borderRadius: BorderRadius.circular(12.0),
                         border: Border.all(
                           color: AppColors.primary,
@@ -137,7 +137,7 @@ Future<void> showAgePickerSheet(
 
                               double fontSize = 14.0;
                               FontWeight fontWeight = FontWeight.w400;
-                              Color color = AppColors.tertiary;
+                              Color color = ctx.textSecondary;
 
                               if (isSelected) {
                                 fontSize = 20.0;
@@ -146,7 +146,7 @@ Future<void> showAgePickerSheet(
                               } else if (distance == 1) {
                                 fontSize = 16.0;
                                 fontWeight = FontWeight.w500;
-                                color = AppColors.secondary;
+                                color = ctx.textPrimary;
                               }
 
                               return Center(
@@ -202,9 +202,9 @@ Future<void> showWeightPickerSheet(
         top: false,
         child: Container(
           height: 310.0,
-          decoration: const BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24.0)),
+          decoration: BoxDecoration(
+            color: ctx.cardBackground,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24.0)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -216,7 +216,7 @@ Future<void> showWeightPickerSheet(
                   width: 36.0,
                   height: 4.0,
                   decoration: BoxDecoration(
-                    color: AppColors.border,
+                    color: ctx.cardBorder,
                     borderRadius: BorderRadius.circular(2.0),
                   ),
                 ),
@@ -233,7 +233,7 @@ Future<void> showWeightPickerSheet(
                       child: Text(
                         'Cancel',
                         style: GoogleFonts.plusJakartaSans(
-                          color: AppColors.tertiary,
+                          color: ctx.textSecondary,
                           fontSize: 15.0,
                           fontWeight: FontWeight.w400,
                         ),
@@ -243,7 +243,7 @@ Future<void> showWeightPickerSheet(
                   middle: Text(
                     'Select Weight',
                     style: GoogleFonts.plusJakartaSans(
-                      color: AppColors.secondary,
+                      color: ctx.textPrimary,
                       fontSize: 16.0,
                       fontWeight: FontWeight.w600,
                     ),
@@ -268,7 +268,7 @@ Future<void> showWeightPickerSheet(
                   ),
                 ),
               ),
-              const Divider(height: 1.0, color: AppColors.border),
+              Divider(height: 1.0, color: ctx.cardBorder),
 
               // Wheel Scroll View
               Expanded(
@@ -280,7 +280,7 @@ Future<void> showWeightPickerSheet(
                       height: itemExtent,
                       margin: const EdgeInsets.symmetric(horizontal: 24.0),
                       decoration: BoxDecoration(
-                        color: AppColors.profileInputFill,
+                        color: ctx.inputFill,
                         borderRadius: BorderRadius.circular(12.0),
                         border: Border.all(
                           color: AppColors.primary,
@@ -311,7 +311,7 @@ Future<void> showWeightPickerSheet(
 
                               double fontSize = 14.0;
                               FontWeight fontWeight = FontWeight.w400;
-                              Color color = AppColors.tertiary;
+                              Color color = ctx.textSecondary;
 
                               if (isSelected) {
                                 fontSize = 20.0;
@@ -320,7 +320,7 @@ Future<void> showWeightPickerSheet(
                               } else if (distance == 1) {
                                 fontSize = 16.0;
                                 fontWeight = FontWeight.w500;
-                                color = AppColors.secondary;
+                                color = ctx.textPrimary;
                               }
 
                               return Center(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../models/band_device_model.dart';
@@ -22,6 +23,8 @@ class NativeBandService implements BandService {
       StreamController<BandBatteryInfo>.broadcast();
   final StreamController<BandMeasurementResult> _measurementResultController =
       StreamController<BandMeasurementResult>.broadcast();
+  final StreamController<BandPedometerInfo> _pedometerController =
+      StreamController<BandPedometerInfo>.broadcast();
   final StreamController<BandBluetoothState> _bluetoothStateController =
       StreamController<BandBluetoothState>.broadcast();
 
@@ -48,10 +51,12 @@ class NativeBandService implements BandService {
     if (event is! Map) return;
 
     final String type = event['type']?.toString() ?? '';
+    debugPrint('⌚️ [BAND RAW EVENT] Type: "$type" | Data: $event');
 
     switch (type) {
       case 'connection_state':
         final stateStr = event['state']?.toString() ?? '';
+        debugPrint('🔌 [BAND CONNECTION STATE] State: $stateStr (Device: ${event['name'] ?? 'Unknown'}, ID: ${event['id'] ?? ''})');
         if (stateStr == 'connected') {
           _status = BandConnectionStatus.connected;
           _connectionStatusController.add(BandConnectionStatus.connected);
@@ -82,11 +87,13 @@ class NativeBandService implements BandService {
               _currentDiscovered.add(DiscoveredBandDevice.fromMap(d));
             }
           }
+          debugPrint('🔍 [BAND SCAN] Discovered ${_currentDiscovered.length} band(s): ${_currentDiscovered.map((b) => '${b.name} (${b.id})').join(', ')}');
           _discoveredDevicesController.add(List.unmodifiable(_currentDiscovered));
         }
         break;
 
       case 'scan_finished':
+        debugPrint('🔍 [BAND SCAN] Scan completed/stopped');
         if (_status == BandConnectionStatus.scanning) {
           _status = BandConnectionStatus.disconnected;
           _connectionStatusController.add(BandConnectionStatus.disconnected);
@@ -96,33 +103,48 @@ class NativeBandService implements BandService {
       case 'live_heart_rate':
         final bpm = (event['bpm'] as num?)?.toInt();
         if (bpm != null && bpm > 0) {
+          debugPrint('💓 [BAND DATA - LIVE HEART RATE] $bpm BPM (optical PPG)');
           _liveHeartRateController.add(bpm);
         }
         break;
 
       case 'battery_update':
-        _batteryController.add(BandBatteryInfo.fromMap(event));
+        final batInfo = BandBatteryInfo.fromMap(event);
+        debugPrint('🔋 [BAND DATA - BATTERY] ${batInfo.percentage}% (charging: ${batInfo.isCharging})');
+        _batteryController.add(batInfo);
         break;
 
       case 'measurement_result':
+        debugPrint('🩺 [BAND DATA - MEASUREMENT RESULT] Type: ${event['measureType']} | HR: ${event['hr']} | SpO2: ${event['spo2']} | BP: ${event['sbp']}/${event['dbp']} | Temp: ${event['temperature']} | Stress: ${event['stress']} | HRV: ${event['hrv']}');
         _handleMeasurementResult(event);
         break;
 
       case 'measurement_fail':
         final measTypeStr = event['measureType']?.toString() ?? '';
+        final errorMsg = event['error']?.toString() ?? 'Measurement failed';
+        debugPrint('⚠️ [BAND DATA - MEASUREMENT FAILED] Type: $measTypeStr | Error: $errorMsg');
         _measurementResultController.add(BandMeasurementResult(
           type: _parseMeasurementType(measTypeStr),
           success: false,
-          error: event['error']?.toString() ?? 'Measurement failed',
+          error: errorMsg,
         ));
         break;
 
       case 'step_update':
-        // Real-time step push from the band — can be consumed by listeners
+        final steps = (event['steps'] as num?)?.toInt() ?? 0;
+        final cal = (event['calories'] as num?)?.toInt() ?? 0;
+        final dist = (event['distance'] as num?)?.toInt() ?? 0;
+        debugPrint('👟 [BAND DATA - LIVE PEDOMETER] Steps: $steps | Calories: $cal kcal | Distance: $dist m');
+        _pedometerController.add(BandPedometerInfo(
+          steps: steps,
+          calories: cal,
+          distance: dist,
+        ));
         break;
 
       case 'connection_failed':
         _lastConnectionError = event['error']?.toString();
+        debugPrint('❌ [BAND CONNECTION FAILED] $_lastConnectionError');
         _status = BandConnectionStatus.disconnected;
         _connectionStatusController.add(BandConnectionStatus.disconnected);
         if (_connectCompleter != null && !_connectCompleter!.isCompleted) {
@@ -132,6 +154,7 @@ class NativeBandService implements BandService {
 
       case 'bluetooth_state':
         final stateStr = event['state']?.toString() ?? '';
+        debugPrint('📡 [BAND BLUETOOTH STATE] $stateStr');
         BandBluetoothState btState = BandBluetoothState.unknown;
         switch (stateStr) {
           case 'poweredOn':
@@ -216,6 +239,9 @@ class NativeBandService implements BandService {
       _measurementResultController.stream;
 
   @override
+  Stream<BandPedometerInfo> get pedometerStream => _pedometerController.stream;
+
+  @override
   Stream<BandBluetoothState> get bluetoothStateStream =>
       _bluetoothStateController.stream;
 
@@ -231,13 +257,21 @@ class NativeBandService implements BandService {
 
   @override
   Future<void> openAppSettings() async {
-    await _permissionService.openAppSettings();
+    try {
+      await _permissionService.openAppSettings();
+    } catch (_) {}
+    try {
+      await _methodChannel.invokeMethod('openAppSettings');
+    } catch (_) {}
   }
 
   @override
   Future<void> requestEnableBluetooth() async {
     try {
       await _methodChannel.invokeMethod('requestEnableBluetooth');
+    } catch (_) {}
+    try {
+      await _permissionService.openAppSettings();
     } catch (_) {}
   }
 
@@ -296,10 +330,22 @@ class NativeBandService implements BandService {
   }
 
   @override
-  Future<void> disconnect() async {
+  Future<bool> isConnected() async {
+    try {
+      final res = await _methodChannel.invokeMethod<bool>('isConnected');
+      if (res == true) {
+        _status = BandConnectionStatus.connected;
+        return true;
+      }
+    } catch (_) {}
+    return _status == BandConnectionStatus.connected;
+  }
+
+  @override
+  Future<void> disconnect({bool unpair = false}) async {
     _connectionStatusController.add(BandConnectionStatus.disconnecting);
     try {
-      await _methodChannel.invokeMethod('disconnect');
+      await _methodChannel.invokeMethod('disconnect', {'unpair': unpair});
     } catch (_) {}
     _connectionStatusController.add(BandConnectionStatus.disconnected);
   }
@@ -373,7 +419,9 @@ class NativeBandService implements BandService {
     try {
       final res = await _methodChannel.invokeMethod<Map<dynamic, dynamic>>('syncHistoricalVitals');
       if (res != null) {
-        return BandSyncedVitals.fromMap(res);
+        final vitals = BandSyncedVitals.fromMap(res);
+        debugPrint('📥 [BAND HISTORICAL SYNC DATA] Steps=${vitals.steps}, Cal=${vitals.calories}, Dist=${vitals.distance}, Sleep=${vitals.sleepMinutes}m, DeepSleep=${vitals.deepSleepMinutes}m');
+        return vitals;
       }
     } catch (_) {}
     return const BandSyncedVitals();
@@ -384,9 +432,28 @@ class NativeBandService implements BandService {
     try {
       final res = await _methodChannel.invokeMethod<Map<dynamic, dynamic>>('syncFullHealthData');
       if (res != null) {
-        return BandSyncedVitals.fromMap(res);
+        final vitals = BandSyncedVitals.fromMap(res);
+        debugPrint('═══════════════════════════════════════════════════════════════');
+        debugPrint('📊 [BAND FULL SYNC DATA RECEIVED FROM HARDWARE]');
+        debugPrint('   • Steps:              ${vitals.steps}');
+        debugPrint('   • Calories:           ${vitals.calories} kcal');
+        debugPrint('   • Distance:           ${vitals.distance} m');
+        debugPrint('   • Sleep Minutes:      ${vitals.sleepMinutes} min (${(vitals.sleepMinutes / 60.0).toStringAsFixed(1)} hrs)');
+        debugPrint('   • Deep Sleep:         ${vitals.deepSleepMinutes} min');
+        debugPrint('   • Blood Oxygen:       ${vitals.bloodOxygen}%');
+        debugPrint('   • Blood Pressure:     ${vitals.systolicBP}/${vitals.diastolicBP} mmHg');
+        debugPrint('   • Skin Temperature:   ${vitals.skinTemperature}°C');
+        debugPrint('   • Stress Level:       ${vitals.stressLevel} / 100');
+        debugPrint('   • HRV:                ${vitals.hrvMs} ms');
+        debugPrint('   • Resting Heart Rate: ${vitals.restingHeartRate} bpm');
+        debugPrint('   • HR History Points:  ${vitals.heartRateHistory.length} samples');
+        debugPrint('   • Sleep Phases:       ${vitals.sleepPhases.length} intervals');
+        debugPrint('═══════════════════════════════════════════════════════════════');
+        return vitals;
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('⚠️ [BAND FULL SYNC ERROR] $e');
+    }
     // Fall back to basic sync if full sync is not available
     return syncHistoricalVitals();
   }
@@ -425,6 +492,7 @@ class NativeBandService implements BandService {
     _liveHeartRateController.close();
     _batteryController.close();
     _measurementResultController.close();
+    _pedometerController.close();
     _bluetoothStateController.close();
   }
 }

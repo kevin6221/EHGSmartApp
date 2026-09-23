@@ -41,47 +41,67 @@ class CapsuleBarChart extends StatelessWidget {
     final effectiveTrackColor =
         trackColor ?? activeColor.withValues(alpha: 0.12);
 
+    final double maxVal = values.fold<double>(0.0, (prev, curr) => curr > prev ? curr : prev);
+    final bool needsNormalization = maxVal > 1.0;
+
+    final normalizedValues = List<double>.generate(values.length, (i) {
+      final v = values[i];
+      if (v <= 0) return 0.0;
+      if (!needsNormalization) return v.clamp(0.0, 1.0);
+      if (maxVal <= 0) return 0.0;
+      return (v / maxVal).clamp(0.08, 1.0);
+    });
+
     return RepaintBoundary(
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.end,
-        children: List.generate(values.length, (index) {
-          final tiers = CapsuleBarCalculator.computeTiers(
-            rawValue: values[index],
-            totalHeight: height,
-            barWidth: barWidth,
-          );
+        children: List.generate(normalizedValues.length, (index) {
+          final targetVal = normalizedValues[index];
           final day = index < days.length ? days[index] : '';
 
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Capsule Bar Container
+              // Capsule Bar Container with smooth height growth animation
               SizedBox(
                 width: barWidth,
                 height: height,
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: showTrack
-                      ? Container(
-                          width: barWidth,
-                          height: height,
-                          decoration: BoxDecoration(
-                            color: effectiveTrackColor,
-                            borderRadius: BorderRadius.circular(barWidth / 2.0),
-                          ),
-                          alignment: Alignment.bottomCenter,
-                          child: _buildBar(
-                            tiers,
-                            effectiveMiddleColor,
-                            effectiveLightColor,
-                          ),
-                        )
-                      : _buildBar(
-                          tiers,
-                          effectiveMiddleColor,
-                          effectiveLightColor,
-                        ),
+                child: TweenAnimationBuilder<double>(
+                  key: ValueKey('capsule_bar_${index}_${targetVal.toStringAsFixed(3)}'),
+                  duration: const Duration(milliseconds: 650),
+                  curve: Curves.easeOutCubic,
+                  tween: Tween<double>(begin: 0.0, end: targetVal),
+                  builder: (context, animVal, child) {
+                    final tiers = CapsuleBarCalculator.computeTiers(
+                      rawValue: animVal,
+                      totalHeight: height,
+                      barWidth: barWidth,
+                    );
+                    return Align(
+                      alignment: Alignment.bottomCenter,
+                      child: showTrack
+                          ? Container(
+                              width: barWidth,
+                              height: height,
+                              decoration: BoxDecoration(
+                                color: effectiveTrackColor,
+                                borderRadius: BorderRadius.circular(barWidth / 2.0),
+                              ),
+                              alignment: Alignment.bottomCenter,
+                              child: _buildBar(
+                                tiers,
+                                effectiveMiddleColor,
+                                effectiveLightColor,
+                              ),
+                            )
+                          : _buildBar(
+                              tiers,
+                              effectiveMiddleColor,
+                              effectiveLightColor,
+                            ),
+                    );
+                  },
                 ),
               ),
               const SizedBox(height: 6.0),

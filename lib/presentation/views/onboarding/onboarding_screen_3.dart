@@ -6,9 +6,12 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_icons.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../core/security/secure_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
 import '../../blocs/onboarding/onboarding_cubit.dart';
+import '../../blocs/profile/profile_bloc.dart';
+import '../../blocs/profile/profile_event.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/onboarding/onboarding_progress_bar.dart';
 
@@ -25,12 +28,33 @@ class _OnboardingScreen3State extends State<OnboardingScreen3> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController();
+    final cubitName = context.read<OnboardingCubit>().state.userName;
+    final profileName = context.read<ProfileBloc>().state.data?.username;
+    final initialName = cubitName.trim().isNotEmpty
+        ? cubitName.trim()
+        : (profileName != null && profileName.trim().isNotEmpty
+            ? profileName.trim()
+            : '');
+    _nameController = TextEditingController(text: initialName);
     _nameController.addListener(() {
       try {
         context.read<OnboardingCubit>().setUserName(_nameController.text);
       } catch (_) {}
     });
+
+    if (initialName.isEmpty) {
+      SecureStorageService().getUserName().then((savedName) {
+        if (mounted &&
+            savedName != null &&
+            savedName.trim().isNotEmpty &&
+            _nameController.text.isEmpty) {
+          _nameController.text = savedName.trim();
+          try {
+            context.read<OnboardingCubit>().setUserName(savedName.trim());
+          } catch (_) {}
+        }
+      });
+    }
   }
 
   @override
@@ -40,6 +64,11 @@ class _OnboardingScreen3State extends State<OnboardingScreen3> {
   }
 
   void _onNextPressed() {
+    final enteredName = _nameController.text.trim();
+    if (enteredName.isNotEmpty) {
+      SecureStorageService().saveUserName(enteredName);
+      context.read<ProfileBloc>().add(UpdateUsernameEvent(enteredName));
+    }
     Navigator.pushNamed(context, AppRoutes.onboarding4);
   }
 
@@ -49,13 +78,15 @@ class _OnboardingScreen3State extends State<OnboardingScreen3> {
     final screenWidth = r.width;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
+      value: SystemUiOverlayStyle(
         statusBarColor: AppColors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
+        statusBarIconBrightness:
+            context.isDark ? Brightness.light : Brightness.dark,
+        statusBarBrightness:
+            context.isDark ? Brightness.dark : Brightness.light,
       ),
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
@@ -103,7 +134,7 @@ class _OnboardingScreen3State extends State<OnboardingScreen3> {
                                   fontWeight: FontWeight.w700,
                                   height: 38.0 / 30.0,
                                   letterSpacing: -0.39,
-                                  color: AppColors.textPrimary,
+                                  color: context.textPrimary,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
@@ -120,7 +151,7 @@ class _OnboardingScreen3State extends State<OnboardingScreen3> {
                                   fontWeight: FontWeight.w400,
                                   height: 25.6 / 16.0,
                                   letterSpacing: 0.0,
-                                  color: AppColors.textSecondary,
+                                  color: context.textSecondary,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
@@ -143,20 +174,20 @@ class _OnboardingScreen3State extends State<OnboardingScreen3> {
                                         : FontWeight.w500,
                                     color: isTextEntered
                                         ? AppColors.primary
-                                        : AppColors.textPrimary,
+                                        : context.textPrimary,
                                   ),
                                   cursorColor: AppColors.primary,
                                   decoration: InputDecoration(
                                     hintText: 'What should we call you?',
                                     filled: true,
                                     fillColor: isTextEntered
-                                        ? AppColors.inputFilledBackground
+                                        ? context.inputFill
                                         : AppColors.transparent,
                                     hintStyle: GoogleFonts.plusJakartaSans(
                                       fontSize: 16.0,
                                       fontWeight: FontWeight.w400,
                                       letterSpacing: -0.22,
-                                      color: AppColors.textSecondary,
+                                      color: context.textSecondary,
                                     ),
                                     border: InputBorder.none,
                                   ),
@@ -185,7 +216,7 @@ class _OnboardingScreen3State extends State<OnboardingScreen3> {
                                         ),
                                         fontWeight: FontWeight.w400,
                                         height: 25.6 / 16.0,
-                                        color: AppColors.textSecondary,
+                                        color: context.textSecondary,
                                       ),
                                       textAlign: TextAlign.center,
                                     ),
@@ -216,7 +247,7 @@ class _OnboardingScreen3State extends State<OnboardingScreen3> {
                                   fontSize: 12.0,
                                   fontWeight: FontWeight.w400,
                                   height: 19.2 / 12.0,
-                                  color: AppColors.textSecondary,
+                                  color: context.textSecondary,
                                 ),
                                 textAlign: TextAlign.center,
                               ),

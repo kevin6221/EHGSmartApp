@@ -49,6 +49,22 @@ class BandPermissionDetails extends Equatable {
       isBluetoothEnabled &&
       isLocationEnabled;
 
+  BandPermissionDetails copyWith({
+    BandPermissionStatus? status,
+    bool? isBluetoothEnabled,
+    bool? isLocationEnabled,
+    bool? isPermanentlyDenied,
+    String? message,
+  }) {
+    return BandPermissionDetails(
+      status: status ?? this.status,
+      isBluetoothEnabled: isBluetoothEnabled ?? this.isBluetoothEnabled,
+      isLocationEnabled: isLocationEnabled ?? this.isLocationEnabled,
+      isPermanentlyDenied: isPermanentlyDenied ?? this.isPermanentlyDenied,
+      message: message ?? this.message,
+    );
+  }
+
   factory BandPermissionDetails.fromMap(Map<dynamic, dynamic> map) {
     final statusStr = map['status']?.toString();
     BandPermissionStatus status;
@@ -305,9 +321,126 @@ class BandSyncedVitals extends Equatable {
     };
   }
 
-  /// Returns a formatted blood pressure string like "121/79" or empty if no data.
+  /// Returns a formatted blood pressure string like "121/79" or "--" if no data.
   String get bloodPressureFormatted =>
-      (systolicBP > 0 && diastolicBP > 0) ? '$systolicBP/$diastolicBP' : '';
+      (systolicBP > 0 && diastolicBP > 0) ? '$systolicBP/$diastolicBP' : '--';
+
+  BandSyncedVitals copyWith({
+    int? steps,
+    int? calories,
+    int? distance,
+    int? sleepMinutes,
+    int? deepSleepMinutes,
+    double? bloodOxygen,
+    int? systolicBP,
+    int? diastolicBP,
+    double? skinTemperature,
+    int? stressLevel,
+    int? hrvMs,
+    int? restingHeartRate,
+    double? breathingRate,
+    List<BandSleepPhase>? sleepPhases,
+    List<BandHeartRateEntry>? heartRateHistory,
+    List<double>? weeklyHeartRate,
+    List<double>? weeklySleep,
+    List<double>? weeklyHrv,
+    List<double>? weeklyStress,
+    List<double>? weeklyOxygen,
+    List<double>? weeklyRestingHr,
+    List<double>? weeklyBreathing,
+  }) {
+    return BandSyncedVitals(
+      steps: steps ?? this.steps,
+      calories: calories ?? this.calories,
+      distance: distance ?? this.distance,
+      sleepMinutes: sleepMinutes ?? this.sleepMinutes,
+      deepSleepMinutes: deepSleepMinutes ?? this.deepSleepMinutes,
+      bloodOxygen: bloodOxygen ?? this.bloodOxygen,
+      systolicBP: systolicBP ?? this.systolicBP,
+      diastolicBP: diastolicBP ?? this.diastolicBP,
+      skinTemperature: skinTemperature ?? this.skinTemperature,
+      stressLevel: stressLevel ?? this.stressLevel,
+      hrvMs: hrvMs ?? this.hrvMs,
+      restingHeartRate: restingHeartRate ?? this.restingHeartRate,
+      breathingRate: breathingRate ?? this.breathingRate,
+      sleepPhases: sleepPhases ?? this.sleepPhases,
+      heartRateHistory: heartRateHistory ?? this.heartRateHistory,
+      weeklyHeartRate: weeklyHeartRate ?? this.weeklyHeartRate,
+      weeklySleep: weeklySleep ?? this.weeklySleep,
+      weeklyHrv: weeklyHrv ?? this.weeklyHrv,
+      weeklyStress: weeklyStress ?? this.weeklyStress,
+      weeklyOxygen: weeklyOxygen ?? this.weeklyOxygen,
+      weeklyRestingHr: weeklyRestingHr ?? this.weeklyRestingHr,
+      weeklyBreathing: weeklyBreathing ?? this.weeklyBreathing,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'steps': steps,
+    'calories': calories,
+    'distance': distance,
+    'sleepMinutes': sleepMinutes,
+    'deepSleepMinutes': deepSleepMinutes,
+    'bloodOxygen': bloodOxygen,
+    'systolicBP': systolicBP,
+    'diastolicBP': diastolicBP,
+    'skinTemperature': skinTemperature,
+    'stressLevel': stressLevel,
+    'hrvMs': hrvMs,
+    'restingHeartRate': restingHeartRate,
+    'breathingRate': breathingRate,
+    'weeklyHeartRate': weeklyHeartRate,
+    'weeklySleep': weeklySleep,
+    'weeklyHrv': weeklyHrv,
+    'weeklyStress': weeklyStress,
+    'weeklyOxygen': weeklyOxygen,
+    'weeklyRestingHr': weeklyRestingHr,
+    'weeklyBreathing': weeklyBreathing,
+  };
+
+  factory BandSyncedVitals.fromJson(Map<String, dynamic> json) => BandSyncedVitals(
+    steps: (json['steps'] as num?)?.toInt() ?? 0,
+    calories: (json['calories'] as num?)?.toInt() ?? 0,
+    distance: (json['distance'] as num?)?.toInt() ?? 0,
+    sleepMinutes: (json['sleepMinutes'] as num?)?.toInt() ?? 0,
+    deepSleepMinutes: (json['deepSleepMinutes'] as num?)?.toInt() ?? 0,
+    bloodOxygen: (json['bloodOxygen'] as num?)?.toDouble() ?? 0.0,
+    systolicBP: (json['systolicBP'] as num?)?.toInt() ?? 0,
+    diastolicBP: (json['diastolicBP'] as num?)?.toInt() ?? 0,
+    skinTemperature: (json['skinTemperature'] as num?)?.toDouble() ?? 0.0,
+    stressLevel: (json['stressLevel'] as num?)?.toInt() ?? 0,
+    hrvMs: (json['hrvMs'] as num?)?.toInt() ?? 0,
+    restingHeartRate: (json['restingHeartRate'] as num?)?.toInt() ?? 0,
+    breathingRate: (json['breathingRate'] as num?)?.toDouble() ?? 0.0,
+    weeklyHeartRate: (json['weeklyHeartRate'] as List<dynamic>?)
+            ?.map((e) => (e as num).toDouble())
+            .toList() ??
+        const [],
+    weeklySleep: (json['weeklySleep'] as List<dynamic>?)
+            ?.map((e) => (e as num).toDouble())
+            .toList() ??
+        const [],
+    weeklyHrv: (json['weeklyHrv'] as List<dynamic>?)
+            ?.map((e) => (e as num).toDouble())
+            .toList() ??
+        const [],
+    weeklyStress: (json['weeklyStress'] as List<dynamic>?)
+            ?.map((e) => (e as num).toDouble())
+            .toList() ??
+        const [],
+    weeklyOxygen: (json['weeklyOxygen'] as List<dynamic>?)
+            ?.map((e) => (e as num).toDouble())
+            .toList() ??
+        const [],
+    weeklyRestingHr: (json['weeklyRestingHr'] as List<dynamic>?)
+            ?.map((e) => (e as num).toDouble())
+            .toList() ??
+        const [],
+    weeklyBreathing: (json['weeklyBreathing'] as List<dynamic>?)
+            ?.map((e) => (e as num).toDouble())
+            .toList() ??
+        const [],
+  );
 
   @override
   List<Object?> get props => [
@@ -334,6 +467,22 @@ class BandSyncedVitals extends Equatable {
         weeklyRestingHr,
         weeklyBreathing,
       ];
+}
+
+/// Real-time live pedometer data emitted from band (CMD 0x02).
+class BandPedometerInfo extends Equatable {
+  final int steps;
+  final int calories;
+  final int distance;
+
+  const BandPedometerInfo({
+    required this.steps,
+    required this.calories,
+    required this.distance,
+  });
+
+  @override
+  List<Object?> get props => [steps, calories, distance];
 }
 
 /// Represents a single sleep phase segment from the band.

@@ -23,10 +23,12 @@ class WardrobeVerifiedPieceCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: context.cardBackground,
         borderRadius: BorderRadius.circular(16.0),
         border: Border.all(
-          color: AppColors.primarySky.withValues(alpha: 0.45),
+          color: context.isDark
+              ? AppColors.midnightBorder
+              : AppColors.primarySky.withValues(alpha: 0.45),
           width: 1.0,
         ),
         boxShadow: [
@@ -50,7 +52,9 @@ class WardrobeVerifiedPieceCard extends StatelessWidget {
                 height: 44.0,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.wardrobePieceIconBg,
+                  color: context.isDark
+                      ? AppColors.midnightBackground
+                      : AppColors.wardrobePieceIconBg,
                   border: Border.all(
                     color: AppColors.primarySky.withValues(alpha: 0.25),
                     width: 1.0,
@@ -73,7 +77,7 @@ class WardrobeVerifiedPieceCard extends StatelessWidget {
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: r.font(14),
                         fontWeight: FontWeight.w600,
-                        color: AppColors.secondary,
+                        color: context.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 6.0),
@@ -91,7 +95,7 @@ class WardrobeVerifiedPieceCard extends StatelessWidget {
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: r.font(10.0),
                         fontWeight: FontWeight.w500,
-                        color: AppColors.tertiary,
+                        color: context.textSecondary,
                       ),
                     ),
                   ],
@@ -104,20 +108,20 @@ class WardrobeVerifiedPieceCard extends StatelessWidget {
           // Care icons row
           Row(
             children: [
-              _buildCareIcon(AppIcons.careWash),
+              _buildCareIcon(AppIcons.careWash, context),
               const SizedBox(width: 10.0),
-              _buildCareIcon(AppIcons.careBleach),
+              _buildCareIcon(AppIcons.careBleach, context),
               const SizedBox(width: 10.0),
-              _buildCareIcon(AppIcons.careDry),
+              _buildCareIcon(AppIcons.careDry, context),
               const SizedBox(width: 10.0),
-              _buildCareIcon(AppIcons.careIron),
+              _buildCareIcon(AppIcons.careIron, context),
             ],
           ),
 
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12.0),
             child: Divider(
-              color: AppColors.divider,
+              color: context.dividerColor,
               height: 1.0,
               thickness: 0.8,
             ),
@@ -129,16 +133,16 @@ class WardrobeVerifiedPieceCard extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(10.0),
               fontWeight: FontWeight.w500,
-              color: AppColors.tertiary,
+              color: context.textSecondary,
             ),
           ),
           const SizedBox(height: 10.0),
 
           // 4 Programme bullet points with blue star
-          _buildProgrammeItem('30-day Pilates programme', r),
-          _buildProgrammeItem('Lower body challenge', r),
-          _buildProgrammeItem('Stretch library', r),
-          _buildProgrammeItem('Mobility tracker', r),
+          _buildProgrammeItem('30-day Pilates programme', r, context),
+          _buildProgrammeItem('Lower body challenge', r, context),
+          _buildProgrammeItem('Stretch library', r, context),
+          _buildProgrammeItem('Mobility tracker', r, context),
           const SizedBox(height: 14.0),
 
           // Full-width button: Unlock 90 days Free
@@ -165,20 +169,21 @@ class WardrobeVerifiedPieceCard extends StatelessWidget {
     );
   }
 
-  Widget _buildCareIcon(String svgPath) {
+  Widget _buildCareIcon(String svgPath, BuildContext context) {
     return Container(
       width: 32.0,
       height: 32.0,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(color: AppColors.border, width: 1.0),
+        color: context.isDark ? AppColors.midnightBackground : AppColors.transparent,
+        border: Border.all(color: context.cardBorder, width: 1.0),
       ),
       alignment: Alignment.center,
-      child: AppSvgIcon(svgPath, size: 16.0, color: AppColors.tertiary),
+      child: AppSvgIcon(svgPath, size: 16.0, color: context.textSecondary),
     );
   }
 
-  Widget _buildProgrammeItem(String title, Responsive r) {
+  Widget _buildProgrammeItem(String title, Responsive r, BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
       child: Row(
@@ -195,7 +200,7 @@ class WardrobeVerifiedPieceCard extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(10.0),
               fontWeight: FontWeight.w500,
-              color: AppColors.secondary,
+              color: context.textPrimary,
             ),
           ),
         ],

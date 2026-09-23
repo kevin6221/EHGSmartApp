@@ -110,7 +110,7 @@ class TrainCategorySelector extends StatelessWidget {
                                       style: GoogleFonts.plusJakartaSans(
                                         color: isSelected
                                             ? AppColors.primary
-                                            : AppColors.tertiary,
+                                            : context.textSecondary,
                                         fontWeight: isSelected
                                             ? FontWeight.w600
                                             : FontWeight.w400,

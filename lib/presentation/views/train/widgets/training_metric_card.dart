@@ -33,11 +33,15 @@ class TrainingMetricCard extends StatelessWidget {
         vertical: (media.height * 0.016).clamp(11.0, 15.0),
       ),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: context.cardBackground,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: context.cardBorder,
+          width: 0.8,
+        ),
         boxShadow: [
           BoxShadow(
-            color: AppColors.shadowNavy.withValues(alpha: 0.05),
+            color: AppColors.shadowNavy.withValues(alpha: context.isDark ? 0.2 : 0.05),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -56,7 +60,7 @@ class TrainingMetricCard extends StatelessWidget {
                   label,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
-                    color: AppColors.secondary,
+                    color: context.textSecondary,
                     fontSize: r.font(12),
                     fontWeight: FontWeight.w600,
                   ),
@@ -72,7 +76,7 @@ class TrainingMetricCard extends StatelessWidget {
               Text(
                 value,
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppColors.secondary,
+                  color: context.textPrimary,
                   fontSize: r.font(18),
                   fontWeight: FontWeight.w700,
                 ),
@@ -81,7 +85,7 @@ class TrainingMetricCard extends StatelessWidget {
               Text(
                 unit,
                 style: GoogleFonts.plusJakartaSans(
-                  color: AppColors.secondary,
+                  color: context.textSecondary,
                   fontSize: r.font(12),
                   fontWeight: FontWeight.w500,
                 ),

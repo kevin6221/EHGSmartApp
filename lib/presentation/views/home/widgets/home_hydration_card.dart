@@ -81,7 +81,7 @@ class HomeHydrationCard extends StatelessWidget {
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: r.font(22.0),
                             fontWeight: FontWeight.w700,
-                            color: AppColors.secondary,
+                            color: context.textPrimary,
                           ),
                         ),
                         Text(
@@ -89,7 +89,7 @@ class HomeHydrationCard extends StatelessWidget {
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: r.font(12.0),
                             fontWeight: FontWeight.w500,
-                            color: AppColors.tertiary,
+                            color: context.textSecondary,
                           ),
                         ),
                       ],
@@ -98,7 +98,7 @@ class HomeHydrationCard extends StatelessWidget {
                     Text(
                       'On Track',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppColors.tertiary,
+                        color: context.textSecondary,
                         fontWeight: FontWeight.w400,
                         fontSize: r.font(14.0),
                       ),

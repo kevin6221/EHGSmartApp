@@ -41,17 +41,20 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
   bool _hasNavigated = false;
   bool _isDialogShowing = false;
   late final ValueNotifier<String?> _selectedDeviceIdNotifier;
+  late final ScrollController _listScrollController;
 
   @override
   void initState() {
     super.initState();
     _selectedDeviceIdNotifier = ValueNotifier<String?>(null);
+    _listScrollController = ScrollController();
     WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
     _selectedDeviceIdNotifier.dispose();
+    _listScrollController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -68,7 +71,36 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
   }
 
   void _onFindBandPressed(BuildContext context) {
-    context.read<BandBloc>().add(const StartBandScanEvent());
+    final bloc = context.read<BandBloc>();
+    final state = bloc.state;
+    if (!state.isBluetoothEnabled) {
+      _showPermissionModal(
+        context,
+        BandPermissionDialogType.bluetoothOff,
+        () {
+          bloc.add(EnableBluetoothEvent());
+          bloc.add(OpenAppSettingsEvent());
+        },
+      );
+      return;
+    }
+    if (state.isPermanentlyDenied) {
+      _showPermissionModal(
+        context,
+        BandPermissionDialogType.permanentlyDenied,
+        () => bloc.add(OpenAppSettingsEvent()),
+      );
+      return;
+    }
+    if (!state.isLocationEnabled) {
+      _showPermissionModal(
+        context,
+        BandPermissionDialogType.locationOff,
+        () => bloc.add(OpenLocationSettingsEvent()),
+      );
+      return;
+    }
+    bloc.add(const StartBandScanEvent());
   }
 
   void _onConnectPressed(BuildContext context, DiscoveredBandDevice device) {
@@ -82,12 +114,16 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
   ) {
     if (_isDialogShowing || !mounted) return;
     _isDialogShowing = true;
+    final bloc = context.read<BandBloc>();
     BandPermissionDialog.show(
       context,
       type: type,
       onAction: action,
     ).then((_) {
       _isDialogShowing = false;
+      if (mounted) {
+        bloc.add(CheckBandPermissionsEvent());
+      }
     });
   }
 
@@ -117,9 +153,14 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
                   final becameConnected = !previous.isConnected && current.isConnected;
                   final newError = previous.errorMessage != current.errorMessage && current.errorMessage != null;
                   final devicesChanged = previous.discoveredDevices != current.discoveredDevices;
-                  return (becameConnected && !_hasNavigated) || newError || devicesChanged;
+                  final btChanged = previous.bluetoothState != current.bluetoothState;
+                  return (becameConnected && !_hasNavigated) || newError || devicesChanged || btChanged;
                 },
                 listener: (context, state) {
+                  if (state.bluetoothState == BandBluetoothState.poweredOn && _isDialogShowing) {
+                    Navigator.of(context, rootNavigator: true).maybePop();
+                    _isDialogShowing = false;
+                  }
                   if (state.discoveredDevices.isNotEmpty) {
                     final current = _selectedDeviceIdNotifier.value;
                     if (current == null || !state.discoveredDevices.any((d) => d.id == current)) {
@@ -183,7 +224,10 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
                       _showPermissionModal(
                         context,
                         BandPermissionDialogType.bluetoothOff,
-                        () => bloc.add(EnableBluetoothEvent()),
+                        () {
+                          bloc.add(EnableBluetoothEvent());
+                          bloc.add(OpenAppSettingsEvent());
+                        },
                       );
                     } else if (!state.isLocationEnabled ||
                         (state.errorMessage?.contains('Location') ?? false)) {
@@ -267,30 +311,6 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
                                           padding: EdgeInsets.only(
                                             top: 12.0,
                                             bottom: 8.0,
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Material(
-                                        color: AppColors.transparent,
-                                        child: InkWell(
-                                          onTap: state.isScanning ? null : () => _onFindBandPressed(context),
-                                          borderRadius: BorderRadius.circular(20),
-                                          child: Container(
-                                            padding: const EdgeInsets.all(7),
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              color: AppColors.surface,
-                                              border: Border.all(
-                                                color: AppColors.border,
-                                                width: 1.0,
-                                              ),
-                                            ),
-                                            child: Icon(
-                                              Icons.refresh_rounded,
-                                              size: 18,
-                                              color: state.isScanning ? AppColors.tertiary : AppColors.primary,
-                                            ),
                                           ),
                                         ),
                                       ),
@@ -444,153 +464,128 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
                                               ),
                                             ],
                                           )
-                                        : (hasMultiple
-                                            ? Column(
-                                                key: const ValueKey('multiple_bands_list'),
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  ConstrainedBox(
-                                                    constraints: BoxConstraints(
-                                                      maxHeight: (constraints.maxHeight * 0.40).clamp(180.0, 260.0),
-                                                    ),
-                                                    child: RawScrollbar(
-                                                      thumbColor: AppColors.primary.withValues(alpha: 0.25),
-                                                      radius: const Radius.circular(8),
-                                                      thickness: 3.5,
-                                                      child: ListView.separated(
-                                                        shrinkWrap: true,
-                                                        physics: const BouncingScrollPhysics(),
-                                                        itemCount: state.discoveredDevices.length,
-                                                        separatorBuilder: (context, index) => const SizedBox(height: 8.0),
-                                                        itemBuilder: (context, index) {
-                                                          final device = state.discoveredDevices[index];
-                                                          final isSelected = device.id == targetDevice?.id;
-                                                          return OnboardingDeviceCard(
-                                                            deviceName: device.name.isNotEmpty ? device.name : 'EHG Smart Band',
-                                                            deviceId: device.mac.isNotEmpty ? device.mac : device.id,
-                                                            rssi: device.rssi != 0 ? device.rssi : null,
-                                                            isSelected: isSelected,
-                                                            showRadio: true,
-                                                            onTap: () {
-                                                              _selectedDeviceIdNotifier.value = device.id;
-                                                            },
-                                                          );
-                                                        },
-                                                      ),
-                                                    ),
+                                        : Column(
+                                            key: ValueKey('band_found_section_${hasMultiple ? "multi" : "single"}'),
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Center(
+                                                child: Image.asset(
+                                                  AppConstants.onboardingBand,
+                                                  width: bandDimension,
+                                                  height: bandDimension,
+                                                  fit: BoxFit.contain,
+                                                  cacheWidth: (bandDimension * 2.5).toInt(),
+                                                ),
+                                              ),
+                                              const SizedBox(height: 16.0),
+                                              if (hasMultiple) ...[
+                                                ConstrainedBox(
+                                                  constraints: BoxConstraints(
+                                                    maxHeight: (constraints.maxHeight * 0.32).clamp(140.0, 220.0),
                                                   ),
-                                                  const SizedBox(height: 12.0),
-                                                  InkWell(
-                                                    onTap: state.isConnecting ? null : () => _onFindBandPressed(context),
-                                                    borderRadius: BorderRadius.circular(16),
-                                                    child: Padding(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
-                                                      child: Row(
+                                                  child: RawScrollbar(
+                                                    controller: _listScrollController,
+                                                    thumbColor: AppColors.primary.withValues(alpha: 0.25),
+                                                    radius: const Radius.circular(8),
+                                                    thickness: 3.5,
+                                                    child: SingleChildScrollView(
+                                                      controller: _listScrollController,
+                                                      physics: const BouncingScrollPhysics(),
+                                                      child: Column(
                                                         mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          const Icon(
-                                                            Icons.refresh_rounded,
-                                                            size: 15,
-                                                            color: AppColors.textSecondary,
-                                                          ),
-                                                          const SizedBox(width: 6),
-                                                          Text(
-                                                            'Rescan / Refresh bands',
-                                                            style: GoogleFonts.plusJakartaSans(
-                                                              fontSize: 13.0,
-                                                              fontWeight: FontWeight.w500,
-                                                              color: AppColors.textSecondary,
-                                                            ),
-                                                          ),
-                                                        ],
+                                                        children: List.generate(
+                                                          state.discoveredDevices.length,
+                                                          (index) {
+                                                            final device = state.discoveredDevices[index];
+                                                            final isSelected = device.id == targetDevice?.id;
+                                                            return Padding(
+                                                              padding: EdgeInsets.only(
+                                                                bottom: index < state.discoveredDevices.length - 1 ? 8.0 : 0,
+                                                              ),
+                                                              child: OnboardingDeviceCard(
+                                                                deviceName: device.name.isNotEmpty ? device.name : 'EHG Smart Band',
+                                                                deviceId: device.mac.isNotEmpty ? device.mac : device.id,
+                                                                rssi: device.rssi != 0 ? device.rssi : null,
+                                                                isSelected: isSelected,
+                                                                showRadio: true,
+                                                                onTap: () {
+                                                                  _selectedDeviceIdNotifier.value = device.id;
+                                                                },
+                                                              ),
+                                                            );
+                                                          },
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
-                                                ],
-                                              )
-                                            : Column(
-                                                key: const ValueKey('band_found_card'),
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  Center(
-                                                    child: Image.asset(
-                                                      AppConstants.onboardingBand,
-                                                      width: bandDimension,
-                                                      height: bandDimension,
-                                                      fit: BoxFit.contain,
-                                                      cacheWidth: (bandDimension * 2.5).toInt(),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 16.0),
-                                                  OnboardingDeviceCard(
-                                                    deviceName: targetDevice?.name ?? 'EHG Smart Band',
-                                                    deviceId: (targetDevice != null && targetDevice.mac.isNotEmpty)
-                                                        ? targetDevice.mac
-                                                        : (targetDevice?.id ?? 'Connected'),
-                                                    isSelected: true,
-                                                    showRadio: false,
-                                                  ),
-                                                  const SizedBox(height: 12.0),
-                                                  InkWell(
-                                                    onTap: state.isConnecting ? null : () => _onFindBandPressed(context),
-                                                    borderRadius: BorderRadius.circular(16),
-                                                    child: Padding(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
-                                                      child: Row(
-                                                        mainAxisSize: MainAxisSize.min,
-                                                        children: [
-                                                          const Icon(
-                                                            Icons.refresh_rounded,
-                                                            size: 15,
-                                                            color: AppColors.textSecondary,
-                                                          ),
-                                                          const SizedBox(width: 6),
-                                                          Text(
-                                                            'Not your band? Refresh & scan again',
-                                                            style: GoogleFonts.plusJakartaSans(
-                                                              fontSize: 13.0,
-                                                              fontWeight: FontWeight.w500,
-                                                              color: AppColors.textSecondary,
-                                                            ),
-                                                          ),
-                                                        ],
+                                                ),
+                                              ] else ...[
+                                                OnboardingDeviceCard(
+                                                  deviceName: targetDevice?.name ?? 'EHG Smart Band',
+                                                  deviceId: (targetDevice != null && targetDevice.mac.isNotEmpty)
+                                                      ? targetDevice.mac
+                                                      : (targetDevice?.id ?? 'Connected'),
+                                                  isSelected: true,
+                                                  showRadio: false,
+                                                ),
+                                              ],
+                                              const SizedBox(height: 12.0),
+                                              InkWell(
+                                                onTap: state.isConnecting ? null : () => _onFindBandPressed(context),
+                                                borderRadius: BorderRadius.circular(16),
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(
+                                                        Icons.refresh_rounded,
+                                                        size: 15,
+                                                        color: AppColors.textSecondary,
                                                       ),
-                                                    ),
+                                                      const SizedBox(width: 6),
+                                                      Text(
+                                                        hasMultiple ? 'Rescan / Refresh bands' : 'Not your band? Refresh & scan again',
+                                                        style: GoogleFonts.plusJakartaSans(
+                                                          fontSize: 13.0,
+                                                          fontWeight: FontWeight.w500,
+                                                          color: AppColors.textSecondary,
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
-                                                ],
-                                              )),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
                                   ),
 
                                   const Spacer(),
 
                                   // 4. Action Button (Find My band -> Connect)
-                                  AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 250),
-                                    child: !isFound
-                                        ? AppButton(
-                                            key: const ValueKey('find_band_button'),
-                                            text: state.isScanning
+                                  AppButton(
+                                    text: !isFound
+                                        ? (!state.isBluetoothEnabled
+                                            ? 'Turn On Bluetooth'
+                                            : (state.isScanning
                                                 ? 'Searching for band...'
-                                                : 'Refresh & Find Band',
-                                            isLoading: state.isScanning,
-                                            trailingSvg: state.isScanning ? null : AppIcons.searchIcon,
-                                            onPressed: state.isScanning ? null : () => _onFindBandPressed(context),
-                                          )
-                                        : AppButton(
-                                            key: const ValueKey('connect_button'),
-                                            text: state.isConnecting
-                                                ? 'Connecting...'
-                                                : (state.isConnected
-                                                    ? 'Connected'
-                                                    : (hasMultiple
-                                                        ? 'Connect to ${targetDevice?.name ?? "Band"}'
-                                                        : 'Connect')),
-                                            isLoading: state.isConnecting,
-                                            trailingSvg: state.isConnecting ? null : AppIcons.connectIcon,
-                                            onPressed: (state.isConnecting || targetDevice == null || state.isConnected)
-                                                ? null
-                                                : () => _onConnectPressed(context, targetDevice),
-                                          ),
+                                                : 'Refresh & Find Band'))
+                                        : (state.isConnecting
+                                            ? 'Connecting...'
+                                            : (state.isConnected
+                                                ? 'Connected'
+                                                : 'Connect')),
+                                    isLoading: (!isFound && state.isScanning) || state.isConnecting,
+                                    trailingSvg: (!isFound && !state.isBluetoothEnabled)
+                                        ? null
+                                        : (((!isFound && state.isScanning) || state.isConnecting)
+                                            ? null
+                                            : (!isFound ? AppIcons.searchIcon : AppIcons.connectIcon)),
+                                    onPressed: (!isFound)
+                                        ? (state.isScanning ? null : () => _onFindBandPressed(context))
+                                        : ((state.isConnecting || targetDevice == null || state.isConnected)
+                                            ? null
+                                            : () => _onConnectPressed(context, targetDevice)),
                                   ),
 
                                   const SizedBox(height: 16.0),
@@ -598,9 +593,11 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
                                   // 5. Status / Privacy Footer
                                   Text(
                                     !isFound
-                                        ? (state.isScanning
-                                            ? 'Bluetooth   •   Scanning nearby...'
-                                            : 'Bluetooth   •   Ready to search')
+                                        ? (!state.isBluetoothEnabled
+                                            ? 'Bluetooth is turned OFF • Tap to enable'
+                                            : (state.isScanning
+                                                ? 'Bluetooth   •   Scanning nearby...'
+                                                : 'Bluetooth   •   Ready to search'))
                                         : 'Your data stays on your phone',
                                     style: GoogleFonts.plusJakartaSans(
                                       fontSize: 12.0,

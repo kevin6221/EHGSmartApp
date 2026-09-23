@@ -22,19 +22,20 @@ class RewardsHistorySection extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(14.0),
               fontWeight: FontWeight.w600,
-              color: AppColors.secondary,
+              color: context.textPrimary,
             ),
           ),
           const SizedBox(height: 14.0),
           Container(
             decoration: BoxDecoration(
-              color: AppColors.white,
+              color: context.cardBackground,
               borderRadius: BorderRadius.circular(12.0),
-              border: Border.all(color: AppColors.divider),
+              border: Border.all(color: context.cardBorder),
             ),
             child: Column(
               children: [
                 _buildLogItem(
+                  context: context,
                   r: r,
                   title: 'Redeemed: Free UK delivery, next order',
                   amount: '-1200',
@@ -45,10 +46,11 @@ class RewardsHistorySection extends StatelessWidget {
                   child: Divider(
                     height: 1.0,
                     thickness: 1.0,
-                    color: AppColors.divider.withValues(alpha: 0.6),
+                    color: context.cardBorder,
                   ),
                 ),
                 _buildLogItem(
+                  context: context,
                   r: r,
                   title: 'Redeemed: 10% off any Activewear piece',
                   amount: '-800',
@@ -59,10 +61,11 @@ class RewardsHistorySection extends StatelessWidget {
                   child: Divider(
                     height: 1.0,
                     thickness: 1.0,
-                    color: AppColors.divider.withValues(alpha: 0.6),
+                    color: context.cardBorder,
                   ),
                 ),
                 _buildLogItem(
+                  context: context,
                   r: r,
                   title: 'Journal saved',
                   amount: '+120',
@@ -78,7 +81,7 @@ class RewardsHistorySection extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(10.0),
               fontWeight: FontWeight.w400,
-              color: AppColors.tertiary,
+              color: context.textSecondary,
               height: 1.4,
             ),
           ),
@@ -88,6 +91,7 @@ class RewardsHistorySection extends StatelessWidget {
   }
 
   Widget _buildLogItem({
+    required BuildContext context,
     required Responsive r,
     required String title,
     required String amount,
@@ -104,7 +108,7 @@ class RewardsHistorySection extends StatelessWidget {
               style: GoogleFonts.plusJakartaSans(
                 fontSize: r.font(12.0),
                 fontWeight: FontWeight.w400,
-                color: AppColors.tertiary,
+                color: context.textPrimary,
               ),
             ),
           ),

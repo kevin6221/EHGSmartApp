@@ -35,7 +35,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
     final screenHeight = media.height;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Stack(
         children: [
           // Sky header gradient background fading smoothly to white
@@ -66,7 +66,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                   ),
                   Padding(
                     padding: const EdgeInsets.only(top: 14.0, bottom: 20.0),
-                    child: Container(height: 1.0, color: AppColors.background),
+                    child: Container(height: 1.0, color: context.dividerColor),
                   ),
 
                   // 2. Headline & Subtitle
@@ -75,7 +75,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: r.font(24.0),
                       fontWeight: FontWeight.w700,
-                      color: AppColors.secondary,
+                      color: context.textPrimary,
                       height: 1.2,
                       letterSpacing: -0.5,
                     ),
@@ -86,7 +86,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: r.font(16.0),
                       fontWeight: FontWeight.w400,
-                      color: AppColors.tertiary,
+                      color: context.textSecondary,
                       height: 1.45,
                     ),
                   ),

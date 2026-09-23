@@ -5,6 +5,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../data/models/user_profile_model.dart';
+import '../../blocs/profile/profile_bloc.dart';
 import '../../blocs/training/training_bloc.dart';
 import '../../blocs/training/training_event.dart';
 import '../../blocs/training/training_state.dart';
@@ -22,6 +24,9 @@ class TrainScreen extends StatelessWidget {
     final r = context.responsive;
     final media = MediaQuery.of(context);
     final screenHeight = media.size.height;
+    final unitSystem =
+        context.watch<ProfileBloc>().state.data?.unitSystem ??
+            UnitSystem.metric;
 
     return BlocBuilder<TrainingBloc, TrainingState>(
       builder: (context, state) {
@@ -31,7 +36,7 @@ class TrainScreen extends StatelessWidget {
         }
 
         return Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           body: Stack(
             children: [
               // Header Sky Gradient (Figma Rectangle 127)
@@ -80,6 +85,7 @@ class TrainScreen extends StatelessWidget {
                       // 3. Active Workout Card with Integrated Calorie maths (Figma Node 75:2580)
                       TrainActiveWorkoutCard(
                         data: data,
+                        unitSystem: unitSystem,
                         onStartWorkout: () {
                           context.read<TrainingBloc>().add(
                             const StartWorkoutEvent(),
@@ -103,7 +109,7 @@ class TrainScreen extends StatelessWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(16.0),
                           fontWeight: FontWeight.w600,
-                          color: AppColors.secondary,
+                          color: context.textPrimary,
                         ),
                       ),
                       SizedBox(

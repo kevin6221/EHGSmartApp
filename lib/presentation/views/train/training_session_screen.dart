@@ -34,18 +34,26 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
   Timer? _ticker;
   late final ValueNotifier<int> _selectedZoneNotifier;
 
+  int _calculateZone(int bpm) {
+    if (bpm >= 170) return 5;
+    if (bpm >= 150) return 4;
+    if (bpm >= 130) return 3;
+    if (bpm >= 110) return 2;
+    return 1;
+  }
+
   @override
   void initState() {
     super.initState();
-    _selectedZoneNotifier = ValueNotifier<int>(1);
+    final initialHr = context.read<BandBloc>().state.liveHeartRate;
+    _selectedZoneNotifier = ValueNotifier<int>(
+      initialHr > 0 ? _calculateZone(initialHr) : 1,
+    );
     context.read<BandBloc>().add(StartLiveHeartRateEvent());
     context.read<BandBloc>().add(SyncVitalsEvent());
     _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         context.read<TrainingBloc>().add(const TickWorkoutEvent());
-        if (timer.tick % 15 == 0) {
-          context.read<BandBloc>().add(SyncVitalsEvent());
-        }
       }
     });
   }
@@ -70,7 +78,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
         if (state.data == null) return const SizedBox.shrink();
 
         return Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           body: Stack(
             children: [
               const TrainingRecordingBackground(),
@@ -118,25 +126,18 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                               child: Row(
                                 children: [
                                   Expanded(
-                                    child: BlocBuilder<BandBloc, BandState>(
+                                    child: BlocConsumer<BandBloc, BandState>(
+                                      listenWhen: (prev, curr) => prev.liveHeartRate != curr.liveHeartRate,
+                                      listener: (context, bandState) {
+                                        if (bandState.liveHeartRate > 0) {
+                                          _selectedZoneNotifier.value = _calculateZone(bandState.liveHeartRate);
+                                        }
+                                      },
                                       buildWhen: (prev, curr) => prev.liveHeartRate != curr.liveHeartRate,
                                       builder: (context, bandState) {
                                         final hrValue = bandState.liveHeartRate > 0
                                             ? '${bandState.liveHeartRate}'
                                             : '--';
-                                        if (bandState.liveHeartRate > 0) {
-                                          int zone = 1;
-                                          if (bandState.liveHeartRate >= 170) {
-                                            zone = 5;
-                                          } else if (bandState.liveHeartRate >= 150) {
-                                            zone = 4;
-                                          } else if (bandState.liveHeartRate >= 130) {
-                                            zone = 3;
-                                          } else if (bandState.liveHeartRate >= 110) {
-                                            zone = 2;
-                                          }
-                                          _selectedZoneNotifier.value = zone;
-                                        }
                                         return TrainingMetricCard(
                                           icon: AppIcons.heartPulse,
                                           label: 'Heart Rate',
@@ -166,7 +167,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                             Text(
                               'Zone',
                               style: GoogleFonts.plusJakartaSans(
-                                color: AppColors.secondary,
+                                color: context.textPrimary,
                                 fontSize: r.font(18),
                                 fontWeight: FontWeight.w700,
                               ),
@@ -186,7 +187,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                                 return Text(
                                   TrainingZoneCard.zoneDescription(selectedZone),
                                   style: GoogleFonts.plusJakartaSans(
-                                    color: AppColors.tertiary,
+                                    color: context.textSecondary,
                                     fontSize: r.font(13.5),
                                     height: 1.45,
                                   ),
@@ -201,6 +202,7 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                               child: AppButton(
                                 text: 'Finish session',
                                 onPressed: () {
+                                  context.read<BandBloc>().add(StopLiveHeartRateEvent());
                                   context.read<TrainingBloc>().add(
                                     const FinishWorkoutEvent(),
                                   );

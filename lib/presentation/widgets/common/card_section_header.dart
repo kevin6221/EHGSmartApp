@@ -56,7 +56,7 @@ class CardSectionHeader extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: titleFontSize,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
+                    color: context.textPrimary,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -79,14 +79,14 @@ class CardSectionHeader extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: actionFontSize,
                     fontWeight: FontWeight.w400,
-                    color: AppColors.tertiary,
+                    color: context.textSecondary,
                   ),
                 ),
                 const SizedBox(width: 4.0),
                 AppSvgIcon(
                   AppIcons.rightArrowChevron,
                   size: actionFontSize + 2.0,
-                  color: AppColors.tertiary,
+                  color: context.textSecondary,
                 ),
               ],
             ),

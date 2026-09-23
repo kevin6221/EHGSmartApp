@@ -41,7 +41,7 @@ class _UnlockWardrobeScreenState extends State<UnlockWardrobeScreen> {
     final screenHeight = media.height;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       extendBody: true,
       body: Stack(
         children: [
@@ -87,7 +87,7 @@ class _UnlockWardrobeScreenState extends State<UnlockWardrobeScreen> {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: r.font(16.0),
                       fontWeight: FontWeight.w400,
-                      color: AppColors.tertiary,
+                      color: context.textSecondary,
                       height: 1.45,
                     ),
                   ),
@@ -118,10 +118,10 @@ class _UnlockWardrobeScreenState extends State<UnlockWardrobeScreen> {
                   SizedBox(height: (screenHeight * 0.030).clamp(22.0, 28.0)),
 
                   // 6. Section: "Not yours yet"
-                  const WardrobeSectionHeader(
+                  WardrobeSectionHeader(
                     title: 'Not yours yet',
                     badgeText: '2 LOCKED',
-                    badgeColor: AppColors.tertiary,
+                    badgeColor: context.textSecondary,
                   ),
                   SizedBox(height: (screenHeight * 0.014).clamp(10.0, 14.0)),
 

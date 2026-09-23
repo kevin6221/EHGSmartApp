@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
+import '../../../data/models/user_profile_model.dart';
 import '../../../data/repositories/band_repository.dart';
 import '../../blocs/band/band_bloc.dart';
 import '../../blocs/band/band_event.dart';
@@ -75,24 +76,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: ctx.cardBackground,
         title: Text(
           'Export Health Data',
           style: GoogleFonts.plusJakartaSans(
             fontWeight: FontWeight.w700,
-            color: AppColors.secondary,
+            color: ctx.textPrimary,
           ),
         ),
         content: SingleChildScrollView(
           child: Text(
             jsonStr,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 12.0),
+            style: TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 12.0,
+              color: ctx.textPrimary,
+            ),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Close'),
+            child: Text('Close', style: TextStyle(color: ctx.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -113,19 +118,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: ctx.cardBackground,
         title: Text(
           'Delete Everything?',
           style: GoogleFonts.plusJakartaSans(
             fontWeight: FontWeight.w700,
-            color: AppColors.secondary,
+            color: ctx.textPrimary,
           ),
         ),
         content: Text(
           'This will disconnect your EHG Smart Band and permanently clear all locally stored vitals and health history.',
           style: GoogleFonts.plusJakartaSans(
             fontSize: 14.0,
-            color: AppColors.tertiary,
+            color: ctx.textSecondary,
           ),
         ),
         actions: [
@@ -139,7 +144,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             onPressed: () {
               context.read<BandRepository>().clearLocalData();
-              context.read<BandBloc>().add(DisconnectBandEvent());
+              context.read<BandBloc>().add(const DisconnectBandEvent(unpair: true));
               Navigator.of(ctx).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('All local health data cleared.')),
@@ -171,7 +176,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         }
 
         return Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           extendBody: true,
           body: Stack(
             children: [
@@ -226,7 +231,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(14.0),
                           fontWeight: FontWeight.w600,
-                          color: AppColors.secondary,
+                          color: context.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 12.0),
@@ -241,7 +246,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(14.0),
                           fontWeight: FontWeight.w600,
-                          color: AppColors.secondary,
+                          color: context.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 12.0),
@@ -249,6 +254,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         usernameController: _usernameController,
                         age: data.age,
                         weight: data.weight,
+                        unitSystem: data.unitSystem,
                         onUsernameChanged: (newVal) {
                           final trimmed = newVal.trim();
                           if (trimmed.isNotEmpty && trimmed != data.username) {
@@ -270,13 +276,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                         },
                         onWeightTap: () {
+                          final initialWeight = data.unitSystem == UnitSystem.imperial
+                              ? (data.weight * 2.20462).round()
+                              : data.weight;
                           showWeightPickerSheet(
                             context,
-                            initialWeight: data.weight,
+                            initialWeight: initialWeight,
                             unitSystem: data.unitSystem,
                             onConfirmed: (newWeight) {
+                              final savedWeight = data.unitSystem == UnitSystem.imperial
+                                  ? (newWeight / 2.20462).round()
+                                  : newWeight;
                               context.read<ProfileBloc>().add(
-                                UpdateWeightEvent(newWeight),
+                                UpdateWeightEvent(savedWeight),
                               );
                             },
                           );
@@ -292,7 +304,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(14.0),
                           fontWeight: FontWeight.w600,
-                          color: AppColors.secondary,
+                          color: context.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 12.0),
@@ -320,7 +332,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(14.0),
                           fontWeight: FontWeight.w600,
-                          color: AppColors.secondary,
+                          color: context.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 12.0),

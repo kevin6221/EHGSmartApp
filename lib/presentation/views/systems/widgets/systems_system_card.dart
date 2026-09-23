@@ -33,18 +33,30 @@ class SystemsCardTemplate extends StatelessWidget {
       valueListenable: expandedSystemNotifier,
       builder: (context, expandedSection, _) {
         final isExpanded = expandedSection == sectionKey;
-        return _buildCard(isExpanded: isExpanded, onTap: _toggleExpansion);
+        return _buildCard(
+          context: context,
+          isExpanded: isExpanded,
+          onTap: _toggleExpansion,
+        );
       },
     );
   }
 
-  Widget _buildCard({required bool isExpanded, required VoidCallback onTap}) {
+  Widget _buildCard({
+    required BuildContext context,
+    required bool isExpanded,
+    required VoidCallback onTap,
+  }) {
     return Container(
       decoration: BoxDecoration(
-        color: isExpanded ? null : AppColors.white,
-        gradient: isExpanded ? AppGradients.recoverCard : null,
+        color: isExpanded
+            ? (context.isDark ? AppColors.midnightSurface : null)
+            : context.cardBackground,
+        gradient: isExpanded
+            ? (context.isDark ? null : AppGradients.recoverCard)
+            : null,
         borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: AppColors.border, width: 1.0),
+        border: Border.all(color: context.cardBorder, width: 1.0),
         boxShadow: [
           BoxShadow(
             color: AppColors.black.withValues(alpha: 0.02),
@@ -68,10 +80,12 @@ class SystemsCardTemplate extends StatelessWidget {
                     height: 40.0,
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
-                      color: AppColors.systemCardBgLight,
+                      color: context.isDark
+                          ? AppColors.midnightBackground
+                          : AppColors.systemCardBgLight,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppColors.systemCardBorder,
+                        color: context.cardBorder,
                         width: 1.0,
                       ),
                     ),
@@ -86,9 +100,9 @@ class SystemsCardTemplate extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(title, style: _titleStyle()),
+                        Text(title, style: _titleStyle(context)),
                         const SizedBox(height: 4.0),
-                        Text(subtitle, style: _subtitleStyle()),
+                        Text(subtitle, style: _subtitleStyle(context)),
                       ],
                     ),
                   ),
@@ -105,10 +119,10 @@ class SystemsCardTemplate extends StatelessWidget {
             ),
           ),
           if (isExpanded) ...[
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 14.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14.0),
               child: DottedDivider(
-                color: AppColors.tertiary,
+                color: context.cardBorder,
                 dashWidth: 3.0,
                 dashSpace: 3.0,
                 thickness: 0.5,
@@ -120,7 +134,7 @@ class SystemsCardTemplate extends StatelessWidget {
                   horizontal: 14.0,
                   vertical: 8.0,
                 ),
-                child: Text(detail, style: _detailStyle()),
+                child: Text(detail, style: _detailStyle(context)),
               ),
             ),
             const SizedBox(height: 4.0),
@@ -134,22 +148,22 @@ class SystemsCardTemplate extends StatelessWidget {
     expandedSystemNotifier.value = sectionKey;
   }
 
-  TextStyle _titleStyle() => GoogleFonts.plusJakartaSans(
+  TextStyle _titleStyle(BuildContext context) => GoogleFonts.plusJakartaSans(
     fontSize: r.font(14.0),
     fontWeight: FontWeight.w600,
-    color: AppColors.secondary,
+    color: context.textPrimary,
   );
 
-  TextStyle _subtitleStyle() => GoogleFonts.plusJakartaSans(
+  TextStyle _subtitleStyle(BuildContext context) => GoogleFonts.plusJakartaSans(
     fontSize: r.font(12.0),
     fontWeight: FontWeight.w400,
-    color: AppColors.tertiary,
+    color: context.textSecondary,
   );
 
-  TextStyle _detailStyle() => GoogleFonts.plusJakartaSans(
+  TextStyle _detailStyle(BuildContext context) => GoogleFonts.plusJakartaSans(
     fontSize: r.font(10.0),
     fontWeight: FontWeight.w400,
-    color: AppColors.secondary,
+    color: context.textPrimary,
   );
 }
 
@@ -172,17 +186,26 @@ class SystemsRecoverCard extends StatelessWidget {
         final isExpanded = expandedSection == 'recover';
         return Container(
           decoration: BoxDecoration(
-            color: isExpanded ? null : AppColors.white,
-            gradient: isExpanded ? AppGradients.recoverCard : null,
+            color: isExpanded
+                ? (context.isDark ? AppColors.midnightSurface : null)
+                : context.cardBackground,
+            gradient: isExpanded
+                ? (context.isDark ? null : AppGradients.recoverCard)
+                : null,
             borderRadius: BorderRadius.circular(16.0),
-            border: Border.all(color: AppColors.systemCardBorder, width: 1.0),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.04),
-                blurRadius: 10.0,
-                offset: const Offset(0.0, 3.0),
-              ),
-            ],
+            border: Border.all(
+              color: context.isDark ? context.cardBorder : AppColors.systemCardBorder,
+              width: 1.0,
+            ),
+            boxShadow: context.isDark
+                ? []
+                : [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.04),
+                      blurRadius: 10.0,
+                      offset: const Offset(0.0, 3.0),
+                    ),
+                  ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -198,8 +221,8 @@ class SystemsRecoverCard extends StatelessWidget {
                         width: 40.0,
                         height: 40.0,
                         alignment: Alignment.center,
-                        decoration: const BoxDecoration(
-                          color: AppColors.white,
+                        decoration: BoxDecoration(
+                          color: context.isDark ? AppColors.midnightBackground : AppColors.white,
                           shape: BoxShape.circle,
                         ),
                         child: const AppSvgIcon(
@@ -220,7 +243,7 @@ class SystemsRecoverCard extends StatelessWidget {
                                   style: GoogleFonts.plusJakartaSans(
                                     fontSize: r.font(14.0),
                                     fontWeight: FontWeight.w600,
-                                    color: AppColors.secondary,
+                                    color: context.textPrimary,
                                   ),
                                 ),
                                 const SizedBox(width: 8.0),
@@ -252,7 +275,7 @@ class SystemsRecoverCard extends StatelessWidget {
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: r.font(12.0),
                                 fontWeight: FontWeight.w400,
-                                color: AppColors.tertiary,
+                                color: context.textSecondary,
                               ),
                             ),
                           ],
@@ -271,27 +294,36 @@ class SystemsRecoverCard extends StatelessWidget {
                 ),
               ),
               if (isExpanded) ...[
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 14.0),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14.0),
                   child: DottedDivider(
-                    color: AppColors.tertiary,
+                    color: context.cardBorder,
                     dashWidth: 3.0,
                     dashSpace: 3.0,
                     thickness: 0.5,
                   ),
                 ),
                 const SizedBox(height: 4.0),
-                _buildActionItemRow(title: 'Full mobility flow · 20 min', r: r),
                 _buildActionItemRow(
+                  context: context,
+                  title: 'Full mobility flow · 20 min',
+                  r: r,
+                ),
+                _buildActionItemRow(
+                  context: context,
                   title: 'Foam roll: calves & hamstrings · 8 min',
                   r: r,
                 ),
-                _buildActionItemRow(title: 'Sleep wind-down · 12 min', r: r),
+                _buildActionItemRow(
+                  context: context,
+                  title: 'Sleep wind-down · 12 min',
+                  r: r,
+                ),
                 const SizedBox(height: 4.0),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 14.0),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14.0),
                   child: DottedDivider(
-                    color: AppColors.tertiary,
+                    color: context.cardBorder,
                     dashWidth: 3.0,
                     dashSpace: 3.0,
                     thickness: 0.5,
@@ -304,7 +336,7 @@ class SystemsRecoverCard extends StatelessWidget {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: r.font(10.0),
                       fontWeight: FontWeight.w500,
-                      color: AppColors.tertiary,
+                      color: context.textSecondary,
                     ),
                   ),
                 ),
@@ -317,6 +349,7 @@ class SystemsRecoverCard extends StatelessWidget {
   }
 
   static Widget _buildActionItemRow({
+    required BuildContext context,
     required String title,
     required Responsive r,
   }) {
@@ -331,7 +364,7 @@ class SystemsRecoverCard extends StatelessWidget {
               style: GoogleFonts.plusJakartaSans(
                 fontSize: r.font(10.0),
                 fontWeight: FontWeight.w400,
-                color: AppColors.secondary,
+                color: context.textPrimary,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

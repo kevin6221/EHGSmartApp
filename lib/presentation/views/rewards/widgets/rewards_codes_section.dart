@@ -23,13 +23,13 @@ class RewardsCodesSection extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(14.0),
               fontWeight: FontWeight.w600,
-              color: AppColors.secondary,
+              color: context.textPrimary,
             ),
           ),
           const SizedBox(height: 12.0),
           // Code 1: Free UK delivery
           DashedContainer(
-            color: AppColors.rewardsCodeBorder,
+            color: context.isDark ? context.cardBorder : AppColors.rewardsCodeBorder,
             borderRadius: BorderRadius.circular(12.0),
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -44,7 +44,7 @@ class RewardsCodesSection extends StatelessWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(12.0),
                           fontWeight: FontWeight.w600,
-                          color: AppColors.secondary,
+                          color: context.textPrimary,
                         ),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
@@ -68,7 +68,7 @@ class RewardsCodesSection extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(10.0),
                     fontWeight: FontWeight.w400,
-                    color: AppColors.tertiary,
+                    color: context.textSecondary,
                   ),
                 ),
               ],
@@ -77,7 +77,7 @@ class RewardsCodesSection extends StatelessWidget {
           const SizedBox(height: 12.0),
           // Code 2: 10% off any Activewear piece
           DashedContainer(
-            color: AppColors.rewardsCodeBorder,
+            color: context.isDark ? context.cardBorder : AppColors.rewardsCodeBorder,
             borderRadius: BorderRadius.circular(12.0),
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -92,7 +92,7 @@ class RewardsCodesSection extends StatelessWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(12.0),
                           fontWeight: FontWeight.w600,
-                          color: AppColors.secondary,
+                          color: context.textPrimary,
                         ),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
@@ -116,7 +116,7 @@ class RewardsCodesSection extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(10.0),
                     fontWeight: FontWeight.w400,
-                    color: AppColors.tertiary,
+                    color: context.textSecondary,
                   ),
                 ),
               ],

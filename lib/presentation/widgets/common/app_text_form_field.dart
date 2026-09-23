@@ -110,14 +110,14 @@ class AppTextFormField extends StatelessWidget {
     final effectiveRadius = borderRadius ?? BorderRadius.circular(8.0);
     final effectiveBorderColor = isTextEntered
         ? (activeBorderColor ?? AppColors.primary)
-        : (borderColor ?? AppColors.profileInputBorder);
+        : (borderColor ?? context.inputBorder);
     final effectiveFocusedBorderColor = focusedBorderColor ?? AppColors.primary;
     final effectiveFillColor = isTextEntered
-        ? (activeFillColor ?? AppColors.profileInputFill)
-        : (fillColor ?? AppColors.white);
+        ? (activeFillColor ?? (context.isDark ? AppColors.midnightSurface : AppColors.profileInputFill))
+        : (fillColor ?? (context.isDark ? AppColors.midnightBackground : AppColors.white));
     final effectiveTextColor = isTextEntered
         ? (activeTextColor ?? AppColors.primary)
-        : (textColor ?? AppColors.secondary);
+        : (textColor ?? context.textPrimary);
     final effectiveTextWeight = isTextEntered ? activeTextWeight : textWeight;
 
     final effectiveStyle = style ??
@@ -131,7 +131,7 @@ class AppTextFormField extends StatelessWidget {
         GoogleFonts.plusJakartaSans(
           fontSize: fontSize,
           fontWeight: FontWeight.w400,
-          color: AppColors.tertiary,
+          color: context.textSecondary,
         );
 
     InputBorder? effectiveBorder;

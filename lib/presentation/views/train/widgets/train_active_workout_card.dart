@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/responsive.dart';
+import '../../../../data/models/user_profile_model.dart';
 import '../../../../data/models/workout_model.dart';
 import '../../../widgets/common/app_card.dart';
 import 'train_weight_selector.dart';
@@ -12,12 +13,14 @@ import 'train_weight_selector.dart';
 /// and integrated Calorie maths weight selector matching Figma Node 75:2580.
 class TrainActiveWorkoutCard extends StatelessWidget {
   final WorkoutModel data;
+  final UnitSystem unitSystem;
   final VoidCallback? onStartWorkout;
   final ValueChanged<int>? onWeightSelected;
 
   const TrainActiveWorkoutCard({
     super.key,
     required this.data,
+    this.unitSystem = UnitSystem.metric,
     this.onStartWorkout,
     this.onWeightSelected,
   });
@@ -73,7 +76,7 @@ class TrainActiveWorkoutCard extends StatelessWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(14.0),
                           fontWeight: FontWeight.w600,
-                          color: AppColors.secondary,
+                          color: context.textPrimary,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -110,88 +113,95 @@ class TrainActiveWorkoutCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
             decoration: BoxDecoration(
-              color: AppColors.workoutCardBg,
+              color: context.inputFill,
               borderRadius: BorderRadius.circular(8.0),
               border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.10),
+                color: context.cardBorder,
                 width: 1.0,
               ),
             ),
             child: Column(
               children: [
                 _buildDetailRow(
-                  icon: const AppSvgIcon(
+                  context: context,
+                  icon: AppSvgIcon(
                     AppIcons.targetDart,
                     size: 18.0,
-                    color: AppColors.secondary,
+                    color: context.textSecondary,
                   ),
                   text: data.zoneInfo,
                   r: r,
                 ),
                 const SizedBox(height: 14.0),
                 _buildDetailRow(
-                  icon: const AppSvgIcon(
+                  context: context,
+                  icon: AppSvgIcon(
                     AppIcons.watchDevice,
                     size: 18.0,
-                    color: AppColors.secondary,
+                    color: context.textSecondary,
                   ),
                   text: data.metricsSummary,
                   r: r,
                 ),
                 const SizedBox(height: 14.0),
                 _buildDetailRow(
-                  icon: const AppSvgIcon(
+                  context: context,
+                  icon: AppSvgIcon(
                     AppIcons.layersFolded,
                     size: 18.0,
-                    color: AppColors.secondary,
+                    color: context.textSecondary,
                   ),
                   text: data.outfitRecommendation,
                   r: r,
                 ),
                 const SizedBox(height: 14.0),
                 _buildDetailRow(
-                  icon: const AppSvgIcon(
+                  context: context,
+                  icon: AppSvgIcon(
                     AppIcons.trainFlame,
                     size: 18.0,
-                    color: AppColors.secondary,
+                    color: context.textSecondary,
                   ),
                   text:
-                      '≈ ${data.estimatedKcalPerMin} kcal/min at ${data.selectedWeightKg}kg',
+                      '≈ ${data.estimatedKcalPerMin} kcal/min at ${unitSystem == UnitSystem.imperial ? '${(data.selectedWeightKg * 2.20462).round()}lb' : '${data.selectedWeightKg}kg'}',
                   r: r,
                 ),
               ],
-            ),
           ),
-          const SizedBox(height: 16.0),
+        ),
+        const SizedBox(height: 16.0),
 
-          // 3. Integrated Calorie maths Section (Figma Node 75:2646)
-          Text(
-            'Calorie maths',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: r.font(16.0),
-              fontWeight: FontWeight.w600,
-              color: AppColors.secondary,
-            ),
+        // 3. Integrated Calorie maths Section (Figma Node 75:2646)
+        Text(
+          'Calorie maths',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: r.font(16.0),
+            fontWeight: FontWeight.w600,
+            color: context.textPrimary,
           ),
-          const SizedBox(height: 12.0),
+        ),
+        const SizedBox(height: 12.0),
 
-          // 4. Weight Selector Pills (Figma Node 75:2658)
-          if (onWeightSelected != null)
-            TrainWeightSelector(
-              currentWeight: data.selectedWeightKg,
-              onWeightSelected: onWeightSelected!,
-            )
-          else
-            TrainWeightSelector(
-              currentWeight: data.selectedWeightKg,
-              onWeightSelected: (_) {},
-            ),
+        // 4. Weight Selector Pills (Figma Node 75:2658)
+        if (onWeightSelected != null)
+          TrainWeightSelector(
+            currentWeight: data.selectedWeightKg,
+            unitSystem: unitSystem,
+            onWeightSelected: onWeightSelected!,
+          )
+        else
+          TrainWeightSelector(
+            currentWeight: data.selectedWeightKg,
+            unitSystem: unitSystem,
+            onWeightSelected: (_) {},
+          ),
         ],
       ),
     );
   }
 
   Widget _buildDetailRow({
+    required BuildContext context,
     required Widget icon,
     required String text,
     required Responsive r,
@@ -213,7 +223,7 @@ class TrainActiveWorkoutCard extends StatelessWidget {
           child: Text(
             text,
             style: GoogleFonts.plusJakartaSans(
-              color: AppColors.tertiary,
+              color: context.textSecondary,
               fontWeight: FontWeight.w400,
               fontSize: r.font(14.0),
               height: 1.35,

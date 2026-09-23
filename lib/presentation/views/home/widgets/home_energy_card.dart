@@ -13,6 +13,7 @@ import '../../../widgets/common/card_section_header.dart';
 /// Fully dynamic layout using responsive proportions.
 class HomeEnergyCard extends StatelessWidget {
   final int energyBurned;
+  final int steps;
   final int activeMins;
   final int goalMins;
   final List<double> weeklyEnergy;
@@ -22,6 +23,7 @@ class HomeEnergyCard extends StatelessWidget {
   const HomeEnergyCard({
     super.key,
     required this.energyBurned,
+    this.steps = 0,
     required this.activeMins,
     required this.goalMins,
     required this.weeklyEnergy,
@@ -83,7 +85,7 @@ class HomeEnergyCard extends StatelessWidget {
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: r.font(22.0),
                             fontWeight: FontWeight.w700,
-                            color: AppColors.secondary,
+                            color: context.textPrimary,
                           ),
                         ),
                         Text(
@@ -91,16 +93,18 @@ class HomeEnergyCard extends StatelessWidget {
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: r.font(12.0),
                             fontWeight: FontWeight.w500,
-                            color: AppColors.tertiary,
+                            color: context.textSecondary,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 4.0),
                     Text(
-                      'Active $activeMins / $goalMins',
+                      steps > 0
+                          ? '$steps steps · Active $activeMins / $goalMins'
+                          : 'Active $activeMins / $goalMins',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppColors.tertiary,
+                        color: context.textSecondary,
                         fontWeight: FontWeight.w500,
                         fontSize: r.font(12.0),
                       ),

@@ -15,6 +15,20 @@ class DayChartPoint extends Equatable {
     this.hasPin = false,
   });
 
+  Map<String, dynamic> toJson() => {
+    'timeLabel': timeLabel,
+    'score': score,
+    'isProjected': isProjected,
+    'hasPin': hasPin,
+  };
+
+  factory DayChartPoint.fromJson(Map<String, dynamic> json) => DayChartPoint(
+    timeLabel: json['timeLabel'] as String? ?? '',
+    score: (json['score'] as num?)?.toDouble() ?? 0.0,
+    isProjected: json['isProjected'] as bool? ?? false,
+    hasPin: json['hasPin'] as bool? ?? false,
+  );
+
   @override
   List<Object?> get props => [timeLabel, score, isProjected, hasPin];
 }
@@ -37,6 +51,7 @@ class WellnessDataModel extends Equatable {
   final int hydrationGoal;
   final List<double> weeklyHydration;
   final int energyBurned;
+  final int steps;
   final int activeMins;
   final int goalMins;
   final List<double> weeklyEnergy;
@@ -64,6 +79,7 @@ class WellnessDataModel extends Equatable {
     required this.hydrationGoal,
     required this.weeklyHydration,
     required this.energyBurned,
+    this.steps = 0,
     required this.activeMins,
     required this.goalMins,
     required this.weeklyEnergy,
@@ -91,6 +107,7 @@ class WellnessDataModel extends Equatable {
     int? hydrationGoal,
     List<double>? weeklyHydration,
     int? energyBurned,
+    int? steps,
     int? activeMins,
     int? goalMins,
     List<double>? weeklyEnergy,
@@ -117,6 +134,7 @@ class WellnessDataModel extends Equatable {
       hydrationGoal: hydrationGoal ?? this.hydrationGoal,
       weeklyHydration: weeklyHydration ?? this.weeklyHydration,
       energyBurned: energyBurned ?? this.energyBurned,
+      steps: steps ?? this.steps,
       activeMins: activeMins ?? this.activeMins,
       goalMins: goalMins ?? this.goalMins,
       weeklyEnergy: weeklyEnergy ?? this.weeklyEnergy,
@@ -126,6 +144,77 @@ class WellnessDataModel extends Equatable {
       fuelScore: fuelScore ?? this.fuelScore,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'wellnessScore': wellnessScore,
+    'scoreDiff': scoreDiff,
+    'activeMode': activeMode.name,
+    'dayChartPoints': dayChartPoints.map((p) => p.toJson()).toList(),
+    'currentHeartRate': currentHeartRate,
+    'weeklyHeartRate': weeklyHeartRate,
+    'sleepHours': sleepHours,
+    'readinessScore': readinessScore,
+    'readinessTag': readinessTag,
+    'sleepDetail': sleepDetail,
+    'hrvMs': hrvMs,
+    'restHr': restHr,
+    'stressScore': stressScore,
+    'hydrationCurrent': hydrationCurrent,
+    'hydrationGoal': hydrationGoal,
+    'weeklyHydration': weeklyHydration,
+    'energyBurned': energyBurned,
+    'steps': steps,
+    'activeMins': activeMins,
+    'goalMins': goalMins,
+    'weeklyEnergy': weeklyEnergy,
+    'moveScore': moveScore,
+    'recoverScore': recoverScore,
+    'mindScore': mindScore,
+    'fuelScore': fuelScore,
+  };
+
+  factory WellnessDataModel.fromJson(Map<String, dynamic> json) => WellnessDataModel(
+    wellnessScore: (json['wellnessScore'] as num?)?.toInt() ?? 0,
+    scoreDiff: (json['scoreDiff'] as num?)?.toInt() ?? 0,
+    activeMode: WellnessMode.values.firstWhere(
+      (m) => m.name == json['activeMode'],
+      orElse: () => WellnessMode.steady,
+    ),
+    dayChartPoints: (json['dayChartPoints'] as List<dynamic>?)
+            ?.map((p) => DayChartPoint.fromJson(p as Map<String, dynamic>))
+            .toList() ??
+        const [],
+    currentHeartRate: (json['currentHeartRate'] as num?)?.toInt() ?? 0,
+    weeklyHeartRate: (json['weeklyHeartRate'] as List<dynamic>?)
+            ?.map((e) => (e as num).toDouble())
+            .toList() ??
+        const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    sleepHours: (json['sleepHours'] as num?)?.toDouble() ?? 0.0,
+    readinessScore: (json['readinessScore'] as num?)?.toInt() ?? 0,
+    readinessTag: json['readinessTag'] as String? ?? 'Steady day',
+    sleepDetail: json['sleepDetail'] as String? ?? '--',
+    hrvMs: (json['hrvMs'] as num?)?.toInt() ?? 0,
+    restHr: (json['restHr'] as num?)?.toInt() ?? 0,
+    stressScore: (json['stressScore'] as num?)?.toInt() ?? 0,
+    hydrationCurrent: (json['hydrationCurrent'] as num?)?.toInt() ?? 0,
+    hydrationGoal: (json['hydrationGoal'] as num?)?.toInt() ?? 2000,
+    weeklyHydration: (json['weeklyHydration'] as List<dynamic>?)
+            ?.map((e) => (e as num).toDouble())
+            .toList() ??
+        const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    energyBurned: (json['energyBurned'] as num?)?.toInt() ?? 0,
+    steps: (json['steps'] as num?)?.toInt() ?? 0,
+    activeMins: (json['activeMins'] as num?)?.toInt() ?? 0,
+    goalMins: (json['goalMins'] as num?)?.toInt() ?? 600,
+    weeklyEnergy: (json['weeklyEnergy'] as List<dynamic>?)
+            ?.map((e) => (e as num).toDouble())
+            .toList() ??
+        const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    moveScore: (json['moveScore'] as num?)?.toInt() ?? 0,
+    recoverScore: (json['recoverScore'] as num?)?.toInt() ?? 0,
+    mindScore: (json['mindScore'] as num?)?.toInt() ?? 0,
+    fuelScore: (json['fuelScore'] as num?)?.toInt() ?? 0,
+  );
 
   @override
   List<Object?> get props => [
@@ -146,6 +235,7 @@ class WellnessDataModel extends Equatable {
     hydrationGoal,
     weeklyHydration,
     energyBurned,
+    steps,
     activeMins,
     goalMins,
     weeklyEnergy,

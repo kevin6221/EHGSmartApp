@@ -54,14 +54,14 @@ class _ProfileNotificationsScreenState
       builder: (context, state) {
         final data = state.data;
         if (data == null) {
-          return const Scaffold(
-            backgroundColor: AppColors.background,
-            body: Center(child: CircularProgressIndicator()),
+          return Scaffold(
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            body: const Center(child: CircularProgressIndicator()),
           );
         }
 
         return Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           extendBody: true,
           body: Stack(
             children: [
@@ -95,7 +95,7 @@ class _ProfileNotificationsScreenState
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(14.0),
                           fontWeight: FontWeight.w400,
-                          color: AppColors.secondary,
+                          color: context.textSecondary,
                           height: 1.45,
                         ),
                       ),
@@ -106,7 +106,7 @@ class _ProfileNotificationsScreenState
                           vertical: 12.0,
                         ),
                         borderRadius: BorderRadius.circular(16.0),
-                        border: Border.all(color: AppColors.border, width: 0.8),
+                        border: Border.all(color: context.cardBorder, width: 0.8),
                         boxShadow: [
                           BoxShadow(
                             color: AppColors.black.withValues(alpha: 0.02),
@@ -127,9 +127,10 @@ class _ProfileNotificationsScreenState
                                     );
                               },
                               r: r,
+                              context: context,
                             ),
-                            const Divider(
-                              color: AppColors.profileDivider,
+                            Divider(
+                              color: context.dividerColor,
                               height: 20.0,
                               thickness: 0.5,
                             ),
@@ -144,9 +145,10 @@ class _ProfileNotificationsScreenState
                                     );
                               },
                               r: r,
+                              context: context,
                             ),
-                            const Divider(
-                              color: AppColors.profileDivider,
+                            Divider(
+                              color: context.dividerColor,
                               height: 20.0,
                               thickness: 0.5,
                             ),
@@ -161,9 +163,10 @@ class _ProfileNotificationsScreenState
                                     );
                               },
                               r: r,
+                              context: context,
                             ),
-                            const Divider(
-                              color: AppColors.profileDivider,
+                            Divider(
+                              color: context.dividerColor,
                               height: 20.0,
                               thickness: 0.5,
                             ),
@@ -178,6 +181,7 @@ class _ProfileNotificationsScreenState
                                     );
                               },
                               r: r,
+                              context: context,
                             ),
                           ],
                         ),
@@ -203,6 +207,7 @@ class _ProfileNotificationsScreenState
     required bool value,
     required ValueChanged<bool> onChanged,
     required Responsive r,
+    required BuildContext context,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -218,7 +223,7 @@ class _ProfileNotificationsScreenState
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(14.0),
                     fontWeight: FontWeight.w600,
-                    color: AppColors.secondary,
+                    color: context.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 2.0),
@@ -227,7 +232,7 @@ class _ProfileNotificationsScreenState
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(11.5),
                     fontWeight: FontWeight.w400,
-                    color: AppColors.tertiary,
+                    color: context.textSecondary,
                     height: 1.35,
                   ),
                 ),

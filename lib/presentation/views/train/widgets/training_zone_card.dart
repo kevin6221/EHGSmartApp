@@ -41,15 +41,21 @@ class TrainingZoneCard extends StatelessWidget {
         vertical: (media.height * 0.014).clamp(10.0, 14.0),
       ),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: context.cardBackground,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowNavy.withValues(alpha: 0.05),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(
+          color: context.cardBorder,
+          width: 1.0,
+        ),
+        boxShadow: context.isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: AppColors.shadowNavy.withValues(alpha: 0.05),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: ValueListenableBuilder<int>(
         valueListenable: selectedZoneNotifier,
@@ -84,7 +90,9 @@ class TrainingZoneCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: isSelected
                               ? AppColors.primary
-                              : AppColors.primaryLight,
+                              : (context.isDark
+                                  ? context.inputFill
+                                  : AppColors.primaryLight),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(

@@ -7,6 +7,7 @@ import '../../../../core/routes/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/responsive.dart';
 import '../../../../data/models/user_profile_model.dart';
+import '../../../../data/repositories/band_repository.dart';
 import '../../../blocs/band/band_bloc.dart';
 import '../../../blocs/band/band_event.dart';
 import '../../../blocs/band/band_state.dart';
@@ -33,8 +34,15 @@ class ProfileBandCard extends StatelessWidget {
                 ? bandState.connectedDevice!.macAddress
                 : bandState.connectedDevice!.id)
             : data.bandId;
+        final repoBattery =
+            context.read<BandRepository>().currentBattery.percentage;
+        final effectiveBattery = bandState.battery.percentage > 0
+            ? bandState.battery.percentage
+            : (repoBattery > 0 ? repoBattery : null);
         final batteryText = isConnected
-            ? '${bandState.battery.percentage}%'
+            ? (effectiveBattery != null
+                ? '$effectiveBattery%'
+                : data.bandBatteryDays)
             : data.bandBatteryDays;
 
         return AppCard(
@@ -77,7 +85,7 @@ class ProfileBandCard extends StatelessWidget {
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: r.font(16.0),
                             fontWeight: FontWeight.w600,
-                            color: AppColors.secondary,
+                            color: context.textPrimary,
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -91,7 +99,7 @@ class ProfileBandCard extends StatelessWidget {
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: r.font(12.0),
                                   fontWeight: FontWeight.w400,
-                                  color: AppColors.tertiary,
+                                  color: context.textSecondary,
                                 ),
                               ),
                             ),
@@ -99,7 +107,7 @@ class ProfileBandCard extends StatelessWidget {
                             Container(
                               width: 0.5,
                               height: 10.0,
-                              color: AppColors.borderLight,
+                              color: context.cardBorder,
                             ),
                             const SizedBox(width: 8.0),
                             RotatedBox(
@@ -111,7 +119,7 @@ class ProfileBandCard extends StatelessWidget {
                                 size: 18.0,
                                 color: isConnected
                                     ? AppColors.greenMetric
-                                    : AppColors.tertiary,
+                                    : context.textSecondary,
                               ),
                             ),
                             const SizedBox(width: 4.0),
@@ -120,7 +128,7 @@ class ProfileBandCard extends StatelessWidget {
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: r.font(12.0),
                                 fontWeight: FontWeight.w400,
-                                color: AppColors.tertiary,
+                                color: context.textSecondary,
                               ),
                             ),
                           ],
@@ -160,7 +168,7 @@ class ProfileBandCard extends StatelessWidget {
                       child: AppButton.outlined(
                         text: 'Forgot band',
                         onPressed: () {
-                          context.read<BandBloc>().add(DisconnectBandEvent());
+                          context.read<BandBloc>().add(const DisconnectBandEvent(unpair: true));
                           onForgetBand?.call();
                         },
                         showArrow: false,

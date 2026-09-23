@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/responsive.dart';
@@ -24,19 +25,24 @@ class MembershipRouteOneCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        gradient: AppGradients.membershipCard,
+        color: context.isDark ? context.cardBackground : null,
+        gradient: context.isDark ? null : AppGradients.membershipCard,
         borderRadius: BorderRadius.circular(16.0),
         border: Border.all(
-          color: AppColors.primary.withValues(alpha: 0.40),
+          color: context.isDark
+              ? context.cardBorder
+              : AppColors.primary.withValues(alpha: 0.40),
           width: 1.0,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowNavy.withValues(alpha: 0.04),
-            blurRadius: 10.0,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: context.isDark
+            ? []
+            : [
+                BoxShadow(
+                  color: AppColors.shadowNavy.withValues(alpha: 0.04),
+                  blurRadius: 10.0,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,7 +68,7 @@ class MembershipRouteOneCard extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(16.0),
                     fontWeight: FontWeight.w600,
-                    color: AppColors.secondary,
+                    color: context.textPrimary,
                   ),
                 ),
               ),
@@ -96,7 +102,7 @@ class MembershipRouteOneCard extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(13.0),
               fontWeight: FontWeight.w400,
-              color: AppColors.tertiary,
+              color: context.textSecondary,
               height: 1.45,
             ),
           ),
@@ -116,12 +122,25 @@ class MembershipRouteOneCard extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   padding: const EdgeInsets.symmetric(horizontal: 8.0),
                   onPressed: onShopTap ??
-                      () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Opening collection shop...'),
-                          ),
-                        );
+                      () async {
+                        final Uri url =
+                            Uri.parse('https://www.ehgsmartwellness.com/');
+                        try {
+                          await launchUrl(
+                            url,
+                            mode: LaunchMode.externalApplication,
+                          );
+                        } catch (_) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Could not open https://www.ehgsmartwellness.com/',
+                                ),
+                              ),
+                            );
+                          }
+                        }
                       },
                 ),
               ),

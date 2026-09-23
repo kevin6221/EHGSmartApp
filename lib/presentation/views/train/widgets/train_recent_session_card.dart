@@ -71,7 +71,7 @@ class TrainRecentSessionCard extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(14.0),
                     fontWeight: FontWeight.w600,
-                    color: AppColors.secondary,
+                    color: context.textPrimary,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -89,10 +89,11 @@ class TrainRecentSessionCard extends StatelessWidget {
                     vertical: 7.0,
                   ),
                   decoration: BoxDecoration(
-                    gradient: AppGradients.trainStatTime,
+                    color: context.isDark ? context.inputFill : null,
+                    gradient: context.isDark ? null : AppGradients.trainStatTime,
                     borderRadius: BorderRadius.circular(8.0),
                     border: Border.all(
-                      color: AppColors.trainStatTimeBorder,
+                      color: context.isDark ? context.cardBorder : AppColors.trainStatTimeBorder,
                       width: 0.5,
                     ),
                   ),
@@ -104,7 +105,7 @@ class TrainRecentSessionCard extends StatelessWidget {
                         style: GoogleFonts.poppins(
                           fontSize: r.font(10.0),
                           fontWeight: FontWeight.w700,
-                          color: AppColors.black,
+                          color: context.isDark ? context.textPrimary : AppColors.black,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -115,7 +116,7 @@ class TrainRecentSessionCard extends StatelessWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(10.0),
                           fontWeight: FontWeight.w600,
-                          color: AppColors.tertiary,
+                          color: context.textSecondary,
                         ),
                       ),
                     ],
@@ -131,10 +132,11 @@ class TrainRecentSessionCard extends StatelessWidget {
                     vertical: 6.0,
                   ),
                   decoration: BoxDecoration(
-                    gradient: AppGradients.trainStatPeak,
+                    color: context.isDark ? context.inputFill : null,
+                    gradient: context.isDark ? null : AppGradients.trainStatPeak,
                     borderRadius: BorderRadius.circular(8.0),
                     border: Border.all(
-                      color: AppColors.trainStatPeakBorder,
+                      color: context.isDark ? context.cardBorder : AppColors.trainStatPeakBorder,
                       width: 0.5,
                     ),
                   ),
@@ -147,7 +149,7 @@ class TrainRecentSessionCard extends StatelessWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(10.0),
                           fontWeight: FontWeight.w700,
-                          color: AppColors.black,
+                          color: context.isDark ? context.textPrimary : AppColors.black,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -158,7 +160,7 @@ class TrainRecentSessionCard extends StatelessWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(10.0),
                           fontWeight: FontWeight.w600,
-                          color: AppColors.tertiary,
+                          color: context.textSecondary,
                         ),
                       ),
                     ],
@@ -175,10 +177,11 @@ class TrainRecentSessionCard extends StatelessWidget {
                     vertical: 6.0,
                   ),
                   decoration: BoxDecoration(
-                    gradient: AppGradients.trainStatAvg,
+                    color: context.isDark ? context.inputFill : null,
+                    gradient: context.isDark ? null : AppGradients.trainStatAvg,
                     borderRadius: BorderRadius.circular(8.0),
                     border: Border.all(
-                      color: AppColors.trainStatAvgBorder,
+                      color: context.isDark ? context.cardBorder : AppColors.trainStatAvgBorder,
                       width: 0.5,
                     ),
                   ),
@@ -191,7 +194,7 @@ class TrainRecentSessionCard extends StatelessWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(10.0),
                           fontWeight: FontWeight.w700,
-                          color: AppColors.black,
+                          color: context.isDark ? context.textPrimary : AppColors.black,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -202,7 +205,7 @@ class TrainRecentSessionCard extends StatelessWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(10.0),
                           fontWeight: FontWeight.w600,
-                          color: AppColors.tertiary,
+                          color: context.textSecondary,
                         ),
                       ),
                     ],

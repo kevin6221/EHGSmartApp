@@ -5,8 +5,10 @@ import android.app.Activity
 import android.Manifest
 import android.bluetooth.*
 import android.bluetooth.le.*
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.os.Build
@@ -55,6 +57,7 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
     // Real-time heart rate & PPG LED activation state
     private var isLiveHeartRateActive = false
     private var realtimeHrHoldRunnable: Runnable? = null
+    private var stepPollRunnable: Runnable? = null
     private var activeMeasuringType: String? = null
     private var measuringTimeoutRunnable: Runnable? = null
 
@@ -62,6 +65,8 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
     private var lastKnownSteps: Int = 0
     private var lastKnownCalories: Int = 0
     private var lastKnownDistance: Int = 0
+    private var lastKnownSbp: Int = 0
+    private var lastKnownDbp: Int = 0
 
     // ─── GATT Serial Command Queue ───────────────────────────────────────────────
     // Android BLE allows only ONE outstanding GATT write/read at a time.
@@ -121,8 +126,10 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
         Log.d(TAG, "GattQueue: '$label' complete, draining next")
         gattWatchdogRunnable?.let { mainHandler.removeCallbacks(it) }
         gattWatchdogRunnable = null
-        gattBusy = false
-        drainGattQueue()
+        mainHandler.postDelayed({
+            gattBusy = false
+            drainGattQueue()
+        }, 100L)
     }
 
     /** Clear the queue (e.g. on disconnect). */
@@ -148,10 +155,48 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
         val HEART_RATE_CHAR_UUID: UUID = UUID.fromString("00002a37-0000-1000-8000-00805f9b34fb")
     }
 
+    private val bluetoothStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == BluetoothAdapter.ACTION_STATE_CHANGED) {
+                val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
+                when (state) {
+                    BluetoothAdapter.STATE_ON -> {
+                        bluetoothLeScanner = bluetoothAdapter?.bluetoothLeScanner
+                        sendEvent(mapOf("type" to "bluetooth_state", "state" to "poweredOn"))
+                        val lastMac = prefs.getString("last_connected_mac", null)
+                        if (!lastMac.isNullOrEmpty() && !isConnected) {
+                            Log.d(TAG, "Bluetooth turned on, auto-reconnecting to $lastMac")
+                            connectToDevice(lastMac, null)
+                        }
+                    }
+                    BluetoothAdapter.STATE_OFF, BluetoothAdapter.STATE_TURNING_OFF -> {
+                        Log.d(TAG, "Bluetooth turned off, gracefully resetting connection")
+                        sendEvent(mapOf("type" to "bluetooth_state", "state" to "poweredOff"))
+                        sendEvent(mapOf("type" to "connection_state", "state" to "disconnected"))
+                        stopBleScan()
+                        try {
+                            bluetoothGatt?.disconnect()
+                            bluetoothGatt?.close()
+                        } catch (_: Exception) {}
+                        bluetoothGatt = null
+                        isConnected = false
+                        clearGattQueue()
+                    }
+                }
+            }
+        }
+    }
+
     init {
         methodChannel.setMethodCallHandler(this)
         eventChannel.setStreamHandler(this)
         bluetoothLeScanner = bluetoothAdapter?.bluetoothLeScanner
+        try {
+            val filter = IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED)
+            activity.registerReceiver(bluetoothStateReceiver, filter)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to register bluetoothStateReceiver", e)
+        }
     }
 
     private fun sendEvent(event: Map<String, Any?>) {
@@ -162,6 +207,27 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
 
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
         this.eventSink = events
+
+        // Immediately re-emit current Bluetooth state
+        val btState = if (bluetoothAdapter?.isEnabled == true) "poweredOn" else "poweredOff"
+        events?.success(mapOf("type" to "bluetooth_state", "state" to btState))
+
+        // If band is already connected (e.g. across Hot Restart), emit connected immediately
+        val dev = connectedDevice
+        if (connectedGatt != null && dev != null) {
+            val manager = activity.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+            val state = manager?.getConnectionState(connectedGatt?.device, BluetoothProfile.GATT)
+            if (state == BluetoothProfile.STATE_CONNECTED) {
+                Log.d(TAG, "🔌 Re-emitting connected state to Flutter on hot restart: ${dev.name} (${dev.address})")
+                events?.success(mapOf(
+                    "type" to "connection_state",
+                    "state" to "connected",
+                    "name" to (dev.name ?: "EHG Smart Band"),
+                    "id" to dev.address,
+                    "mac" to dev.address
+                ))
+            }
+        }
     }
 
     override fun onCancel(arguments: Any?) {
@@ -170,8 +236,23 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
+            "isConnected" -> {
+                val dev = connectedDevice
+                val manager = activity.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+                val isConnected = connectedGatt != null && dev != null &&
+                    manager?.getConnectionState(connectedGatt?.device, BluetoothProfile.GATT) == BluetoothProfile.STATE_CONNECTED
+                result.success(isConnected)
+            }
             "requestEnableBluetooth" -> {
                 requestEnableBluetooth()
+                result.success(true)
+            }
+            "openAppSettings" -> {
+                openAppSettings()
+                result.success(true)
+            }
+            "openBluetoothSettings" -> {
+                openBluetoothSettings()
                 result.success(true)
             }
             "openLocationSettings" -> {
@@ -196,7 +277,10 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                 connectToDevice(deviceId, result)
             }
             "disconnect" -> {
-                prefs.edit().remove("last_connected_mac").remove("last_connected_name").apply()
+                val unpair = call.argument<Boolean>("unpair") ?: false
+                if (unpair) {
+                    prefs.edit().remove("last_connected_mac").remove("last_connected_name").apply()
+                }
                 disconnectDevice()
                 result.success(true)
             }
@@ -456,6 +540,17 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
     }
 
     private fun connectToDevice(deviceId: String, result: MethodChannel.Result) {
+        if (connectedGatt != null && connectedDevice?.address == deviceId) {
+            val manager = activity.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+            val state = manager?.getConnectionState(connectedGatt?.device, BluetoothProfile.GATT)
+            if (state == BluetoothProfile.STATE_CONNECTED) {
+                Log.d(TAG, "Device $deviceId is ALREADY connected in Android GATT. Returning success.")
+                sendEvent(mapOf("type" to "connection_state", "state" to "connected", "name" to (connectedDevice?.name ?: "EHG Smart Band"), "id" to deviceId))
+                result.success(true)
+                return
+            }
+        }
+
         // 1. Immediately stop scanning
         stopBleScan()
         sendEvent(mapOf("type" to "connection_state", "state" to "connecting"))
@@ -517,6 +612,7 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
     }
 
     private fun disconnectDevice() {
+        stopStepPolling()
         stopRealtimeHeartRateQc()
         stopMeasuringQc("all")
         clearGattQueue()
@@ -549,7 +645,17 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                 }, 250L)
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED || status != BluetoothGatt.GATT_SUCCESS) {
                 Log.d(TAG, "Disconnected or connect failure (status=$status, newState=$newState)")
+                stopStepPolling()
                 clearGattQueue()
+                isLiveHeartRateActive = false
+                realtimeHrHoldRunnable?.let {
+                    mainHandler.removeCallbacks(it)
+                    realtimeHrHoldRunnable = null
+                }
+                measuringTimeoutRunnable?.let {
+                    mainHandler.removeCallbacks(it)
+                    measuringTimeoutRunnable = null
+                }
                 hasSentConnectionVibration = false
                 sendEvent(mapOf("type" to "connection_state", "state" to "disconnected"))
                 if (pendingConnectResult != null) {
@@ -708,6 +814,8 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                             ok
                         }
                     }
+
+                    // Step 8: Standard init complete (realtime updates reserved for Heart Rate)
                 }, 150L)
             } else {
                 Log.e(TAG, "Service discovery failed with status $status")
@@ -878,11 +986,14 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                                 2 -> { // Blood Pressure
                                     val sbp = if (value.size > 4) (value[4].toInt() and 0xFF) else rawVal
                                     val dbp = if (value.size > 5) (value[5].toInt() and 0xFF) else 0
+                                    if (sbp > 0) lastKnownSbp = sbp
+                                    if (dbp > 0) lastKnownDbp = dbp
+                                    prefs.edit().putInt("last_known_sbp", lastKnownSbp).putInt("last_known_dbp", lastKnownDbp).apply()
                                     sendEvent(mapOf(
                                         "type" to "measurement_result",
                                         "measureType" to "bloodPressure",
-                                        "sbp" to sbp,
-                                        "dbp" to dbp
+                                        "sbp" to lastKnownSbp,
+                                        "dbp" to lastKnownDbp
                                     ))
                                 }
                                 3 -> { // Blood Oxygen
@@ -1189,6 +1300,33 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
         return true
     }
 
+    private fun startStepPolling() {
+        stopStepPolling()
+        val pollTask = object : Runnable {
+            override fun run() {
+                val gatt = connectedGatt
+                if (gatt != null && qcTxCharacteristic != null) {
+                    if (gattQueue.isEmpty() && !gattBusy && activeMeasuringType == null) {
+                        enqueueGattOp(OpType.CHAR_WRITE, "poll-sport-02") {
+                            val packet = buildQcPacket("02")
+                            writeQcPacketDirect(packet)
+                        }
+                    }
+                    mainHandler.postDelayed(this, 10_000L)
+                } else {
+                    stopStepPolling()
+                }
+            }
+        }
+        stepPollRunnable = pollTask
+        mainHandler.postDelayed(pollTask, 10_000L)
+    }
+
+    private fun stopStepPolling() {
+        stepPollRunnable?.let { mainHandler.removeCallbacks(it) }
+        stepPollRunnable = null
+    }
+
     private fun startMeasuringQc(type: String): Boolean {
         if (connectedGatt == null || qcTxCharacteristic == null) return false
         activeMeasuringType = type
@@ -1283,6 +1421,8 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
             val packet = buildQcPacket("03")
             writeQcPacketDirect(packet)
         }
+        val sbp = if (lastKnownSbp > 0) lastKnownSbp else prefs.getInt("last_known_sbp", 0)
+        val dbp = if (lastKnownDbp > 0) lastKnownDbp else prefs.getInt("last_known_dbp", 0)
         // Respond with current known vitals
         val syncMap = mutableMapOf<String, Any>(
             "steps" to lastKnownSteps,
@@ -1291,8 +1431,8 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
             "sleepMinutes" to 0,
             "deepSleepMinutes" to 0,
             "bloodOxygen" to 0,
-            "systolicBP" to 0,
-            "diastolicBP" to 0,
+            "systolicBP" to sbp,
+            "diastolicBP" to dbp,
             "skinTemperature" to 0,
             "stressLevel" to 0,
             "hrvMs" to 0,
@@ -1342,12 +1482,45 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
 
     private fun requestEnableBluetooth() {
         try {
-            val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE).apply {
+            val btSettingsIntent = Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            activity.startActivity(enableBtIntent)
+            activity.startActivity(btSettingsIntent)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to request enable bluetooth", e)
+            Log.e(TAG, "Failed to open bluetooth settings, trying ACTION_REQUEST_ENABLE", e)
+            try {
+                val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+                activity.startActivity(enableBtIntent)
+            } catch (e2: Exception) {
+                Log.e(TAG, "Failed to request enable bluetooth, fallback to app settings", e2)
+                openAppSettings()
+            }
+        }
+    }
+
+    private fun openBluetoothSettings() {
+        try {
+            val intent = Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            activity.startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to open bluetooth settings, fallback to app settings", e)
+            openAppSettings()
+        }
+    }
+
+    private fun openAppSettings() {
+        try {
+            val intent = Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = android.net.Uri.fromParts("package", activity.packageName, null)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            activity.startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to open app settings", e)
         }
     }
 }

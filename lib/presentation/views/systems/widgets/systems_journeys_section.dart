@@ -25,11 +25,12 @@ class SystemsJourneysSection extends StatelessWidget {
           style: GoogleFonts.plusJakartaSans(
             fontSize: r.font(14.0),
             fontWeight: FontWeight.w700,
-            color: AppColors.secondary,
+            color: context.textPrimary,
           ),
         ),
         const SizedBox(height: 14.0),
         _buildJourneyCard(
+          context: context,
           title: 'Morning Energy',
           progressText: '9/21 days',
           progressFraction: 9.0 / 21.0,
@@ -38,6 +39,7 @@ class SystemsJourneysSection extends StatelessWidget {
         ),
         SizedBox(height: (screenHeight * 0.012).clamp(10.0, 14.0)),
         _buildJourneyCard(
+          context: context,
           title: 'Better Sleep',
           progressText: '3/14 days',
           progressFraction: 3.0 / 14.0,
@@ -49,6 +51,7 @@ class SystemsJourneysSection extends StatelessWidget {
   }
 
   Widget _buildJourneyCard({
+    required BuildContext context,
     required String title,
     required String progressText,
     required double progressFraction,
@@ -58,9 +61,9 @@ class SystemsJourneysSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14.0),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: context.cardBackground,
         borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: AppColors.border, width: 1.0),
+        border: Border.all(color: context.cardBorder, width: 1.0),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -74,7 +77,7 @@ class SystemsJourneysSection extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(12.0),
                     fontWeight: FontWeight.w600,
-                    color: AppColors.secondary,
+                    color: context.textPrimary,
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
@@ -96,7 +99,7 @@ class SystemsJourneysSection extends StatelessWidget {
             value: progressFraction,
             minHeight: 2.0,
             borderRadius: BorderRadius.circular(3.0),
-            backgroundColor: AppColors.divider,
+            backgroundColor: context.isDark ? AppColors.midnightBorder : AppColors.divider,
             valueColor: const AlwaysStoppedAnimation<Color>(
               AppColors.cyanLight,
             ),
@@ -107,7 +110,7 @@ class SystemsJourneysSection extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(10.0),
               fontWeight: FontWeight.w400,
-              color: AppColors.tertiary,
+              color: context.textSecondary,
             ),
           ),
         ],

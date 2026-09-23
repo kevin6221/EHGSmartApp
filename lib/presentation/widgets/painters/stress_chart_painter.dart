@@ -1,8 +1,8 @@
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_colors.dart';
-import '../../helpers/vitals_card_calculator.dart';
 
 /// Custom painter for the Stress area chart matching Figma Node 71:1042.
 ///
@@ -10,6 +10,7 @@ import '../../helpers/vitals_card_calculator.dart';
 /// - 3 horizontal dashed guidelines
 /// - Smooth cubic bezier curve with cyan gradient area fill
 /// - Interactive scrubber line and active bead dot
+/// - Gracefully handles sparse data: days with 0.0 are skipped. Single valid day renders a dot.
 class StressChartPainter extends CustomPainter {
   final List<double> values;
   final int activeIndex;
@@ -25,6 +26,8 @@ class StressChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) return;
+
     final width = size.width;
     final height = size.height;
 
@@ -46,19 +49,34 @@ class StressChartPainter extends CustomPainter {
       }
     }
 
-    if (values.length < 2) return;
+    // Collect non-zero values for scaling
+    final List<int> validIndices = [];
+    for (int i = 0; i < values.length; i++) {
+      if (values[i] > 0) validIndices.add(i);
+    }
+    if (validIndices.isEmpty) return;
 
-    // 2. Compute normalized points
-    final points = VitalsCardCalculator.computeNormalizedPoints(
-      values: values,
-      size: size,
-      topPadding: 16.0,
-      bottomPadding: 16.0,
-    );
+    const double topPadding = 16.0;
+    const double bottomPadding = 16.0;
+    final double usableHeight = height - topPadding - bottomPadding;
 
-    if (points.length < 2) return;
+    final List<double> validValues = validIndices.map((i) => values[i]).toList();
+    final double maxVal = validValues.reduce((a, b) => a > b ? a : b);
 
-    // 3. Build smooth cubic path
+    final int totalSlots = values.length >= 7 ? 7 : values.length;
+    final List<Offset> points = [];
+
+    for (int i = 0; i < totalSlots; i++) {
+      final double x = totalSlots > 1 ? (i / (totalSlots - 1)) * width : width * 0.5;
+      final double v = values[i] > 0 ? values[i] : 0.0;
+      final double normalized = maxVal > 0 ? (v / maxVal).clamp(0.0, 1.0) : 0.0;
+      final double y = height - bottomPadding - (normalized * usableHeight);
+      points.add(Offset(x, y));
+    }
+
+    if (points.isEmpty) return;
+
+    // Build smooth cubic path through 7-day points
     final path = Path();
     path.moveTo(points[0].dx, points[0].dy);
 
@@ -69,10 +87,10 @@ class StressChartPainter extends CustomPainter {
       path.cubicTo(cx, p0.dy, cx, p1.dy, p1.dx, p1.dy);
     }
 
-    // 4. Draw Area Gradient Fill
+    // Draw Area Gradient Fill
     final fillPath = Path.from(path)
-      ..lineTo(width, height)
-      ..lineTo(0, height)
+      ..lineTo(points.last.dx, height)
+      ..lineTo(points.first.dx, height)
       ..close();
 
     final fillPaint = Paint()
@@ -86,7 +104,7 @@ class StressChartPainter extends CustomPainter {
       );
     canvas.drawPath(fillPath, fillPaint);
 
-    // 5. Draw Stroke
+    // Draw Stroke
     final strokePaint = Paint()
       ..color = lineColor
       ..strokeWidth = 2.0
@@ -95,9 +113,9 @@ class StressChartPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
     canvas.drawPath(path, strokePaint);
 
-    // 6. Draw Vertical Scrubber Line & Active Marker at activeIndex
-    final safeIndex = activeIndex.clamp(0, points.length - 1);
-    final activePt = points[safeIndex];
+    // Draw Vertical Scrubber Line & Active Marker at activeIndex
+    final activeIdx = activeIndex.clamp(0, points.length - 1);
+    final activePt = points[activeIdx];
 
     // Vertical dashed/solid guide line from dot to bottom
     final verticalLinePaint = Paint()
@@ -135,7 +153,7 @@ class StressChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant StressChartPainter oldDelegate) {
-    return oldDelegate.values != values ||
+    return !listEquals(oldDelegate.values, values) ||
         oldDelegate.activeIndex != activeIndex ||
         oldDelegate.lineColor != lineColor;
   }

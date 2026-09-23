@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 export 'app_gradients.dart';
+export 'app_theme_extensions.dart';
 
 /// App color palette strictly aligned with the Figma Brand Guide (Node 2:575)
 /// and all centralized app screens and components.
@@ -45,6 +46,27 @@ class AppColors {
 
   /// Brand background light slate (#F8FAFC) used for page scaffold, subtle card fills.
   static const Color background = Color(0xFFF8FAFC);
+
+  // ===========================================================================
+  // Midnight / Dark Theme Swatches
+  // ===========================================================================
+  /// Deep midnight slate background (#0B1120) for dark theme scaffold.
+  static const Color midnightBackground = Color(0xFF0B1120);
+
+  /// Midnight elevated card surface (#1E293B).
+  static const Color midnightSurface = Color(0xFF1E293B);
+
+  /// Midnight border (#334155).
+  static const Color midnightBorder = Color(0xFF334155);
+
+  /// Midnight top header start (#1E3A8A).
+  static const Color midnightHeaderStart = Color(0xFF1E3A8A);
+
+  /// Midnight light text primary (#F8FAFC).
+  static const Color midnightTextPrimary = Color(0xFFF8FAFC);
+
+  /// Midnight muted text (#94A3B8).
+  static const Color midnightTextMuted = Color(0xFF94A3B8);
 
   // ===========================================================================
   // 3. Primary & Accent Tonal Variations

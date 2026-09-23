@@ -275,14 +275,14 @@ class AppButton extends StatelessWidget {
         break;
 
       case AppButtonVariant.secondary:
-        resolvedBg = backgroundColor ?? AppColors.surface;
-        resolvedText = textColor ?? AppColors.secondary;
+        resolvedBg = backgroundColor ?? context.cardBackground;
+        resolvedText = textColor ?? context.textPrimary;
         resolvedBorder =
-            border ?? Border.all(color: AppColors.border, width: 1);
+            border ?? Border.all(color: context.cardBorder, width: 1);
         if (hasShadow && isEnabled) {
           resolvedShadow = [
             BoxShadow(
-              color: AppColors.shadowNavy.withValues(alpha: 0.05),
+              color: AppColors.shadowNavy.withValues(alpha: context.isDark ? 0.2 : 0.05),
               blurRadius: 10,
               offset: const Offset(0, 2),
             ),
@@ -291,15 +291,15 @@ class AppButton extends StatelessWidget {
         break;
 
       case AppButtonVariant.inverted:
-        resolvedBg = backgroundColor ?? AppColors.secondary;
-        resolvedText = textColor ?? AppColors.white;
+        resolvedBg = backgroundColor ?? (context.isDark ? AppColors.white : AppColors.secondary);
+        resolvedText = textColor ?? (context.isDark ? AppColors.secondary : AppColors.white);
         break;
 
       case AppButtonVariant.outlined:
         resolvedBg = backgroundColor ?? AppColors.transparent;
-        resolvedText = textColor ?? AppColors.primary;
+        resolvedText = textColor ?? (context.isDark ? AppColors.white : AppColors.primary);
         resolvedBorder =
-            border ?? Border.all(color: AppColors.primary, width: 1.0);
+            border ?? Border.all(color: context.isDark ? AppColors.midnightBorder : AppColors.primary, width: 1.0);
         break;
     }
 

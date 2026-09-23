@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -97,8 +98,8 @@ class BandPermissionDialog extends StatelessWidget {
         iconBgColor = AppColors.primaryLight;
         title = 'Bluetooth is Turned Off';
         description =
-            'Please turn on Bluetooth on your device so the app can communicate with your EHG Smart Band.';
-        actionButtonText = 'Turn On Bluetooth';
+            'Bluetooth is disabled on your device. Turn it on from your Control Center (swipe down from top right) or open Settings to find your band.';
+        actionButtonText = 'Open Settings';
         break;
 
       case BandPermissionDialogType.locationOff:
@@ -177,7 +178,48 @@ class BandPermissionDialog extends StatelessWidget {
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 28),
+          if (type == BandPermissionDialogType.bluetoothOff) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.swipe_down_rounded,
+                      size: 20,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      Platform.isIOS
+                          ? 'Swipe down from top right to open Control Center and tap Bluetooth.'
+                          : 'Swipe down notification bar and tap Bluetooth to enable.',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 24),
 
           // Action Button
           AppButton(

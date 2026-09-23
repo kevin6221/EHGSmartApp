@@ -2,13 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/constants/app_animations.dart';
+import '../../../core/sync/health_sync_manager.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
+import '../../../data/repositories/band_repository.dart';
+import '../../../data/repositories/wellness_repository.dart';
 import '../../blocs/band/band_bloc.dart';
 import '../../blocs/band/band_event.dart';
 import '../../blocs/band/band_state.dart';
 import '../../blocs/profile/profile_bloc.dart';
 import '../../blocs/profile/profile_state.dart';
+import '../../blocs/vitals/vitals_bloc.dart';
+import '../../blocs/vitals/vitals_event.dart';
 import '../../blocs/wellness/wellness_bloc.dart';
 import '../../blocs/wellness/wellness_event.dart';
 import '../../blocs/wellness/wellness_state.dart';
@@ -48,6 +53,19 @@ class _HomeScreenState extends State<HomeScreen>
       curve: AppCurves.chartEase,
     );
     _chartAnimController.forward();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        final syncMgr = context.read<HealthSyncManager>();
+        final bandRepo = context.read<BandRepository>();
+        final wellnessRepo = context.read<WellnessRepository>();
+        syncMgr.syncHeartRateIfDue(bandRepo: bandRepo, wellnessRepo: wellnessRepo).then((_) {
+          if (mounted) {
+            context.read<WellnessBloc>().add(const LoadWellnessDataEvent());
+          }
+        });
+      } catch (_) {}
+    });
   }
 
   @override
@@ -69,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen>
         }
 
         return Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           body: Stack(
             children: [
               SkyHeaderBackground(height: r.hp(0.36)),
@@ -81,9 +99,25 @@ class _HomeScreenState extends State<HomeScreen>
                   color: AppColors.primary,
                   backgroundColor: AppColors.surface,
                   onRefresh: () async {
-                    context.read<BandBloc>().add(SyncVitalsEvent());
-                    context.read<BandBloc>().add(StartLiveHeartRateEvent());
-                    await Future.delayed(const Duration(milliseconds: 1200));
+                    final syncMgr = context.read<HealthSyncManager>();
+                    final bandRepo = context.read<BandRepository>();
+                    final wellnessRepo = context.read<WellnessRepository>();
+                    final bandBloc = context.read<BandBloc>();
+                    final wellnessBloc = context.read<WellnessBloc>();
+                    final vitalsBloc = context.read<VitalsBloc>();
+
+                    try {
+                      await syncMgr.performManualSync(
+                        bandRepo: bandRepo,
+                        wellnessRepo: wellnessRepo,
+                      );
+                    } catch (_) {
+                      bandBloc.add(SyncVitalsEvent());
+                    }
+                    if (mounted) {
+                      wellnessBloc.add(const LoadWellnessDataEvent());
+                      vitalsBloc.add(LoadVitalsEvent());
+                    }
                   },
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(
@@ -141,18 +175,10 @@ class _HomeScreenState extends State<HomeScreen>
                       // SizedBox(height: itemSpacing),
 
                       // Quick-Glance Vitals Carousel (Heart Rate & Sleep)
-                      BlocBuilder<BandBloc, BandState>(
-                        buildWhen: (prev, curr) => prev.liveHeartRate != curr.liveHeartRate,
-                        builder: (context, bandState) {
-                          final hr = bandState.liveHeartRate > 0
-                              ? bandState.liveHeartRate
-                              : data.currentHeartRate;
-                          return HomeVitalsSummaryRow(
-                            heartRate: hr,
-                            weeklyHeartRate: data.weeklyHeartRate,
-                            sleepHours: data.sleepHours,
-                          );
-                        },
+                      HomeVitalsSummaryRow(
+                        heartRate: data.currentHeartRate,
+                        weeklyHeartRate: data.weeklyHeartRate,
+                        sleepHours: data.sleepHours,
                       ),
                       SizedBox(height: itemSpacing),
 
@@ -174,11 +200,36 @@ class _HomeScreenState extends State<HomeScreen>
                       SizedBox(height: itemSpacing),
 
                       // Energy Burned Card
-                      HomeEnergyCard(
-                        energyBurned: data.energyBurned,
-                        activeMins: data.activeMins,
-                        goalMins: data.goalMins,
-                        weeklyEnergy: data.weeklyEnergy,
+                      BlocBuilder<BandBloc, BandState>(
+                        buildWhen: (prev, curr) =>
+                            prev.lastSyncedVitals?.calories != curr.lastSyncedVitals?.calories ||
+                            prev.lastSyncedVitals?.steps != curr.lastSyncedVitals?.steps,
+                        builder: (context, bandState) {
+                          final steps = (bandState.lastSyncedVitals?.steps ?? 0) > 0
+                              ? bandState.lastSyncedVitals!.steps
+                              : data.steps;
+                          final energy = (bandState.lastSyncedVitals?.calories ?? 0) > 0
+                              ? bandState.lastSyncedVitals!.calories
+                              : data.energyBurned;
+
+                          final int todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
+                          List<double> chartValues = List<double>.from(
+                            data.weeklyEnergy.length == 7
+                                ? data.weeklyEnergy
+                                : const [0.45, 0.62, 0.55, 0.70, 0.80, 0.60, 0.50],
+                          );
+                          if (energy > 0 && chartValues.length == 7) {
+                            chartValues[todayIdx] = (energy / 600.0).clamp(0.05, 1.0);
+                          }
+
+                          return HomeEnergyCard(
+                            energyBurned: energy,
+                            steps: steps,
+                            activeMins: data.activeMins,
+                            goalMins: data.goalMins,
+                            weeklyEnergy: chartValues,
+                          );
+                        },
                       ),
                       SizedBox(height: itemSpacing),
                     ],

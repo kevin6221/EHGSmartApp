@@ -36,14 +36,23 @@ class AppCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final defaultBg = isDark ? AppColors.midnightSurface : AppColors.surface;
+    final defaultBorderColor =
+        isDark ? AppColors.midnightBorder : AppColors.border;
+    final effectiveBg =
+        (backgroundColor == AppColors.surface || backgroundColor == null)
+            ? defaultBg
+            : backgroundColor;
+
     final effectiveRadius = borderRadius ?? BorderRadius.circular(16.0);
     final effectiveBorder =
-        border ?? Border.all(color: AppColors.border, width: 1.0);
+        border ?? Border.all(color: defaultBorderColor, width: 1.0);
     final effectiveShadow =
         boxShadow ??
         [
           BoxShadow(
-            color: AppColors.black.withValues(alpha: 0.03),
+            color: AppColors.black.withValues(alpha: isDark ? 0.20 : 0.03),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -55,14 +64,24 @@ class AppCard extends StatelessWidget {
       margin: margin,
       padding: padding,
       decoration: BoxDecoration(
-        color: gradient == null ? (backgroundColor ?? AppColors.surface) : null,
+        color: gradient == null ? effectiveBg : null,
         gradient: gradient,
         borderRadius: effectiveRadius,
         border: effectiveBorder,
         boxShadow: effectiveShadow,
       ),
       clipBehavior: clipBehavior,
-      child: child,
+      child: DefaultTextStyle.merge(
+        style: TextStyle(
+          color: isDark ? AppColors.midnightTextPrimary : AppColors.secondary,
+        ),
+        child: IconTheme.merge(
+          data: IconThemeData(
+            color: isDark ? AppColors.midnightTextPrimary : AppColors.secondary,
+          ),
+          child: child,
+        ),
+      ),
     );
 
     if (onTap != null) {

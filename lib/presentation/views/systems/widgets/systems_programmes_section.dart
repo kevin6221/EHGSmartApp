@@ -26,7 +26,7 @@ class SystemsProgrammesSection extends StatelessWidget {
               style: GoogleFonts.plusJakartaSans(
                 fontSize: r.font(14.0),
                 fontWeight: FontWeight.w600,
-                color: AppColors.secondary,
+                color: context.textPrimary,
               ),
             ),
             Text(
@@ -34,7 +34,7 @@ class SystemsProgrammesSection extends StatelessWidget {
               style: GoogleFonts.plusJakartaSans(
                 fontSize: r.font(10.0),
                 fontWeight: FontWeight.w600,
-                color: AppColors.tertiary,
+                color: context.textSecondary,
                 letterSpacing: 0.5,
               ),
             ),
@@ -42,6 +42,7 @@ class SystemsProgrammesSection extends StatelessWidget {
         ),
         const SizedBox(height: 16.0),
         _buildProgrammeCard(
+          context: context,
           title: '30–Day Pilates',
           sessionsCount: '0/4 sessions',
           category: 'Pilates',
@@ -52,6 +53,7 @@ class SystemsProgrammesSection extends StatelessWidget {
         ),
         const SizedBox(height: 16.0),
         _buildProgrammeCard(
+          context: context,
           title: 'Lower Body Challenge',
           sessionsCount: '0/4 sessions',
           category: 'Strength',
@@ -65,6 +67,7 @@ class SystemsProgrammesSection extends StatelessWidget {
   }
 
   Widget _buildProgrammeCard({
+    required BuildContext context,
     required String title,
     required String sessionsCount,
     required String category,
@@ -76,9 +79,9 @@ class SystemsProgrammesSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14.0),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: context.cardBackground,
         borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: AppColors.systemCardBorder, width: 1.0),
+        border: Border.all(color: context.cardBorder, width: 1.0),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -95,7 +98,7 @@ class SystemsProgrammesSection extends StatelessWidget {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(12.0),
                           fontWeight: FontWeight.w600,
-                          color: AppColors.secondary,
+                          color: context.textPrimary,
                         ),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
@@ -107,7 +110,7 @@ class SystemsProgrammesSection extends StatelessWidget {
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: r.font(10.0),
                         fontWeight: FontWeight.w400,
-                        color: AppColors.tertiary,
+                        color: context.textSecondary,
                       ),
                     ),
                   ],
@@ -129,7 +132,7 @@ class SystemsProgrammesSection extends StatelessWidget {
             value: progressFraction,
             minHeight: 2.0,
             borderRadius: BorderRadius.circular(3.0),
-            backgroundColor: AppColors.divider,
+            backgroundColor: context.isDark ? AppColors.midnightBorder : AppColors.divider,
             valueColor: const AlwaysStoppedAnimation<Color>(
               AppColors.cyanLight,
             ),
@@ -144,7 +147,7 @@ class SystemsProgrammesSection extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(10.0),
                     fontWeight: FontWeight.w400,
-                    color: AppColors.tertiary,
+                    color: context.textSecondary,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

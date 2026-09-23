@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/constants/app_icons.dart';
+import '../../../core/sync/health_sync_manager.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
+import '../../../data/repositories/band_repository.dart';
+import '../../../data/repositories/wellness_repository.dart';
 import '../../blocs/band/band_bloc.dart';
 import '../../blocs/band/band_event.dart';
-import '../../blocs/band/band_state.dart';
 import '../../blocs/vitals/vitals_bloc.dart';
+import '../../blocs/vitals/vitals_event.dart';
 import '../../blocs/vitals/vitals_state.dart';
 import '../../widgets/charts/capsule_bar_chart.dart';
 import '../../widgets/charts/sparkline_chart.dart';
@@ -37,6 +40,19 @@ class _VitalsScreenState extends State<VitalsScreen> {
   void initState() {
     super.initState();
     _expandNotifiers = List.generate(4, (_) => ValueNotifier<bool>(false));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        final syncMgr = context.read<HealthSyncManager>();
+        final bandRepo = context.read<BandRepository>();
+        final wellnessRepo = context.read<WellnessRepository>();
+        syncMgr.syncHeartRateIfDue(bandRepo: bandRepo, wellnessRepo: wellnessRepo).then((_) {
+          if (mounted) {
+            context.read<VitalsBloc>().add(LoadVitalsEvent());
+          }
+        });
+      } catch (_) {}
+    });
   }
 
   @override
@@ -69,7 +85,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
         }
 
         return Scaffold(
-          backgroundColor: AppColors.background,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           body: Stack(
             children: [
               // Top Sky Gradient
@@ -81,9 +97,23 @@ class _VitalsScreenState extends State<VitalsScreen> {
                   color: AppColors.primary,
                   backgroundColor: AppColors.surface,
                   onRefresh: () async {
-                    context.read<BandBloc>().add(SyncVitalsEvent());
-                    context.read<BandBloc>().add(StartLiveHeartRateEvent());
-                    await Future.delayed(const Duration(milliseconds: 1200));
+                    final syncMgr = context.read<HealthSyncManager>();
+                    final bandRepo = context.read<BandRepository>();
+                    final wellnessRepo = context.read<WellnessRepository>();
+                    final bandBloc = context.read<BandBloc>();
+                    final vitalsBloc = context.read<VitalsBloc>();
+
+                    try {
+                      await syncMgr.performManualSync(
+                        bandRepo: bandRepo,
+                        wellnessRepo: wellnessRepo,
+                      );
+                    } catch (_) {
+                      bandBloc.add(SyncVitalsEvent());
+                    }
+                    if (mounted) {
+                      vitalsBloc.add(LoadVitalsEvent());
+                    }
                   },
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(
@@ -111,17 +141,9 @@ class _VitalsScreenState extends State<VitalsScreen> {
                       SizedBox(height: cardSpacing),
 
                       // 2. Heart Rate Card (Figma Node 73:1418)
-                      BlocBuilder<BandBloc, BandState>(
-                        buildWhen: (prev, curr) => prev.liveHeartRate != curr.liveHeartRate,
-                        builder: (context, bandState) {
-                          final hr = bandState.liveHeartRate > 0
-                              ? bandState.liveHeartRate
-                              : data.currentHeartRate;
-                          return VitalsHeartRateCard(
-                            currentHeartRate: hr,
-                            weeklyHeartRate: data.weeklyHeartRate,
-                          );
-                        },
+                      VitalsHeartRateCard(
+                        currentHeartRate: data.currentHeartRate,
+                        weeklyHeartRate: data.weeklyHeartRate,
                       ),
                       SizedBox(height: cardSpacing),
 
@@ -158,6 +180,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
                           values: data.weeklyRestingHr,
                           lineColor: AppColors.orangeMetric,
                           showFill: true,
+                          width: double.infinity,
                         ),
                         whatItIs:
                             'Your heart rate when completely at rest, measured during deep sleep or quiet wakefulness. A lower resting heart rate indicates stronger cardiovascular efficiency.',
@@ -210,6 +233,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
                           lineColor: AppColors.cyanAccent,
                           height: breathingSparklineHeight,
                           showFill: true,
+                          width: double.infinity,
                         ),
                         whatItIs:
                             'The number of breaths you take per minute during sleep. A steady, baseline breathing rate indicates undisturbed sleep and good respiratory efficiency.',

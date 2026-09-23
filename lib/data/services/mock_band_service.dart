@@ -46,6 +46,9 @@ class MockBandService implements BandService {
       _measurementResultController.stream;
 
   @override
+  Stream<BandPedometerInfo> get pedometerStream => const Stream.empty();
+
+  @override
   Stream<BandBluetoothState> get bluetoothStateStream =>
       _bluetoothStateController.stream;
 
@@ -128,7 +131,7 @@ class MockBandService implements BandService {
   }
 
   @override
-  Future<void> disconnect() async {
+  Future<void> disconnect({bool unpair = false}) async {
     _liveHrTimer?.cancel();
     _currentStatus = BandConnectionStatus.disconnecting;
     _connectionStatusController.add(_currentStatus);
@@ -136,6 +139,11 @@ class MockBandService implements BandService {
     await Future<void>.delayed(const Duration(milliseconds: 400));
     _currentStatus = BandConnectionStatus.disconnected;
     _connectionStatusController.add(_currentStatus);
+  }
+
+  @override
+  Future<bool> isConnected() async {
+    return _currentStatus == BandConnectionStatus.connected;
   }
 
   @override

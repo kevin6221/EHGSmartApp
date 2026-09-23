@@ -249,10 +249,14 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
           child: Container(
             height: dims.navHeight,
             decoration: ShapeDecoration(
-              color: AppColors.surface,
-              shape: const CurvedNavBarBorder(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? AppColors.midnightSurface
+                  : AppColors.surface,
+              shape: CurvedNavBarBorder(
                 side: BorderSide(
-                  color: AppColors.divider,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? AppColors.midnightBorder
+                      : AppColors.divider,
                   width: 0.8,
                 ),
               ),
@@ -370,7 +374,9 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
                                               AppSvgIcon(
                                                 tab.svgPath,
                                                 size: dims.inactiveIconSize,
-                                                color: AppColors.tertiary,
+                                                color: Theme.of(context).brightness == Brightness.dark
+                                                    ? AppColors.midnightTextMuted
+                                                    : AppColors.tertiary,
                                               ),
                                               if (tab.label.isNotEmpty) ...[
                                                 const SizedBox(height: 2.0),
@@ -386,7 +392,9 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
                                                       fontWeight:
                                                           FontWeight.w500,
                                                       color:
-                                                          AppColors.tertiary,
+                                                          Theme.of(context).brightness == Brightness.dark
+                                                              ? AppColors.midnightTextMuted
+                                                              : AppColors.tertiary,
                                                     ),
                                                     maxLines: 1,
                                                     overflow:

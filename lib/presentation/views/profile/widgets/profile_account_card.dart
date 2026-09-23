@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/responsive.dart';
+import '../../../../data/models/user_profile_model.dart';
 import '../../../widgets/common/app_card.dart';
 import '../../../widgets/common/app_text_form_field.dart';
 
@@ -13,6 +14,7 @@ class ProfileAccountCard extends StatelessWidget {
   final TextEditingController usernameController;
   final int age;
   final int weight;
+  final UnitSystem unitSystem;
   final VoidCallback? onAgeTap;
   final VoidCallback? onWeightTap;
   final ValueChanged<String>? onUsernameChanged;
@@ -22,6 +24,7 @@ class ProfileAccountCard extends StatelessWidget {
     required this.usernameController,
     required this.age,
     required this.weight,
+    this.unitSystem = UnitSystem.metric,
     this.onAgeTap,
     this.onWeightTap,
     this.onUsernameChanged,
@@ -51,7 +54,7 @@ class ProfileAccountCard extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(12.0),
               fontWeight: FontWeight.w400,
-              color: AppColors.tertiary,
+              color: context.textPrimary,
             ),
           ),
           const SizedBox(height: 8.0),
@@ -77,11 +80,12 @@ class ProfileAccountCard extends StatelessWidget {
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: r.font(12.0),
                         fontWeight: FontWeight.w400,
-                        color: AppColors.tertiary,
+                        color: context.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 8.0),
                     _buildSelectorPill(
+                      context: context,
                       value: '$age',
                       onTap: onAgeTap,
                       fontSize: r.font(14.0),
@@ -99,12 +103,15 @@ class ProfileAccountCard extends StatelessWidget {
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: r.font(12.0),
                         fontWeight: FontWeight.w400,
-                        color: AppColors.tertiary,
+                        color: context.textPrimary,
                       ),
                     ),
                     const SizedBox(height: 8.0),
                     _buildSelectorPill(
-                      value: '${weight}kg',
+                      context: context,
+                      value: unitSystem == UnitSystem.imperial
+                          ? '${(weight * 2.20462).round()} lb'
+                          : '${weight}kg',
                       onTap: onWeightTap,
                       fontSize: r.font(14.0),
                     ),
@@ -119,6 +126,7 @@ class ProfileAccountCard extends StatelessWidget {
   }
 
   Widget _buildSelectorPill({
+    required BuildContext context,
     required String value,
     required VoidCallback? onTap,
     required double fontSize,
@@ -128,9 +136,12 @@ class ProfileAccountCard extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Container(
         decoration: BoxDecoration(
-          color: AppColors.profileInputFill,
+          color: context.inputFill,
           borderRadius: BorderRadius.circular(8.0),
-          border: Border.all(color: AppColors.profileInputBorder, width: 0.8),
+          border: Border.all(
+            color: context.inputBorder,
+            width: 0.8,
+          ),
         ),
         padding: const EdgeInsets.symmetric(
           horizontal: 14.0,
@@ -142,7 +153,7 @@ class ProfileAccountCard extends StatelessWidget {
             Text(
               value,
               style: GoogleFonts.plusJakartaSans(
-                color: AppColors.tertiary,
+                color: context.textPrimary,
                 fontSize: fontSize,
                 fontWeight: FontWeight.w400,
               ),

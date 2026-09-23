@@ -17,6 +17,9 @@ abstract class BandService {
   /// Stream of on-demand measurement results (HR, BP, SpO2, etc.).
   Stream<BandMeasurementResult> get measurementResultStream;
 
+  /// Stream of live pedometer data (steps, calories, distance).
+  Stream<BandPedometerInfo> get pedometerStream;
+
   /// Stream of Bluetooth adapter power / state changes.
   Stream<BandBluetoothState> get bluetoothStateStream;
 
@@ -47,8 +50,11 @@ abstract class BandService {
   /// Connects to a specific band by its device identifier.
   Future<bool> connect(String deviceId);
 
+  /// Checks if the band hardware is actively connected natively.
+  Future<bool> isConnected();
+
   /// Disconnects / unbinds from the currently connected band.
-  Future<void> disconnect();
+  Future<void> disconnect({bool unpair = false});
 
   /// Reads current battery level from the band.
   Future<BandBatteryInfo> getBattery();

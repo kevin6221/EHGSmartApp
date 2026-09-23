@@ -39,9 +39,9 @@ class AppSearchField extends StatelessWidget {
       padding: padding,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: backgroundColor ?? AppColors.background,
+        color: backgroundColor ?? context.inputFill,
         borderRadius: BorderRadius.circular(12.0),
-        border: Border.all(color: AppColors.divider, width: 1.0),
+        border: Border.all(color: context.inputBorder, width: 1.0),
       ),
       child: TextField(
           controller: ctrl,
@@ -52,7 +52,7 @@ class AppSearchField extends StatelessWidget {
           style: GoogleFonts.plusJakartaSans(
             fontSize: 14.0,
             fontWeight: FontWeight.w500,
-            color: AppColors.secondary,
+            color: context.textPrimary,
           ),
           cursorColor: AppColors.primary,
           decoration: InputDecoration(
@@ -69,11 +69,11 @@ class AppSearchField extends StatelessWidget {
             hintStyle: GoogleFonts.plusJakartaSans(
               fontSize: 14.0,
               fontWeight: FontWeight.w400,
-              color: AppColors.textMuted,
+              color: context.textMuted,
             ),
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.search_rounded,
-              color: AppColors.tertiary,
+              color: context.textSecondary,
               size: 20.0,
             ),
             prefixIconConstraints: const BoxConstraints(
@@ -87,9 +87,9 @@ class AppSearchField extends StatelessWidget {
                       onClear?.call();
                       onChanged?.call('');
                     },
-                    child: const Icon(
+                    child: Icon(
                       Icons.close_rounded,
-                      color: AppColors.tertiary,
+                      color: context.textSecondary,
                       size: 18.0,
                     ),
                   )

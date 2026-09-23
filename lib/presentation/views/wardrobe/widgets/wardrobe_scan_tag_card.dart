@@ -20,9 +20,9 @@ class WardrobeScanTagCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16.0),
       decoration: BoxDecoration(
-        color: AppColors.white,
+        color: context.cardBackground,
         borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: AppColors.border, width: 1.0),
+        border: Border.all(color: context.cardBorder, width: 1.0),
         boxShadow: [
           BoxShadow(
             color: AppColors.shadowNavy.withValues(alpha: 0.03),
@@ -60,7 +60,7 @@ class WardrobeScanTagCard extends StatelessWidget {
               style: GoogleFonts.plusJakartaSans(
                 fontSize: r.font(12.0),
                 fontWeight: FontWeight.w400,
-                color: AppColors.tertiary,
+                color: context.textSecondary,
               ),
             ),
           ),

@@ -29,6 +29,9 @@ typedef void (^EHGBandWork)(EHGBandDone done);
 @property (nonatomic, strong) NSTimer *connectTimeoutTimer;
 @property (nonatomic, strong) NSTimer *commandWatchdogTimer;
 @property (nonatomic, strong) NSTimer *realtimeHrHoldTimer;
+@property (nonatomic, strong) NSTimer *stepPollTimer;
+@property (nonatomic, assign) NSInteger lastKnownBattery;
+@property (nonatomic, assign) BOOL lastKnownCharging;
 @end
 
 @implementation EHGBandNativePlugin
@@ -45,6 +48,7 @@ typedef void (^EHGBandWork)(EHGBandDone done);
 
     [QCCentralManager shared].delegate = instance;
     [instance setupSDKCallbacks];
+    [instance setupLifecycleObservers];
 }
 
 - (instancetype)init {
@@ -67,6 +71,8 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     };
 
     [QCSDKManager shareInstance].currentBatteryInfo = ^(NSInteger battery, BOOL charging) {
+        weakSelf.lastKnownBattery = battery;
+        weakSelf.lastKnownCharging = charging;
         dispatch_async(dispatch_get_main_queue(), ^{
             [weakSelf sendEvent:@{
                 @"type": @"battery_update",
@@ -159,7 +165,7 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     }];
 
     work(^{
-        dispatch_async(dispatch_get_main_queue(), ^{
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(150 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
             [weakSelf.commandWatchdogTimer invalidate];
             weakSelf.commandWatchdogTimer = nil;
             weakSelf.commandRunning = NO;
@@ -168,10 +174,102 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     });
 }
 
+#pragma mark - Lifecycle Observers
+
+- (void)setupLifecycleObservers {
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(handleAppDidEnterBackground:)
+                                                 name:UIApplicationDidEnterBackgroundNotification
+                                               object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(handleAppWillEnterForeground:)
+                                                 name:UIApplicationWillEnterForegroundNotification
+                                               object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(handleAppDidBecomeActive:)
+                                                 name:UIApplicationDidBecomeActiveNotification
+                                               object:nil];
+}
+
+- (void)handleAppDidEnterBackground:(NSNotification *)note {
+    NSLog(@"[EHGBandNative] 📱 App entered background - keeping BLE connection active.");
+    // In background, CoreBluetooth maintains connection if bluetooth-central is configured.
+}
+
+- (void)handleAppWillEnterForeground:(NSNotification *)note {
+    NSLog(@"[EHGBandNative] 📱 App entering foreground - verifying band connection...");
+    CBPeripheral *per = [QCCentralManager shared].connectedPeripheral;
+    if ([QCCentralManager shared].deviceState == QCStateConnected && per != nil) {
+        [self sendEvent:@{
+            @"type": @"connection_state",
+            @"state": @"connected",
+            @"name": per.name ?: @"",
+            @"id": per.identifier.UUIDString ?: @""
+        }];
+    }
+}
+
+- (void)handleAppDidBecomeActive:(NSNotification *)note {
+    NSLog(@"[EHGBandNative] 📱 App became active.");
+}
+
 #pragma mark - FlutterStreamHandler
 
 - (FlutterError * _Nullable)onListenWithArguments:(id _Nullable)arguments eventSink:(FlutterEventSink)events {
     self.eventSink = events;
+
+    // Immediately re-emit current Bluetooth state
+    NSString *btState = @"unknown";
+    switch ([QCCentralManager shared].bleState) {
+        case QCBluetoothStatePoweredOn: btState = @"poweredOn"; break;
+        case QCBluetoothStatePoweredOff: btState = @"poweredOff"; break;
+        case QCBluetoothStateUnauthorized: btState = @"unauthorized"; break;
+        case QCBluetoothStateUnsupported: btState = @"unsupported"; break;
+        case QCBluetoothStateResetting: btState = @"resetting"; break;
+        default: break;
+    }
+    events(@{
+        @"type": @"bluetooth_state",
+        @"state": btState
+    });
+
+    // If band is already connected (e.g. across Hot Restart or foreground restore), emit connected immediately
+    CBPeripheral *per = [QCCentralManager shared].connectedPeripheral;
+    if ([QCCentralManager shared].deviceState == QCStateConnected && per != nil) {
+        NSLog(@"[EHGBandNative] 🔌 Re-emitting connected state to Flutter on hot restart / stream listen: %@ (%@)", per.name, per.identifier.UUIDString);
+        events(@{
+            @"type": @"connection_state",
+            @"state": @"connected",
+            @"name": per.name ?: @"",
+            @"id": per.identifier.UUIDString ?: @""
+        });
+
+        if (self.lastKnownBattery > 0) {
+            events(@{
+                @"type": @"battery_update",
+                @"battery": @(self.lastKnownBattery),
+                @"charging": @(self.lastKnownCharging)
+            });
+        }
+
+        __weak typeof(self) weakSelf = self;
+        [self enqueueCommand:^(EHGBandDone done) {
+            [QCSDKCmdCreator readBatterySuccess:^(int battery, BOOL charging) {
+                NSLog(@"[EHGBandNative] 🔋 Stream-attached fresh battery level: %d%%", battery);
+                weakSelf.lastKnownBattery = battery;
+                weakSelf.lastKnownCharging = charging;
+                [weakSelf sendEvent:@{
+                    @"type": @"battery_update",
+                    @"battery": @(battery),
+                    @"charging": @(charging)
+                }];
+                done();
+            } failed:^{
+                done();
+            }];
+        }];
+    }
+
     return nil;
 }
 
@@ -183,8 +281,42 @@ typedef void (^EHGBandWork)(EHGBandDone done);
 #pragma mark - FlutterMethodCallHandler
 
 - (void)handleMethodCall:(FlutterMethodCall *)call result:(FlutterResult)result {
-    if ([@"requestEnableBluetooth" isEqualToString:call.method] || [@"openLocationSettings" isEqualToString:call.method]) {
-        result(@(YES));
+    if ([@"requestEnableBluetooth" isEqualToString:call.method] || [@"openBluetoothSettings" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSURL *btUrl = [NSURL URLWithString:@"App-Prefs:root=Bluetooth"];
+            NSURL *appSettings = [NSURL URLWithString:UIApplicationOpenSettingsURLString];
+            if (@available(iOS 10.0, *)) {
+                [[UIApplication sharedApplication] openURL:btUrl options:@{} completionHandler:^(BOOL success) {
+                    if (!success) {
+                        [[UIApplication sharedApplication] openURL:appSettings options:@{} completionHandler:^(BOOL appSuccess) {
+                            result(@(appSuccess));
+                        }];
+                    } else {
+                        result(@(YES));
+                    }
+                }];
+            } else {
+                [[UIApplication sharedApplication] openURL:appSettings];
+                result(@(YES));
+            }
+        });
+    }
+    else if ([@"openLocationSettings" isEqualToString:call.method] || [@"openAppSettings" isEqualToString:call.method]) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSURL *url = [NSURL URLWithString:UIApplicationOpenSettingsURLString];
+            if ([[UIApplication sharedApplication] canOpenURL:url]) {
+                if (@available(iOS 10.0, *)) {
+                    [[UIApplication sharedApplication] openURL:url options:@{} completionHandler:^(BOOL success) {
+                        result(@(success));
+                    }];
+                } else {
+                    [[UIApplication sharedApplication] openURL:url];
+                    result(@(YES));
+                }
+            } else {
+                result(@(NO));
+            }
+        });
     }
     else if ([@"startScan" isEqualToString:call.method]) {
         NSInteger timeout = 30;
@@ -202,8 +334,12 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     else if ([@"connect" isEqualToString:call.method]) {
         [self handleConnect:call result:result];
     }
+    else if ([@"isConnected" isEqualToString:call.method]) {
+        BOOL connected = ([QCCentralManager shared].deviceState == QCStateConnected);
+        result(@(connected));
+    }
     else if ([@"disconnect" isEqualToString:call.method]) {
-        [self handleDisconnect:result];
+        [self handleDisconnect:call result:result];
     }
     else if ([@"getBattery" isEqualToString:call.method]) {
         [self enqueueCommand:^(EHGBandDone done) {
@@ -280,8 +416,18 @@ typedef void (^EHGBandWork)(EHGBandDone done);
         __weak typeof(self) weakSelf = self;
         self.realtimeHrHoldTimer = [NSTimer scheduledTimerWithTimeInterval:15.0 repeats:YES block:^(NSTimer * _Nonnull timer) {
             [weakSelf enqueueCommand:^(EHGBandDone done) {
+                __block BOOL doneCalled = NO;
+                dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+                    if (!doneCalled) {
+                        doneCalled = YES;
+                        done();
+                    }
+                });
                 [QCSDKCmdCreator realTimeHeartRateWithCmd:QCBandRealTimeHeartRateCmdTypeHold finished:^(BOOL success) {
-                    done();
+                    if (!doneCalled) {
+                        doneCalled = YES;
+                        done();
+                    }
                 }];
             }];
         }];
@@ -318,6 +464,55 @@ typedef void (^EHGBandWork)(EHGBandDone done);
 
 - (void)handleConnect:(FlutterMethodCall *)call result:(FlutterResult)result {
     NSString *deviceId = call.arguments[@"deviceId"];
+
+    // Check if peripheral is ALREADY connected in QCCentralManager
+    if ([QCCentralManager shared].deviceState == QCStateConnected &&
+        [QCCentralManager shared].connectedPeripheral != nil &&
+        [deviceId isEqualToString:[QCCentralManager shared].connectedPeripheral.identifier.UUIDString]) {
+        NSLog(@"[EHGBandNative] Device %@ is ALREADY connected. Skipping re-connect.", deviceId);
+        result(@(YES));
+        return;
+    }
+
+    // Check if already connected to this device (e.g. across hot restart)
+    CBPeripheral *connectedPer = [QCCentralManager shared].connectedPeripheral;
+    if ([QCCentralManager shared].deviceState == QCStateConnected && connectedPer != nil) {
+        if ([deviceId length] == 0 || [connectedPer.identifier.UUIDString isEqualToString:deviceId]) {
+            NSLog(@"[EHGBandNative] 🔌 Device is ALREADY connected: %@ (%@). Reusing existing connection without reset.", connectedPer.name, connectedPer.identifier.UUIDString);
+            [self sendEvent:@{
+                @"type": @"connection_state",
+                @"state": @"connected",
+                @"name": connectedPer.name ?: @"",
+                @"id": connectedPer.identifier.UUIDString ?: @""
+            }];
+            if (self.lastKnownBattery > 0) {
+                [self sendEvent:@{
+                    @"type": @"battery_update",
+                    @"battery": @(self.lastKnownBattery),
+                    @"charging": @(self.lastKnownCharging)
+                }];
+            }
+            __weak typeof(self) weakSelf = self;
+            [self enqueueCommand:^(EHGBandDone done) {
+                [QCSDKCmdCreator readBatterySuccess:^(int battery, BOOL charging) {
+                    NSLog(@"[EHGBandNative] 🔋 Reconnect-reused fresh battery level: %d%%", battery);
+                    weakSelf.lastKnownBattery = battery;
+                    weakSelf.lastKnownCharging = charging;
+                    [weakSelf sendEvent:@{
+                        @"type": @"battery_update",
+                        @"battery": @(battery),
+                        @"charging": @(charging)
+                    }];
+                    done();
+                } failed:^{
+                    done();
+                }];
+            }];
+            result(@(YES));
+            return;
+        }
+    }
+
     // 1. Immediately stop scanning before connecting to avoid BLE radio collision
     [[QCCentralManager shared] stopScan];
 
@@ -342,6 +537,14 @@ typedef void (^EHGBandWork)(EHGBandDone done);
         return;
     }
 
+    // Flush any pending commands/timers from previous connection before starting new connect
+    [self.realtimeHrHoldTimer invalidate];
+    self.realtimeHrHoldTimer = nil;
+    [self.commandWatchdogTimer invalidate];
+    self.commandWatchdogTimer = nil;
+    self.commandRunning = NO;
+    [self.commandQueue removeAllObjects];
+
     self.pendingConnectResult = result;
 
     // Safety timeout timer (20 seconds)
@@ -350,22 +553,35 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     self.connectTimeoutTimer = [NSTimer scheduledTimerWithTimeInterval:20.0 repeats:NO block:^(NSTimer * _Nonnull timer) {
         if (weakSelf.pendingConnectResult) {
             NSLog(@"[EHGBandNative] Connection timed out after 20 seconds");
-            [weakSelf finishConnect:NO error:@"Connection timed out. If the band is linked to QwatchPro or paired in phone Bluetooth Settings, please unpair it there first."];
+            [weakSelf finishConnect:NO error:@"Connection timed out. Ensure the band is powered on and within Bluetooth range."];
         }
     }];
 
-    // Connect using Ring device type (no ANCS requirement)
-    [[QCCentralManager shared] connect:target timeout:20 deviceType:QCDeviceTypeRing];
+    // Connect using Watch device type (matching QWatch Pro protocol)
+    [[QCCentralManager shared] connect:target timeout:20 deviceType:QCDeviceTypeWatch];
 }
 
-- (void)handleDisconnect:(FlutterResult)result {
+- (void)handleDisconnect:(FlutterMethodCall *)call result:(FlutterResult)result {
+    BOOL unpair = [call.arguments[@"unpair"] boolValue];
+    [self stopStepPolling];
     [self.realtimeHrHoldTimer invalidate];
     self.realtimeHrHoldTimer = nil;
     [self.connectTimeoutTimer invalidate];
     self.connectTimeoutTimer = nil;
+    [self.commandWatchdogTimer invalidate];
+    self.commandWatchdogTimer = nil;
+    self.commandRunning = NO;
+    [self.commandQueue removeAllObjects];
     self.pendingDisconnectResult = result;
-    [[QCCentralManager shared] remove];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+    if (unpair) {
+        [[QCCentralManager shared] remove];
+    } else {
+        CBPeripheral *per = [QCCentralManager shared].connectedPeripheral;
+        if (per) {
+            [[QCCentralManager shared].centerManager cancelPeripheralConnection:per];
+        }
+    }
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (self.pendingDisconnectResult) {
             self.pendingDisconnectResult(@(YES));
             self.pendingDisconnectResult = nil;
@@ -418,6 +634,8 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     [self enqueueCommand:^(EHGBandDone done) {
         [QCSDKCmdCreator readBatterySuccess:^(int battery, BOOL charging) {
             NSLog(@"[EHGBandNative] Battery level: %d%%", battery);
+            weakSelf.lastKnownBattery = battery;
+            weakSelf.lastKnownCharging = charging;
             [weakSelf sendEvent:@{
                 @"type": @"battery_update",
                 @"battery": @(battery),
@@ -439,6 +657,42 @@ typedef void (^EHGBandWork)(EHGBandDone done);
             done();
         }];
     }];
+}
+
+- (void)startStepPolling {
+    [self.stepPollTimer invalidate];
+    __weak typeof(self) weakSelf = self;
+    self.stepPollTimer = [NSTimer scheduledTimerWithTimeInterval:10.0 repeats:YES block:^(NSTimer * _Nonnull timer) {
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        if (!strongSelf) return;
+        if ([QCCentralManager shared].deviceState != QCStateConnected) {
+            [strongSelf stopStepPolling];
+            return;
+        }
+        if (strongSelf.commandQueue.count == 0 && !strongSelf.commandRunning && strongSelf.activeMeasureType == QCMeasuringTypeUnkown) {
+            [strongSelf enqueueCommand:^(EHGBandDone done) {
+                [QCSDKCmdCreator getCurrentSportSucess:^(QCSportModel *sport) {
+                    if (sport) {
+                        NSLog(@"[EHGBandNative] Dynamic step update: %ld steps, %d kcal, %ld m", (long)sport.totalStepCount, (int)sport.calories, (long)sport.distance);
+                        [strongSelf sendEvent:@{
+                            @"type": @"step_update",
+                            @"steps": @(sport.totalStepCount),
+                            @"calories": @((int)sport.calories),
+                            @"distance": @(sport.distance)
+                        }];
+                    }
+                    done();
+                } failed:^{
+                    done();
+                }];
+            }];
+        }
+    }];
+}
+
+- (void)stopStepPolling {
+    [self.stepPollTimer invalidate];
+    self.stepPollTimer = nil;
 }
 
 #pragma mark - Health sync (sequential; SDK rejects overlapping commands)
@@ -580,10 +834,41 @@ typedef void (^EHGBandWork)(EHGBandDone done);
         if (last.systolicPressure > 0 && last.diastolicPressure > 0) {
             syncData[@"systolicBP"] = @(last.systolicPressure);
             syncData[@"diastolicBP"] = @(last.diastolicPressure);
+            finish();
+        } else {
+            // Check manual blood pressure history as well
+            [QCSDKCmdCreator getManualBloodPressureDataWithLastUnixSeconds:0 success:^(NSArray<QCBloodPressureModel *> *manualData) {
+                QCBloodPressureModel *mLast = manualData.lastObject;
+                if (mLast.systolicPressure > 0 && mLast.diastolicPressure > 0) {
+                    syncData[@"systolicBP"] = @(mLast.systolicPressure);
+                    syncData[@"diastolicBP"] = @(mLast.diastolicPressure);
+                } else {
+                    syncData[@"systolicBP"] = @(0);
+                    syncData[@"diastolicBP"] = @(0);
+                }
+                finish();
+            } fail:^{
+                syncData[@"systolicBP"] = @(0);
+                syncData[@"diastolicBP"] = @(0);
+                finish();
+            }];
         }
-        finish();
     } fail:^{
-        finish();
+        [QCSDKCmdCreator getManualBloodPressureDataWithLastUnixSeconds:0 success:^(NSArray<QCBloodPressureModel *> *manualData) {
+            QCBloodPressureModel *mLast = manualData.lastObject;
+            if (mLast.systolicPressure > 0 && mLast.diastolicPressure > 0) {
+                syncData[@"systolicBP"] = @(mLast.systolicPressure);
+                syncData[@"diastolicBP"] = @(mLast.diastolicPressure);
+            } else {
+                syncData[@"systolicBP"] = @(0);
+                syncData[@"diastolicBP"] = @(0);
+            }
+            finish();
+        } fail:^{
+            syncData[@"systolicBP"] = @(0);
+            syncData[@"diastolicBP"] = @(0);
+            finish();
+        }];
     }];
 }
 
@@ -748,8 +1033,15 @@ typedef void (^EHGBandWork)(EHGBandDone done);
         case QCStateDisconnected:
         case QCStateUnbind:
             stateStr = @"disconnected";
+            [self stopStepPolling];
+            [self.realtimeHrHoldTimer invalidate];
+            self.realtimeHrHoldTimer = nil;
+            [self.commandWatchdogTimer invalidate];
+            self.commandWatchdogTimer = nil;
+            self.commandRunning = NO;
+            [self.commandQueue removeAllObjects];
             if (self.pendingConnectResult) {
-                [self finishConnect:NO error:@"Band disconnected during connection. If previously paired, forget device in Settings > Bluetooth."];
+                [self finishConnect:NO error:@"Band disconnected during connection."];
             }
             if (self.pendingDisconnectResult) {
                 self.pendingDisconnectResult(@(YES));
@@ -808,6 +1100,14 @@ typedef void (^EHGBandWork)(EHGBandDone done);
 }
 
 - (void)didFailConnected:(CBPeripheral *)peripheral error:(nullable NSError *)error {
+    if ([QCCentralManager shared].bleState != QCBluetoothStatePoweredOn) {
+        [self finishConnect:NO error:nil];
+        [self sendEvent:@{
+            @"type": @"connection_state",
+            @"state": @"disconnected"
+        }];
+        return;
+    }
     NSString *msg = error.localizedDescription ?: @"Connection failed";
     if (error.code == 14 || [msg.lowercaseString containsString:@"pairing"] || [msg.lowercaseString containsString:@"peer"]) {
         msg = @"Pairing info mismatch: Please go to iPhone Settings > Bluetooth, tap (i) next to this device, tap 'Forget This Device', then connect again.";

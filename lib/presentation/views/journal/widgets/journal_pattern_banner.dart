@@ -20,15 +20,19 @@ class JournalPatternBanner extends StatelessWidget {
           style: GoogleFonts.plusJakartaSans(
             fontSize: r.font(14.0),
             fontWeight: FontWeight.w600,
-            color: AppColors.secondary,
+            color: context.textPrimary,
           ),
         ),
         const SizedBox(height: 16.0),
         Container(
           padding: const EdgeInsets.all(16.0),
           decoration: BoxDecoration(
-            gradient: AppGradients.journalPatternBanner,
+            color: context.isDark ? context.cardBackground : null,
+            gradient: context.isDark ? null : AppGradients.journalPatternBanner,
             borderRadius: BorderRadius.circular(12.0),
+            border: Border.all(
+              color: context.isDark ? context.cardBorder : AppColors.transparent,
+            ),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -37,7 +41,7 @@ class JournalPatternBanner extends StatelessWidget {
                 width: 3.0,
                 height: 48.0,
                 decoration: BoxDecoration(
-                  color: AppColors.white,
+                  color: context.isDark ? AppColors.cyanLight : AppColors.white,
                   borderRadius: BorderRadius.circular(1.5),
                 ),
               ),
@@ -48,7 +52,7 @@ class JournalPatternBanner extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(14.0),
                     fontWeight: FontWeight.w600,
-                    color: AppColors.secondary,
+                    color: context.isDark ? context.textPrimary : AppColors.secondary,
                     height: 1.4,
                   ),
                 ),

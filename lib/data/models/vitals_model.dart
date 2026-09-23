@@ -6,15 +6,34 @@ class SleepInterval extends Equatable {
   final double startOffset; // 0.0 to 1.0 representing timeline fraction
   final double widthFraction;
   final SleepPhase phase;
+  final String? timeRangeText; // e.g. "01:05 pm → 03:33 pm (2h 28m)"
 
   const SleepInterval({
     required this.startOffset,
     required this.widthFraction,
     required this.phase,
+    this.timeRangeText,
   });
 
+  Map<String, dynamic> toJson() => {
+    'startOffset': startOffset,
+    'widthFraction': widthFraction,
+    'phase': phase.name,
+    'timeRangeText': timeRangeText,
+  };
+
+  factory SleepInterval.fromJson(Map<String, dynamic> json) => SleepInterval(
+    startOffset: (json['startOffset'] as num?)?.toDouble() ?? 0.0,
+    widthFraction: (json['widthFraction'] as num?)?.toDouble() ?? 0.0,
+    phase: SleepPhase.values.firstWhere(
+      (p) => p.name == json['phase'],
+      orElse: () => SleepPhase.light,
+    ),
+    timeRangeText: json['timeRangeText'] as String?,
+  );
+
   @override
-  List<Object?> get props => [startOffset, widthFraction, phase];
+  List<Object?> get props => [startOffset, widthFraction, phase, timeRangeText];
 }
 
 class VitalsModel extends Equatable {
@@ -107,6 +126,73 @@ class VitalsModel extends Equatable {
       isSkinTempDown: isSkinTempDown ?? this.isSkinTempDown,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'totalSleep': totalSleep,
+    'sleepWindow': sleepWindow,
+    'sleepIntervals': sleepIntervals.map((i) => i.toJson()).toList(),
+    'currentHeartRate': currentHeartRate,
+    'weeklyHeartRate': weeklyHeartRate,
+    'stressScore': stressScore,
+    'stressStatus': stressStatus,
+    'stressTimeline': stressTimeline,
+    'hrvMs': hrvMs,
+    'weeklyHrv': weeklyHrv,
+    'restingHr': restingHr,
+    'weeklyRestingHr': weeklyRestingHr,
+    'bloodOxygen': bloodOxygen,
+    'weeklyOxygen': weeklyOxygen,
+    'breathingRate': breathingRate,
+    'weeklyBreathing': weeklyBreathing,
+    'bloodPressure': bloodPressure,
+    'isBloodPressureUp': isBloodPressureUp,
+    'skinTempDiff': skinTempDiff,
+    'isSkinTempDown': isSkinTempDown,
+  };
+
+  factory VitalsModel.fromJson(Map<String, dynamic> json) => VitalsModel(
+    totalSleep: json['totalSleep'] as String? ?? '--',
+    sleepWindow: json['sleepWindow'] as String? ?? 'No sleep recorded',
+    sleepIntervals: (json['sleepIntervals'] as List<dynamic>?)
+            ?.map((i) => SleepInterval.fromJson(i as Map<String, dynamic>))
+            .toList() ??
+        const [],
+    currentHeartRate: (json['currentHeartRate'] as num?)?.toInt() ?? 0,
+    weeklyHeartRate: (json['weeklyHeartRate'] as List<dynamic>?)
+            ?.map((e) => (e as num).toDouble())
+            .toList() ??
+        const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    stressScore: (json['stressScore'] as num?)?.toInt() ?? 0,
+    stressStatus: json['stressStatus'] as String? ?? '--',
+    stressTimeline: (json['stressTimeline'] as List<dynamic>?)
+            ?.map((e) => (e as num).toDouble())
+            .toList() ??
+        const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    hrvMs: (json['hrvMs'] as num?)?.toInt() ?? 0,
+    weeklyHrv: (json['weeklyHrv'] as List<dynamic>?)
+            ?.map((e) => (e as num).toDouble())
+            .toList() ??
+        const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    restingHr: (json['restingHr'] as num?)?.toInt() ?? 0,
+    weeklyRestingHr: (json['weeklyRestingHr'] as List<dynamic>?)
+            ?.map((e) => (e as num).toDouble())
+            .toList() ??
+        const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    bloodOxygen: (json['bloodOxygen'] as num?)?.toInt() ?? 0,
+    weeklyOxygen: (json['weeklyOxygen'] as List<dynamic>?)
+            ?.map((e) => (e as num).toDouble())
+            .toList() ??
+        const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    breathingRate: (json['breathingRate'] as num?)?.toDouble() ?? 0.0,
+    weeklyBreathing: (json['weeklyBreathing'] as List<dynamic>?)
+            ?.map((e) => (e as num).toDouble())
+            .toList() ??
+        const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    bloodPressure: json['bloodPressure'] as String? ?? '--',
+    isBloodPressureUp: json['isBloodPressureUp'] as bool? ?? false,
+    skinTempDiff: (json['skinTempDiff'] as num?)?.toDouble() ?? 0.0,
+    isSkinTempDown: json['isSkinTempDown'] as bool? ?? false,
+  );
 
   @override
   List<Object?> get props => [

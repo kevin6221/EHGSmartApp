@@ -23,6 +23,7 @@ class SkyHeaderBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Positioned(
       top: 0,
       left: 0,
@@ -31,7 +32,9 @@ class SkyHeaderBackground extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: const [AppColors.primarySky, AppColors.background],
+            colors: isDark
+                ? const [AppColors.midnightHeaderStart, AppColors.midnightBackground]
+                : const [AppColors.primarySky, AppColors.background],
             begin: begin,
             end: end,
             stops: stops,

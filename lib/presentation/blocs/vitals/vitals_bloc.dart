@@ -12,21 +12,18 @@ class VitalsBloc extends Bloc<VitalsEvent, VitalsState> {
   final BandRepository? bandRepository;
 
   StreamSubscription<BandSyncedVitals>? _vitalsSubscription;
-  StreamSubscription<int>? _hrSubscription;
 
   VitalsBloc({required this.repository, this.bandRepository}) : super(const VitalsState()) {
     if (bandRepository != null) {
       _vitalsSubscription = bandRepository!.syncedVitalsStream.listen((vitals) {
         add(UpdateVitalsFromBandEvent(vitals));
       });
-      _hrSubscription = bandRepository!.liveHeartRateStream.listen((bpm) {
-        add(UpdateLiveHeartRateEvent(bpm));
-      });
     }
 
-    on<LoadVitalsEvent>((event, emit) {
+    on<LoadVitalsEvent>((event, emit) async {
       emit(state.copyWith(status: VitalsStatus.loading));
       try {
+        await repository.ensureInitialized();
         final data = repository.getVitalsData();
         emit(state.copyWith(status: VitalsStatus.loaded, data: data));
       } catch (e) {
@@ -57,7 +54,6 @@ class VitalsBloc extends Bloc<VitalsEvent, VitalsState> {
   @override
   Future<void> close() {
     _vitalsSubscription?.cancel();
-    _hrSubscription?.cancel();
     return super.close();
   }
 }

@@ -30,9 +30,17 @@ class BandState extends Equatable {
   bool get isScanning => status == BandConnectionStatus.scanning;
   bool get isConnecting => status == BandConnectionStatus.connecting;
 
-  bool get isBluetoothEnabled =>
-      permissionDetails?.isBluetoothEnabled ??
-      (bluetoothState == BandBluetoothState.poweredOn);
+  bool get isBluetoothEnabled {
+    if (bluetoothState == BandBluetoothState.poweredOff ||
+        bluetoothState == BandBluetoothState.unsupported) {
+      return false;
+    }
+    if (permissionDetails != null && !permissionDetails!.isBluetoothEnabled) {
+      return false;
+    }
+    return bluetoothState == BandBluetoothState.poweredOn ||
+        (permissionDetails?.isBluetoothEnabled ?? false);
+  }
 
   bool get isPermanentlyDenied =>
       permissionDetails?.isPermanentlyDenied ?? false;

@@ -229,7 +229,7 @@ class _HypnogramChartState extends State<HypnogramChart> {
                                 ),
                                 const SizedBox(height: 2.0),
                                 Text(
-                                  '01:05 pm → 03:33 pm (2h 28m)',
+                                  selectedInterval?.timeRangeText ?? '11:15 pm → 01:30 am (2h 15m)',
                                   style: GoogleFonts.plusJakartaSans(
                                     color: AppColors.white70,
                                     fontSize: 8.0,
