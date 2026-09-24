@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "117896265588",
+    "project_id": "ehg-wellness-smart-app",
+    "storage_bucket": "ehg-wellness-smart-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:117896265588:android:ad5bced51b87193c2cb621",
+        "android_client_info": {
+          "package_name": "com.ehgsmartwellness.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZH7BkZQpFsJIOZH6BO0rSV8zRHxTYCsg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

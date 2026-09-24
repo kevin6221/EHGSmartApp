@@ -21,6 +21,7 @@
 		EHG000021CF9000F007C117D /* QCBandSDK.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = EHG000011CF9000F007C117D /* QCBandSDK.xcframework */; };
 		EHG000061CF9000F007C117D /* QCCentralManager.m in Sources */ = {isa = PBXBuildFile; fileRef = EHG000051CF9000F007C117D /* QCCentralManager.m */; };
 		EHG000091CF9000F007C117D /* EHGBandNativePlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = EHG000081CF9000F007C117D /* EHGBandNativePlugin.m */; };
+		FIREBASE00011CF9000F007C /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FIREBASE00021CF9000F007C /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -77,6 +78,7 @@
 		EHG000071CF9000F007C117D /* EHGBandNativePlugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BandBridge/EHGBandNativePlugin.h; sourceTree = "<group>"; };
 		EHG000081CF9000F007C117D /* EHGBandNativePlugin.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BandBridge/EHGBandNativePlugin.m; sourceTree = "<group>"; };
 		F7400B5D978FC97470C0F67F /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		FIREBASE00021CF9000F007C /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -173,6 +175,7 @@
 				EHG000051CF9000F007C117D /* QCCentralManager.m */,
 				EHG000071CF9000F007C117D /* EHGBandNativePlugin.h */,
 				EHG000081CF9000F007C117D /* EHGBandNativePlugin.m */,
+				FIREBASE00021CF9000F007C /* GoogleService-Info.plist */,
 			);
 			path = Runner;
 			sourceTree = "<group>";
@@ -292,6 +295,7 @@
 				3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */,
 				97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */,
 				97C146FC1CF9000F007C117D /* Main.storyboard in Resources */,
+				FIREBASE00011CF9000F007C /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
