@@ -47,7 +47,7 @@ class HeartRateChartPainter extends CustomPainter {
 
     final List<double> validValues = validIndices.map((i) => values[i]).toList();
     final double maxVal = validValues.reduce((a, b) => a > b ? a : b);
-    final int firstValid = validIndices.first;
+    final int todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
 
     final int totalSlots = values.length >= 7 ? 7 : values.length;
     final List<Offset> points = [];
@@ -101,8 +101,8 @@ class HeartRateChartPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round;
     canvas.drawPath(path, strokePaint);
 
-    // Draw Vertical Scrubber Line & Active Marker at activeIndex
-    final activeIdx = (activeIndex ?? firstValid).clamp(0, points.length - 1);
+    // Draw Vertical Scrubber Line & Active Marker at activeIndex (defaulting to today's index)
+    final activeIdx = (activeIndex ?? todayIdx).clamp(0, points.length - 1);
     final activePt = points[activeIdx];
 
     // Vertical guide line from dot to bottom

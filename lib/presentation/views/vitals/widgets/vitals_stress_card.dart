@@ -36,14 +36,9 @@ class _VitalsStressCardState extends State<VitalsStressCard> {
   @override
   void initState() {
     super.initState();
-    final firstValidIndex = widget.stressTimeline.indexWhere((v) => v > 0);
-    _activeScrubIndexNotifier = ValueNotifier<int>(
-      firstValidIndex != -1
-          ? firstValidIndex
-          : (widget.stressTimeline.length > 9
-              ? 9
-              : (widget.stressTimeline.isEmpty ? 0 : widget.stressTimeline.length - 1)),
-    );
+    final int todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
+    final maxIdx = widget.stressTimeline.isEmpty ? 6 : widget.stressTimeline.length - 1;
+    _activeScrubIndexNotifier = ValueNotifier<int>(todayIdx.clamp(0, maxIdx));
   }
 
   @override
@@ -51,13 +46,9 @@ class _VitalsStressCardState extends State<VitalsStressCard> {
     super.didUpdateWidget(oldWidget);
     if (!listEquals(oldWidget.stressTimeline, widget.stressTimeline) ||
         oldWidget.stressScore != widget.stressScore) {
-      final maxIdx = widget.stressTimeline.isEmpty ? 0 : widget.stressTimeline.length - 1;
-      final firstValidIndex = widget.stressTimeline.indexWhere((v) => v > 0);
-      if (firstValidIndex != -1) {
-        _activeScrubIndexNotifier.value = firstValidIndex;
-      } else {
-        _activeScrubIndexNotifier.value = _activeScrubIndexNotifier.value.clamp(0, maxIdx);
-      }
+      final int todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
+      final maxIdx = widget.stressTimeline.isEmpty ? 6 : widget.stressTimeline.length - 1;
+      _activeScrubIndexNotifier.value = todayIdx.clamp(0, maxIdx);
     }
   }
 

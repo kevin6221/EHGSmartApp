@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/foundation.dart';
@@ -125,7 +126,8 @@ class BandRepository {
     if (_isExplicitDisconnect || _lastPairedDevice == null || _isAutoReconnecting) return;
     _autoReconnectTimer?.cancel();
     _reconnectAttempts++;
-    final int delaySec = _reconnectAttempts == 1 ? 5 : (_reconnectAttempts == 2 ? 10 : 15);
+    // Exponential backoff: 5s, 10s, 20s, 40s, capped at 60s
+    final int delaySec = math.min(60, 5 * math.pow(2, math.min(_reconnectAttempts - 1, 4)).toInt());
 
     debugPrint('⏳ [BAND RECONNECT] Continuous auto-reconnect #$_reconnectAttempts scheduled in $delaySec seconds for ${_lastPairedDevice?.name}...');
     _autoReconnectTimer = Timer(Duration(seconds: delaySec), () async {
@@ -193,7 +195,8 @@ class BandRepository {
 
       // 2. Load today's summary and discrete vitals from Drift SQLite
       final today = DateTime.now().toIso8601String().substring(0, 10);
-      final summary = await _db.healthDataDao.getDailySummary('default_user', today);
+      final userId = await _secureStorage.getActiveUserId();
+      final summary = await _db.healthDataDao.getDailySummary(userId, today);
       final devId = _connectedDevice?.macAddress ?? _lastPairedDevice?.mac ?? 'default_band';
       final latestStress = await _db.healthDataDao.getLatestVital(devId, 'stress');
       final latestHrv = await _db.healthDataDao.getLatestVital(devId, 'hrv');
@@ -226,6 +229,7 @@ class BandRepository {
     try {
       final today = DateTime.now().toIso8601String().substring(0, 10);
       final devId = _connectedDevice?.macAddress ?? _lastPairedDevice?.mac ?? 'default_band';
+      final userId = await _secureStorage.getActiveUserId();
       final now = DateTime.now();
 
       // 0. Persist JSON to Secure Storage for instant hydration on restart
@@ -234,7 +238,7 @@ class BandRepository {
       // 1. Upsert daily summary to Drift DB
       await _db.healthDataDao.upsertDailySummary(
         DailyHealthSummariesTableCompanion(
-          userId: const drift.Value('default_user'),
+          userId: drift.Value(userId),
           deviceId: drift.Value(devId),
           date: drift.Value(today),
           steps: drift.Value(vitals.steps),
@@ -326,7 +330,32 @@ class BandRepository {
         await _db.healthDataDao.insertHeartRateSamples(samples);
       }
 
-      // 4. Update sync timestamp on device
+      // 4. Persist sleep session and sleep phases
+      if (vitals.sleepMinutes > 0) {
+        final sessionCompanion = SleepSessionsTableCompanion(
+          deviceId: drift.Value(devId),
+          startTime: drift.Value(now.subtract(Duration(minutes: vitals.sleepMinutes))),
+          endTime: drift.Value(now),
+          totalDurationMinutes: drift.Value(vitals.sleepMinutes),
+          deepMinutes: drift.Value(vitals.deepSleepMinutes),
+          lightMinutes: drift.Value((vitals.sleepMinutes - vitals.deepSleepMinutes).clamp(0, vitals.sleepMinutes)),
+          date: drift.Value(today),
+          syncedAt: drift.Value(now),
+        );
+        final phasesList = vitals.sleepPhases.map((p) {
+          final start = DateTime.tryParse(p.startTime) ?? now.subtract(Duration(minutes: p.durationMinutes));
+          final end = DateTime.tryParse(p.endTime) ?? now;
+          return SleepPhasesTableCompanion(
+            phaseType: drift.Value(p.type),
+            startTime: drift.Value(start),
+            endTime: drift.Value(end),
+            durationMinutes: drift.Value(p.durationMinutes),
+          );
+        }).toList();
+        await _db.healthDataDao.insertSleepSessionWithPhases(sessionCompanion, phasesList);
+      }
+
+      // 5. Update sync timestamp on device
       await _db.deviceDao.updateSyncTimestamp(devId, now);
     } catch (e) {
       debugPrint('⚠️ [BAND REPO] _persistVitals error: $e');
@@ -375,6 +404,9 @@ class BandRepository {
   DiscoveredBandDevice? get lastPairedDevice => _lastPairedDevice;
   BandSyncedVitals get lastSyncedVitals => _lastSyncedVitals;
   String? get lastConnectionError => _service.lastConnectionError;
+  bool get isConnected => _currentStatus == BandConnectionStatus.connected;
+  BandConnectionStatus get connectionStatus => _currentStatus;
+  Future<bool> reconnect() => tryAutoReconnect();
 
   /// Waits for SQLite cache restoration to finish on app startup / hot restart.
   Future<void> ensureInitialized() => _initCompleter.future;
@@ -647,10 +679,22 @@ class BandRepository {
     return const JsonEncoder.withIndent('  ').convert(exportHealthData());
   }
 
-  /// Clears cached local device and health data.
+  /// Generates a structured CSV of all historical health summaries from Drift DB.
+  Future<String> exportHealthDataCsv() async {
+    final summaries = await _db.healthDataDao.getAllDailySummaries();
+    final buffer = StringBuffer();
+    buffer.writeln('Date,Steps,Calories (kcal),Distance (m),Resting HR (bpm),Avg SpO2 (%),Sleep Duration (min),Deep Sleep (min),Wellness Score,Last Sync');
+    for (final s in summaries) {
+      buffer.writeln('${s.date},${s.steps},${s.caloriesBurned},${s.distanceMeters},${s.restingHeartRate ?? ""},${s.avgSpo2 ?? ""},${s.sleepDurationMinutes},${s.deepSleepMinutes},${s.wellnessScore ?? ""},${s.lastSyncTimestamp.toIso8601String()}');
+    }
+    return buffer.toString();
+  }
+
+  /// Clears cached local device and health data from both DB and secure storage.
   Future<void> clearLocalData() async {
     await disconnect(unpair: true);
     _lastSyncedVitals = const BandSyncedVitals();
+    await _db.healthDataDao.deleteAllHealthData();
     await _secureStorage.deleteAll();
     _syncedVitalsController.add(_lastSyncedVitals);
   }

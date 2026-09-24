@@ -15,6 +15,10 @@ class TrainingState extends Equatable {
   final int liveHeartRate;
   final int burnedCalories;
   final int currentZone;
+  final int peakHeartRate;
+  final int avgHeartRate;
+  final int heartRateSum;
+  final int heartRateCount;
 
   const TrainingState({
     this.status = TrainingStatus.initial,
@@ -25,6 +29,10 @@ class TrainingState extends Equatable {
     this.liveHeartRate = 0,
     this.burnedCalories = 0,
     this.currentZone = 1,
+    this.peakHeartRate = 0,
+    this.avgHeartRate = 0,
+    this.heartRateSum = 0,
+    this.heartRateCount = 0,
   });
 
   TrainingState copyWith({
@@ -36,6 +44,10 @@ class TrainingState extends Equatable {
     int? liveHeartRate,
     int? burnedCalories,
     int? currentZone,
+    int? peakHeartRate,
+    int? avgHeartRate,
+    int? heartRateSum,
+    int? heartRateCount,
   }) {
     return TrainingState(
       status: status ?? this.status,
@@ -46,6 +58,10 @@ class TrainingState extends Equatable {
       liveHeartRate: liveHeartRate ?? this.liveHeartRate,
       burnedCalories: burnedCalories ?? this.burnedCalories,
       currentZone: currentZone ?? this.currentZone,
+      peakHeartRate: peakHeartRate ?? this.peakHeartRate,
+      avgHeartRate: avgHeartRate ?? this.avgHeartRate,
+      heartRateSum: heartRateSum ?? this.heartRateSum,
+      heartRateCount: heartRateCount ?? this.heartRateCount,
     );
   }
 
@@ -59,5 +75,9 @@ class TrainingState extends Equatable {
     liveHeartRate,
     burnedCalories,
     currentZone,
+    peakHeartRate,
+    avgHeartRate,
+    heartRateSum,
+    heartRateCount,
   ];
 }

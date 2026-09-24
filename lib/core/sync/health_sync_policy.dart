@@ -13,6 +13,9 @@ class HealthSyncPolicy {
   /// Threshold beyond which a cold start sync is deemed necessary.
   static const Duration coldStartSyncThreshold = Duration(minutes: 15);
 
+  /// Interval threshold for scheduled background sync tasks.
+  static const Duration backgroundSyncInterval = Duration(minutes: 30);
+
   /// Minimum delay before retrying a failed synchronization.
   static const Duration failedSyncRetryDelay = Duration(minutes: 2);
 
@@ -31,5 +34,13 @@ class HealthSyncPolicy {
     // Refresh if past threshold or date boundary crossed
     final hasDayChanged = now.day != lastSync.day || now.month != lastSync.month || now.year != lastSync.year;
     return hasDayChanged || now.difference(lastSync) >= coldStartSyncThreshold;
+  }
+
+  /// Checks if background sync should execute (every 30 mins or on date change).
+  static bool shouldBackgroundSync(DateTime? lastSync) {
+    if (lastSync == null) return true;
+    final now = DateTime.now();
+    final hasDayChanged = now.day != lastSync.day || now.month != lastSync.month || now.year != lastSync.year;
+    return hasDayChanged || now.difference(lastSync) >= backgroundSyncInterval;
   }
 }

@@ -101,6 +101,10 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
           sessionStatus: TrainingSessionStatus.running,
           elapsedSeconds: 0,
           burnedCalories: initialCalories,
+          peakHeartRate: 0,
+          avgHeartRate: 0,
+          heartRateSum: 0,
+          heartRateCount: 0,
         ),
       );
     });
@@ -142,12 +146,49 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
         } else {
           zone = 1;
         }
-        emit(state.copyWith(liveHeartRate: event.bpm, currentZone: zone));
+
+        final newPeak = event.bpm > state.peakHeartRate ? event.bpm : state.peakHeartRate;
+        final newSum = state.heartRateSum + event.bpm;
+        final newCount = state.heartRateCount + 1;
+        final newAvg = (newSum / newCount).round();
+
+        emit(state.copyWith(
+          liveHeartRate: event.bpm,
+          currentZone: zone,
+          peakHeartRate: newPeak,
+          avgHeartRate: newAvg,
+          heartRateSum: newSum,
+          heartRateCount: newCount,
+        ));
       }
     });
 
-    on<FinishWorkoutEvent>((event, emit) {
-      emit(state.copyWith(sessionStatus: TrainingSessionStatus.completed));
+    on<FinishWorkoutEvent>((event, emit) async {
+      final duration = state.elapsedSeconds;
+      final peakHr = state.peakHeartRate;
+      final avgHr = state.avgHeartRate;
+      final calories = state.burnedCalories;
+      final title = state.data?.title ?? 'Outdoor run';
+      final category = state.data?.selectedCategory ?? WorkoutType.run;
+      final now = DateTime.now();
+      final startTime = now.subtract(Duration(seconds: duration));
+
+      await repository.saveWorkoutSession(
+        title: title,
+        category: category,
+        durationSeconds: duration,
+        burnedCalories: calories,
+        avgHeartRate: avgHr,
+        peakHeartRate: peakHr,
+        startTime: startTime,
+        endTime: now,
+      );
+
+      final updatedData = repository.getWorkoutData();
+      emit(state.copyWith(
+        sessionStatus: TrainingSessionStatus.completed,
+        data: updatedData,
+      ));
     });
   }
 

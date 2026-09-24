@@ -4480,6 +4480,1266 @@ class SyncQueueTableCompanion extends UpdateCompanion<SyncQueueItem> {
   }
 }
 
+class $WorkoutSessionsTableTable extends WorkoutSessionsTable
+    with TableInfo<$WorkoutSessionsTableTable, WorkoutSession> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WorkoutSessionsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _categoryMeta = const VerificationMeta(
+    'category',
+  );
+  @override
+  late final GeneratedColumn<String> category = GeneratedColumn<String>(
+    'category',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _durationSecondsMeta = const VerificationMeta(
+    'durationSeconds',
+  );
+  @override
+  late final GeneratedColumn<int> durationSeconds = GeneratedColumn<int>(
+    'duration_seconds',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _burnedCaloriesMeta = const VerificationMeta(
+    'burnedCalories',
+  );
+  @override
+  late final GeneratedColumn<int> burnedCalories = GeneratedColumn<int>(
+    'burned_calories',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _avgHeartRateMeta = const VerificationMeta(
+    'avgHeartRate',
+  );
+  @override
+  late final GeneratedColumn<int> avgHeartRate = GeneratedColumn<int>(
+    'avg_heart_rate',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _peakHeartRateMeta = const VerificationMeta(
+    'peakHeartRate',
+  );
+  @override
+  late final GeneratedColumn<int> peakHeartRate = GeneratedColumn<int>(
+    'peak_heart_rate',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _startTimeMeta = const VerificationMeta(
+    'startTime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> startTime = GeneratedColumn<DateTime>(
+    'start_time',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _endTimeMeta = const VerificationMeta(
+    'endTime',
+  );
+  @override
+  late final GeneratedColumn<DateTime> endTime = GeneratedColumn<DateTime>(
+    'end_time',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    title,
+    category,
+    durationSeconds,
+    burnedCalories,
+    avgHeartRate,
+    peakHeartRate,
+    startTime,
+    endTime,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'workout_sessions_table';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WorkoutSession> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_titleMeta);
+    }
+    if (data.containsKey('category')) {
+      context.handle(
+        _categoryMeta,
+        category.isAcceptableOrUnknown(data['category']!, _categoryMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_categoryMeta);
+    }
+    if (data.containsKey('duration_seconds')) {
+      context.handle(
+        _durationSecondsMeta,
+        durationSeconds.isAcceptableOrUnknown(
+          data['duration_seconds']!,
+          _durationSecondsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_durationSecondsMeta);
+    }
+    if (data.containsKey('burned_calories')) {
+      context.handle(
+        _burnedCaloriesMeta,
+        burnedCalories.isAcceptableOrUnknown(
+          data['burned_calories']!,
+          _burnedCaloriesMeta,
+        ),
+      );
+    }
+    if (data.containsKey('avg_heart_rate')) {
+      context.handle(
+        _avgHeartRateMeta,
+        avgHeartRate.isAcceptableOrUnknown(
+          data['avg_heart_rate']!,
+          _avgHeartRateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('peak_heart_rate')) {
+      context.handle(
+        _peakHeartRateMeta,
+        peakHeartRate.isAcceptableOrUnknown(
+          data['peak_heart_rate']!,
+          _peakHeartRateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('start_time')) {
+      context.handle(
+        _startTimeMeta,
+        startTime.isAcceptableOrUnknown(data['start_time']!, _startTimeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_startTimeMeta);
+    }
+    if (data.containsKey('end_time')) {
+      context.handle(
+        _endTimeMeta,
+        endTime.isAcceptableOrUnknown(data['end_time']!, _endTimeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_endTimeMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  WorkoutSession map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WorkoutSession(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      )!,
+      category: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category'],
+      )!,
+      durationSeconds: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duration_seconds'],
+      )!,
+      burnedCalories: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}burned_calories'],
+      )!,
+      avgHeartRate: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}avg_heart_rate'],
+      )!,
+      peakHeartRate: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}peak_heart_rate'],
+      )!,
+      startTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}start_time'],
+      )!,
+      endTime: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}end_time'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $WorkoutSessionsTableTable createAlias(String alias) {
+    return $WorkoutSessionsTableTable(attachedDatabase, alias);
+  }
+}
+
+class WorkoutSession extends DataClass implements Insertable<WorkoutSession> {
+  final int id;
+  final String userId;
+  final String title;
+  final String category;
+  final int durationSeconds;
+  final int burnedCalories;
+  final int avgHeartRate;
+  final int peakHeartRate;
+  final DateTime startTime;
+  final DateTime endTime;
+  final DateTime createdAt;
+  const WorkoutSession({
+    required this.id,
+    required this.userId,
+    required this.title,
+    required this.category,
+    required this.durationSeconds,
+    required this.burnedCalories,
+    required this.avgHeartRate,
+    required this.peakHeartRate,
+    required this.startTime,
+    required this.endTime,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['user_id'] = Variable<String>(userId);
+    map['title'] = Variable<String>(title);
+    map['category'] = Variable<String>(category);
+    map['duration_seconds'] = Variable<int>(durationSeconds);
+    map['burned_calories'] = Variable<int>(burnedCalories);
+    map['avg_heart_rate'] = Variable<int>(avgHeartRate);
+    map['peak_heart_rate'] = Variable<int>(peakHeartRate);
+    map['start_time'] = Variable<DateTime>(startTime);
+    map['end_time'] = Variable<DateTime>(endTime);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  WorkoutSessionsTableCompanion toCompanion(bool nullToAbsent) {
+    return WorkoutSessionsTableCompanion(
+      id: Value(id),
+      userId: Value(userId),
+      title: Value(title),
+      category: Value(category),
+      durationSeconds: Value(durationSeconds),
+      burnedCalories: Value(burnedCalories),
+      avgHeartRate: Value(avgHeartRate),
+      peakHeartRate: Value(peakHeartRate),
+      startTime: Value(startTime),
+      endTime: Value(endTime),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory WorkoutSession.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WorkoutSession(
+      id: serializer.fromJson<int>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
+      title: serializer.fromJson<String>(json['title']),
+      category: serializer.fromJson<String>(json['category']),
+      durationSeconds: serializer.fromJson<int>(json['durationSeconds']),
+      burnedCalories: serializer.fromJson<int>(json['burnedCalories']),
+      avgHeartRate: serializer.fromJson<int>(json['avgHeartRate']),
+      peakHeartRate: serializer.fromJson<int>(json['peakHeartRate']),
+      startTime: serializer.fromJson<DateTime>(json['startTime']),
+      endTime: serializer.fromJson<DateTime>(json['endTime']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'userId': serializer.toJson<String>(userId),
+      'title': serializer.toJson<String>(title),
+      'category': serializer.toJson<String>(category),
+      'durationSeconds': serializer.toJson<int>(durationSeconds),
+      'burnedCalories': serializer.toJson<int>(burnedCalories),
+      'avgHeartRate': serializer.toJson<int>(avgHeartRate),
+      'peakHeartRate': serializer.toJson<int>(peakHeartRate),
+      'startTime': serializer.toJson<DateTime>(startTime),
+      'endTime': serializer.toJson<DateTime>(endTime),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  WorkoutSession copyWith({
+    int? id,
+    String? userId,
+    String? title,
+    String? category,
+    int? durationSeconds,
+    int? burnedCalories,
+    int? avgHeartRate,
+    int? peakHeartRate,
+    DateTime? startTime,
+    DateTime? endTime,
+    DateTime? createdAt,
+  }) => WorkoutSession(
+    id: id ?? this.id,
+    userId: userId ?? this.userId,
+    title: title ?? this.title,
+    category: category ?? this.category,
+    durationSeconds: durationSeconds ?? this.durationSeconds,
+    burnedCalories: burnedCalories ?? this.burnedCalories,
+    avgHeartRate: avgHeartRate ?? this.avgHeartRate,
+    peakHeartRate: peakHeartRate ?? this.peakHeartRate,
+    startTime: startTime ?? this.startTime,
+    endTime: endTime ?? this.endTime,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  WorkoutSession copyWithCompanion(WorkoutSessionsTableCompanion data) {
+    return WorkoutSession(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      title: data.title.present ? data.title.value : this.title,
+      category: data.category.present ? data.category.value : this.category,
+      durationSeconds: data.durationSeconds.present
+          ? data.durationSeconds.value
+          : this.durationSeconds,
+      burnedCalories: data.burnedCalories.present
+          ? data.burnedCalories.value
+          : this.burnedCalories,
+      avgHeartRate: data.avgHeartRate.present
+          ? data.avgHeartRate.value
+          : this.avgHeartRate,
+      peakHeartRate: data.peakHeartRate.present
+          ? data.peakHeartRate.value
+          : this.peakHeartRate,
+      startTime: data.startTime.present ? data.startTime.value : this.startTime,
+      endTime: data.endTime.present ? data.endTime.value : this.endTime,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WorkoutSession(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('title: $title, ')
+          ..write('category: $category, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('burnedCalories: $burnedCalories, ')
+          ..write('avgHeartRate: $avgHeartRate, ')
+          ..write('peakHeartRate: $peakHeartRate, ')
+          ..write('startTime: $startTime, ')
+          ..write('endTime: $endTime, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    title,
+    category,
+    durationSeconds,
+    burnedCalories,
+    avgHeartRate,
+    peakHeartRate,
+    startTime,
+    endTime,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WorkoutSession &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.title == this.title &&
+          other.category == this.category &&
+          other.durationSeconds == this.durationSeconds &&
+          other.burnedCalories == this.burnedCalories &&
+          other.avgHeartRate == this.avgHeartRate &&
+          other.peakHeartRate == this.peakHeartRate &&
+          other.startTime == this.startTime &&
+          other.endTime == this.endTime &&
+          other.createdAt == this.createdAt);
+}
+
+class WorkoutSessionsTableCompanion extends UpdateCompanion<WorkoutSession> {
+  final Value<int> id;
+  final Value<String> userId;
+  final Value<String> title;
+  final Value<String> category;
+  final Value<int> durationSeconds;
+  final Value<int> burnedCalories;
+  final Value<int> avgHeartRate;
+  final Value<int> peakHeartRate;
+  final Value<DateTime> startTime;
+  final Value<DateTime> endTime;
+  final Value<DateTime> createdAt;
+  const WorkoutSessionsTableCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.category = const Value.absent(),
+    this.durationSeconds = const Value.absent(),
+    this.burnedCalories = const Value.absent(),
+    this.avgHeartRate = const Value.absent(),
+    this.peakHeartRate = const Value.absent(),
+    this.startTime = const Value.absent(),
+    this.endTime = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  WorkoutSessionsTableCompanion.insert({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    required String title,
+    required String category,
+    required int durationSeconds,
+    this.burnedCalories = const Value.absent(),
+    this.avgHeartRate = const Value.absent(),
+    this.peakHeartRate = const Value.absent(),
+    required DateTime startTime,
+    required DateTime endTime,
+    this.createdAt = const Value.absent(),
+  }) : title = Value(title),
+       category = Value(category),
+       durationSeconds = Value(durationSeconds),
+       startTime = Value(startTime),
+       endTime = Value(endTime);
+  static Insertable<WorkoutSession> custom({
+    Expression<int>? id,
+    Expression<String>? userId,
+    Expression<String>? title,
+    Expression<String>? category,
+    Expression<int>? durationSeconds,
+    Expression<int>? burnedCalories,
+    Expression<int>? avgHeartRate,
+    Expression<int>? peakHeartRate,
+    Expression<DateTime>? startTime,
+    Expression<DateTime>? endTime,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (title != null) 'title': title,
+      if (category != null) 'category': category,
+      if (durationSeconds != null) 'duration_seconds': durationSeconds,
+      if (burnedCalories != null) 'burned_calories': burnedCalories,
+      if (avgHeartRate != null) 'avg_heart_rate': avgHeartRate,
+      if (peakHeartRate != null) 'peak_heart_rate': peakHeartRate,
+      if (startTime != null) 'start_time': startTime,
+      if (endTime != null) 'end_time': endTime,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  WorkoutSessionsTableCompanion copyWith({
+    Value<int>? id,
+    Value<String>? userId,
+    Value<String>? title,
+    Value<String>? category,
+    Value<int>? durationSeconds,
+    Value<int>? burnedCalories,
+    Value<int>? avgHeartRate,
+    Value<int>? peakHeartRate,
+    Value<DateTime>? startTime,
+    Value<DateTime>? endTime,
+    Value<DateTime>? createdAt,
+  }) {
+    return WorkoutSessionsTableCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      title: title ?? this.title,
+      category: category ?? this.category,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      burnedCalories: burnedCalories ?? this.burnedCalories,
+      avgHeartRate: avgHeartRate ?? this.avgHeartRate,
+      peakHeartRate: peakHeartRate ?? this.peakHeartRate,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (category.present) {
+      map['category'] = Variable<String>(category.value);
+    }
+    if (durationSeconds.present) {
+      map['duration_seconds'] = Variable<int>(durationSeconds.value);
+    }
+    if (burnedCalories.present) {
+      map['burned_calories'] = Variable<int>(burnedCalories.value);
+    }
+    if (avgHeartRate.present) {
+      map['avg_heart_rate'] = Variable<int>(avgHeartRate.value);
+    }
+    if (peakHeartRate.present) {
+      map['peak_heart_rate'] = Variable<int>(peakHeartRate.value);
+    }
+    if (startTime.present) {
+      map['start_time'] = Variable<DateTime>(startTime.value);
+    }
+    if (endTime.present) {
+      map['end_time'] = Variable<DateTime>(endTime.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WorkoutSessionsTableCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('title: $title, ')
+          ..write('category: $category, ')
+          ..write('durationSeconds: $durationSeconds, ')
+          ..write('burnedCalories: $burnedCalories, ')
+          ..write('avgHeartRate: $avgHeartRate, ')
+          ..write('peakHeartRate: $peakHeartRate, ')
+          ..write('startTime: $startTime, ')
+          ..write('endTime: $endTime, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $UserRoutinesTableTable extends UserRoutinesTable
+    with TableInfo<$UserRoutinesTableTable, UserRoutine> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $UserRoutinesTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _userIdMeta = const VerificationMeta('userId');
+  @override
+  late final GeneratedColumn<String> userId = GeneratedColumn<String>(
+    'user_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _routineNameMeta = const VerificationMeta(
+    'routineName',
+  );
+  @override
+  late final GeneratedColumn<String> routineName = GeneratedColumn<String>(
+    'routine_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _durationDaysMeta = const VerificationMeta(
+    'durationDays',
+  );
+  @override
+  late final GeneratedColumn<int> durationDays = GeneratedColumn<int>(
+    'duration_days',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(14),
+  );
+  static const VerificationMeta _movementsJsonMeta = const VerificationMeta(
+    'movementsJson',
+  );
+  @override
+  late final GeneratedColumn<String> movementsJson = GeneratedColumn<String>(
+    'movements_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _wellnessJsonMeta = const VerificationMeta(
+    'wellnessJson',
+  );
+  @override
+  late final GeneratedColumn<String> wellnessJson = GeneratedColumn<String>(
+    'wellness_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _routineItemsJsonMeta = const VerificationMeta(
+    'routineItemsJson',
+  );
+  @override
+  late final GeneratedColumn<String> routineItemsJson = GeneratedColumn<String>(
+    'routine_items_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('[]'),
+  );
+  static const VerificationMeta _isActiveMeta = const VerificationMeta(
+    'isActive',
+  );
+  @override
+  late final GeneratedColumn<bool> isActive = GeneratedColumn<bool>(
+    'is_active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    userId,
+    routineName,
+    durationDays,
+    movementsJson,
+    wellnessJson,
+    routineItemsJson,
+    isActive,
+    createdAt,
+    updatedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'user_routines_table';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<UserRoutine> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('user_id')) {
+      context.handle(
+        _userIdMeta,
+        userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('routine_name')) {
+      context.handle(
+        _routineNameMeta,
+        routineName.isAcceptableOrUnknown(
+          data['routine_name']!,
+          _routineNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_routineNameMeta);
+    }
+    if (data.containsKey('duration_days')) {
+      context.handle(
+        _durationDaysMeta,
+        durationDays.isAcceptableOrUnknown(
+          data['duration_days']!,
+          _durationDaysMeta,
+        ),
+      );
+    }
+    if (data.containsKey('movements_json')) {
+      context.handle(
+        _movementsJsonMeta,
+        movementsJson.isAcceptableOrUnknown(
+          data['movements_json']!,
+          _movementsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('wellness_json')) {
+      context.handle(
+        _wellnessJsonMeta,
+        wellnessJson.isAcceptableOrUnknown(
+          data['wellness_json']!,
+          _wellnessJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('routine_items_json')) {
+      context.handle(
+        _routineItemsJsonMeta,
+        routineItemsJson.isAcceptableOrUnknown(
+          data['routine_items_json']!,
+          _routineItemsJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_active')) {
+      context.handle(
+        _isActiveMeta,
+        isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  UserRoutine map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return UserRoutine(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      userId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}user_id'],
+      )!,
+      routineName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}routine_name'],
+      )!,
+      durationDays: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duration_days'],
+      )!,
+      movementsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}movements_json'],
+      )!,
+      wellnessJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}wellness_json'],
+      )!,
+      routineItemsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}routine_items_json'],
+      )!,
+      isActive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_active'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      )!,
+    );
+  }
+
+  @override
+  $UserRoutinesTableTable createAlias(String alias) {
+    return $UserRoutinesTableTable(attachedDatabase, alias);
+  }
+}
+
+class UserRoutine extends DataClass implements Insertable<UserRoutine> {
+  final int id;
+  final String userId;
+  final String routineName;
+  final int durationDays;
+  final String movementsJson;
+  final String wellnessJson;
+  final String routineItemsJson;
+  final bool isActive;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  const UserRoutine({
+    required this.id,
+    required this.userId,
+    required this.routineName,
+    required this.durationDays,
+    required this.movementsJson,
+    required this.wellnessJson,
+    required this.routineItemsJson,
+    required this.isActive,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['user_id'] = Variable<String>(userId);
+    map['routine_name'] = Variable<String>(routineName);
+    map['duration_days'] = Variable<int>(durationDays);
+    map['movements_json'] = Variable<String>(movementsJson);
+    map['wellness_json'] = Variable<String>(wellnessJson);
+    map['routine_items_json'] = Variable<String>(routineItemsJson);
+    map['is_active'] = Variable<bool>(isActive);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  UserRoutinesTableCompanion toCompanion(bool nullToAbsent) {
+    return UserRoutinesTableCompanion(
+      id: Value(id),
+      userId: Value(userId),
+      routineName: Value(routineName),
+      durationDays: Value(durationDays),
+      movementsJson: Value(movementsJson),
+      wellnessJson: Value(wellnessJson),
+      routineItemsJson: Value(routineItemsJson),
+      isActive: Value(isActive),
+      createdAt: Value(createdAt),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory UserRoutine.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return UserRoutine(
+      id: serializer.fromJson<int>(json['id']),
+      userId: serializer.fromJson<String>(json['userId']),
+      routineName: serializer.fromJson<String>(json['routineName']),
+      durationDays: serializer.fromJson<int>(json['durationDays']),
+      movementsJson: serializer.fromJson<String>(json['movementsJson']),
+      wellnessJson: serializer.fromJson<String>(json['wellnessJson']),
+      routineItemsJson: serializer.fromJson<String>(json['routineItemsJson']),
+      isActive: serializer.fromJson<bool>(json['isActive']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'userId': serializer.toJson<String>(userId),
+      'routineName': serializer.toJson<String>(routineName),
+      'durationDays': serializer.toJson<int>(durationDays),
+      'movementsJson': serializer.toJson<String>(movementsJson),
+      'wellnessJson': serializer.toJson<String>(wellnessJson),
+      'routineItemsJson': serializer.toJson<String>(routineItemsJson),
+      'isActive': serializer.toJson<bool>(isActive),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  UserRoutine copyWith({
+    int? id,
+    String? userId,
+    String? routineName,
+    int? durationDays,
+    String? movementsJson,
+    String? wellnessJson,
+    String? routineItemsJson,
+    bool? isActive,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) => UserRoutine(
+    id: id ?? this.id,
+    userId: userId ?? this.userId,
+    routineName: routineName ?? this.routineName,
+    durationDays: durationDays ?? this.durationDays,
+    movementsJson: movementsJson ?? this.movementsJson,
+    wellnessJson: wellnessJson ?? this.wellnessJson,
+    routineItemsJson: routineItemsJson ?? this.routineItemsJson,
+    isActive: isActive ?? this.isActive,
+    createdAt: createdAt ?? this.createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+  );
+  UserRoutine copyWithCompanion(UserRoutinesTableCompanion data) {
+    return UserRoutine(
+      id: data.id.present ? data.id.value : this.id,
+      userId: data.userId.present ? data.userId.value : this.userId,
+      routineName: data.routineName.present
+          ? data.routineName.value
+          : this.routineName,
+      durationDays: data.durationDays.present
+          ? data.durationDays.value
+          : this.durationDays,
+      movementsJson: data.movementsJson.present
+          ? data.movementsJson.value
+          : this.movementsJson,
+      wellnessJson: data.wellnessJson.present
+          ? data.wellnessJson.value
+          : this.wellnessJson,
+      routineItemsJson: data.routineItemsJson.present
+          ? data.routineItemsJson.value
+          : this.routineItemsJson,
+      isActive: data.isActive.present ? data.isActive.value : this.isActive,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserRoutine(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('routineName: $routineName, ')
+          ..write('durationDays: $durationDays, ')
+          ..write('movementsJson: $movementsJson, ')
+          ..write('wellnessJson: $wellnessJson, ')
+          ..write('routineItemsJson: $routineItemsJson, ')
+          ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    userId,
+    routineName,
+    durationDays,
+    movementsJson,
+    wellnessJson,
+    routineItemsJson,
+    isActive,
+    createdAt,
+    updatedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is UserRoutine &&
+          other.id == this.id &&
+          other.userId == this.userId &&
+          other.routineName == this.routineName &&
+          other.durationDays == this.durationDays &&
+          other.movementsJson == this.movementsJson &&
+          other.wellnessJson == this.wellnessJson &&
+          other.routineItemsJson == this.routineItemsJson &&
+          other.isActive == this.isActive &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class UserRoutinesTableCompanion extends UpdateCompanion<UserRoutine> {
+  final Value<int> id;
+  final Value<String> userId;
+  final Value<String> routineName;
+  final Value<int> durationDays;
+  final Value<String> movementsJson;
+  final Value<String> wellnessJson;
+  final Value<String> routineItemsJson;
+  final Value<bool> isActive;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> updatedAt;
+  const UserRoutinesTableCompanion({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    this.routineName = const Value.absent(),
+    this.durationDays = const Value.absent(),
+    this.movementsJson = const Value.absent(),
+    this.wellnessJson = const Value.absent(),
+    this.routineItemsJson = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  UserRoutinesTableCompanion.insert({
+    this.id = const Value.absent(),
+    this.userId = const Value.absent(),
+    required String routineName,
+    this.durationDays = const Value.absent(),
+    this.movementsJson = const Value.absent(),
+    this.wellnessJson = const Value.absent(),
+    this.routineItemsJson = const Value.absent(),
+    this.isActive = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  }) : routineName = Value(routineName);
+  static Insertable<UserRoutine> custom({
+    Expression<int>? id,
+    Expression<String>? userId,
+    Expression<String>? routineName,
+    Expression<int>? durationDays,
+    Expression<String>? movementsJson,
+    Expression<String>? wellnessJson,
+    Expression<String>? routineItemsJson,
+    Expression<bool>? isActive,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (userId != null) 'user_id': userId,
+      if (routineName != null) 'routine_name': routineName,
+      if (durationDays != null) 'duration_days': durationDays,
+      if (movementsJson != null) 'movements_json': movementsJson,
+      if (wellnessJson != null) 'wellness_json': wellnessJson,
+      if (routineItemsJson != null) 'routine_items_json': routineItemsJson,
+      if (isActive != null) 'is_active': isActive,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  UserRoutinesTableCompanion copyWith({
+    Value<int>? id,
+    Value<String>? userId,
+    Value<String>? routineName,
+    Value<int>? durationDays,
+    Value<String>? movementsJson,
+    Value<String>? wellnessJson,
+    Value<String>? routineItemsJson,
+    Value<bool>? isActive,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? updatedAt,
+  }) {
+    return UserRoutinesTableCompanion(
+      id: id ?? this.id,
+      userId: userId ?? this.userId,
+      routineName: routineName ?? this.routineName,
+      durationDays: durationDays ?? this.durationDays,
+      movementsJson: movementsJson ?? this.movementsJson,
+      wellnessJson: wellnessJson ?? this.wellnessJson,
+      routineItemsJson: routineItemsJson ?? this.routineItemsJson,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (userId.present) {
+      map['user_id'] = Variable<String>(userId.value);
+    }
+    if (routineName.present) {
+      map['routine_name'] = Variable<String>(routineName.value);
+    }
+    if (durationDays.present) {
+      map['duration_days'] = Variable<int>(durationDays.value);
+    }
+    if (movementsJson.present) {
+      map['movements_json'] = Variable<String>(movementsJson.value);
+    }
+    if (wellnessJson.present) {
+      map['wellness_json'] = Variable<String>(wellnessJson.value);
+    }
+    if (routineItemsJson.present) {
+      map['routine_items_json'] = Variable<String>(routineItemsJson.value);
+    }
+    if (isActive.present) {
+      map['is_active'] = Variable<bool>(isActive.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('UserRoutinesTableCompanion(')
+          ..write('id: $id, ')
+          ..write('userId: $userId, ')
+          ..write('routineName: $routineName, ')
+          ..write('durationDays: $durationDays, ')
+          ..write('movementsJson: $movementsJson, ')
+          ..write('wellnessJson: $wellnessJson, ')
+          ..write('routineItemsJson: $routineItemsJson, ')
+          ..write('isActive: $isActive, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -4498,6 +5758,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     this,
   );
   late final $SyncQueueTableTable syncQueueTable = $SyncQueueTableTable(this);
+  late final $WorkoutSessionsTableTable workoutSessionsTable =
+      $WorkoutSessionsTableTable(this);
+  late final $UserRoutinesTableTable userRoutinesTable =
+      $UserRoutinesTableTable(this);
   late final HealthDataDao healthDataDao = HealthDataDao(this as AppDatabase);
   late final DeviceDao deviceDao = DeviceDao(this as AppDatabase);
   late final SyncQueueDao syncQueueDao = SyncQueueDao(this as AppDatabase);
@@ -4513,6 +5777,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     vitalsRecordsTable,
     bandDevicesTable,
     syncQueueTable,
+    workoutSessionsTable,
+    userRoutinesTable,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -7022,6 +8288,662 @@ typedef $$SyncQueueTableTableProcessedTableManager =
       SyncQueueItem,
       PrefetchHooks Function()
     >;
+typedef $$WorkoutSessionsTableTableCreateCompanionBuilder =
+    WorkoutSessionsTableCompanion Function({
+      Value<int> id,
+      Value<String> userId,
+      required String title,
+      required String category,
+      required int durationSeconds,
+      Value<int> burnedCalories,
+      Value<int> avgHeartRate,
+      Value<int> peakHeartRate,
+      required DateTime startTime,
+      required DateTime endTime,
+      Value<DateTime> createdAt,
+    });
+typedef $$WorkoutSessionsTableTableUpdateCompanionBuilder =
+    WorkoutSessionsTableCompanion Function({
+      Value<int> id,
+      Value<String> userId,
+      Value<String> title,
+      Value<String> category,
+      Value<int> durationSeconds,
+      Value<int> burnedCalories,
+      Value<int> avgHeartRate,
+      Value<int> peakHeartRate,
+      Value<DateTime> startTime,
+      Value<DateTime> endTime,
+      Value<DateTime> createdAt,
+    });
+
+class $$WorkoutSessionsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $WorkoutSessionsTableTable> {
+  $$WorkoutSessionsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get burnedCalories => $composableBuilder(
+    column: $table.burnedCalories,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get avgHeartRate => $composableBuilder(
+    column: $table.avgHeartRate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get peakHeartRate => $composableBuilder(
+    column: $table.peakHeartRate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get startTime => $composableBuilder(
+    column: $table.startTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get endTime => $composableBuilder(
+    column: $table.endTime,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$WorkoutSessionsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $WorkoutSessionsTableTable> {
+  $$WorkoutSessionsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get category => $composableBuilder(
+    column: $table.category,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get burnedCalories => $composableBuilder(
+    column: $table.burnedCalories,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get avgHeartRate => $composableBuilder(
+    column: $table.avgHeartRate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get peakHeartRate => $composableBuilder(
+    column: $table.peakHeartRate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get startTime => $composableBuilder(
+    column: $table.startTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get endTime => $composableBuilder(
+    column: $table.endTime,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$WorkoutSessionsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WorkoutSessionsTableTable> {
+  $$WorkoutSessionsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<int> get durationSeconds => $composableBuilder(
+    column: $table.durationSeconds,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get burnedCalories => $composableBuilder(
+    column: $table.burnedCalories,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get avgHeartRate => $composableBuilder(
+    column: $table.avgHeartRate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get peakHeartRate => $composableBuilder(
+    column: $table.peakHeartRate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get startTime =>
+      $composableBuilder(column: $table.startTime, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get endTime =>
+      $composableBuilder(column: $table.endTime, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$WorkoutSessionsTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $WorkoutSessionsTableTable,
+          WorkoutSession,
+          $$WorkoutSessionsTableTableFilterComposer,
+          $$WorkoutSessionsTableTableOrderingComposer,
+          $$WorkoutSessionsTableTableAnnotationComposer,
+          $$WorkoutSessionsTableTableCreateCompanionBuilder,
+          $$WorkoutSessionsTableTableUpdateCompanionBuilder,
+          (
+            WorkoutSession,
+            BaseReferences<
+              _$AppDatabase,
+              $WorkoutSessionsTableTable,
+              WorkoutSession
+            >,
+          ),
+          WorkoutSession,
+          PrefetchHooks Function()
+        > {
+  $$WorkoutSessionsTableTableTableManager(
+    _$AppDatabase db,
+    $WorkoutSessionsTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WorkoutSessionsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WorkoutSessionsTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$WorkoutSessionsTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> title = const Value.absent(),
+                Value<String> category = const Value.absent(),
+                Value<int> durationSeconds = const Value.absent(),
+                Value<int> burnedCalories = const Value.absent(),
+                Value<int> avgHeartRate = const Value.absent(),
+                Value<int> peakHeartRate = const Value.absent(),
+                Value<DateTime> startTime = const Value.absent(),
+                Value<DateTime> endTime = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => WorkoutSessionsTableCompanion(
+                id: id,
+                userId: userId,
+                title: title,
+                category: category,
+                durationSeconds: durationSeconds,
+                burnedCalories: burnedCalories,
+                avgHeartRate: avgHeartRate,
+                peakHeartRate: peakHeartRate,
+                startTime: startTime,
+                endTime: endTime,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                required String title,
+                required String category,
+                required int durationSeconds,
+                Value<int> burnedCalories = const Value.absent(),
+                Value<int> avgHeartRate = const Value.absent(),
+                Value<int> peakHeartRate = const Value.absent(),
+                required DateTime startTime,
+                required DateTime endTime,
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => WorkoutSessionsTableCompanion.insert(
+                id: id,
+                userId: userId,
+                title: title,
+                category: category,
+                durationSeconds: durationSeconds,
+                burnedCalories: burnedCalories,
+                avgHeartRate: avgHeartRate,
+                peakHeartRate: peakHeartRate,
+                startTime: startTime,
+                endTime: endTime,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$WorkoutSessionsTableTable, WorkoutSession>(
+                    table,
+                  ),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $WorkoutSessionsTableTable,
+                    WorkoutSession
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$WorkoutSessionsTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $WorkoutSessionsTableTable,
+      WorkoutSession,
+      $$WorkoutSessionsTableTableFilterComposer,
+      $$WorkoutSessionsTableTableOrderingComposer,
+      $$WorkoutSessionsTableTableAnnotationComposer,
+      $$WorkoutSessionsTableTableCreateCompanionBuilder,
+      $$WorkoutSessionsTableTableUpdateCompanionBuilder,
+      (
+        WorkoutSession,
+        BaseReferences<
+          _$AppDatabase,
+          $WorkoutSessionsTableTable,
+          WorkoutSession
+        >,
+      ),
+      WorkoutSession,
+      PrefetchHooks Function()
+    >;
+typedef $$UserRoutinesTableTableCreateCompanionBuilder =
+    UserRoutinesTableCompanion Function({
+      Value<int> id,
+      Value<String> userId,
+      required String routineName,
+      Value<int> durationDays,
+      Value<String> movementsJson,
+      Value<String> wellnessJson,
+      Value<String> routineItemsJson,
+      Value<bool> isActive,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+    });
+typedef $$UserRoutinesTableTableUpdateCompanionBuilder =
+    UserRoutinesTableCompanion Function({
+      Value<int> id,
+      Value<String> userId,
+      Value<String> routineName,
+      Value<int> durationDays,
+      Value<String> movementsJson,
+      Value<String> wellnessJson,
+      Value<String> routineItemsJson,
+      Value<bool> isActive,
+      Value<DateTime> createdAt,
+      Value<DateTime> updatedAt,
+    });
+
+class $$UserRoutinesTableTableFilterComposer
+    extends Composer<_$AppDatabase, $UserRoutinesTableTable> {
+  $$UserRoutinesTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get routineName => $composableBuilder(
+    column: $table.routineName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get durationDays => $composableBuilder(
+    column: $table.durationDays,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get movementsJson => $composableBuilder(
+    column: $table.movementsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get wellnessJson => $composableBuilder(
+    column: $table.wellnessJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get routineItemsJson => $composableBuilder(
+    column: $table.routineItemsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$UserRoutinesTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $UserRoutinesTableTable> {
+  $$UserRoutinesTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get userId => $composableBuilder(
+    column: $table.userId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get routineName => $composableBuilder(
+    column: $table.routineName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get durationDays => $composableBuilder(
+    column: $table.durationDays,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get movementsJson => $composableBuilder(
+    column: $table.movementsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get wellnessJson => $composableBuilder(
+    column: $table.wellnessJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get routineItemsJson => $composableBuilder(
+    column: $table.routineItemsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$UserRoutinesTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $UserRoutinesTableTable> {
+  $$UserRoutinesTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get userId =>
+      $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get routineName => $composableBuilder(
+    column: $table.routineName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get durationDays => $composableBuilder(
+    column: $table.durationDays,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get movementsJson => $composableBuilder(
+    column: $table.movementsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get wellnessJson => $composableBuilder(
+    column: $table.wellnessJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get routineItemsJson => $composableBuilder(
+    column: $table.routineItemsJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isActive =>
+      $composableBuilder(column: $table.isActive, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$UserRoutinesTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $UserRoutinesTableTable,
+          UserRoutine,
+          $$UserRoutinesTableTableFilterComposer,
+          $$UserRoutinesTableTableOrderingComposer,
+          $$UserRoutinesTableTableAnnotationComposer,
+          $$UserRoutinesTableTableCreateCompanionBuilder,
+          $$UserRoutinesTableTableUpdateCompanionBuilder,
+          (
+            UserRoutine,
+            BaseReferences<_$AppDatabase, $UserRoutinesTableTable, UserRoutine>,
+          ),
+          UserRoutine,
+          PrefetchHooks Function()
+        > {
+  $$UserRoutinesTableTableTableManager(
+    _$AppDatabase db,
+    $UserRoutinesTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$UserRoutinesTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$UserRoutinesTableTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$UserRoutinesTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                Value<String> routineName = const Value.absent(),
+                Value<int> durationDays = const Value.absent(),
+                Value<String> movementsJson = const Value.absent(),
+                Value<String> wellnessJson = const Value.absent(),
+                Value<String> routineItemsJson = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+              }) => UserRoutinesTableCompanion(
+                id: id,
+                userId: userId,
+                routineName: routineName,
+                durationDays: durationDays,
+                movementsJson: movementsJson,
+                wellnessJson: wellnessJson,
+                routineItemsJson: routineItemsJson,
+                isActive: isActive,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> userId = const Value.absent(),
+                required String routineName,
+                Value<int> durationDays = const Value.absent(),
+                Value<String> movementsJson = const Value.absent(),
+                Value<String> wellnessJson = const Value.absent(),
+                Value<String> routineItemsJson = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> updatedAt = const Value.absent(),
+              }) => UserRoutinesTableCompanion.insert(
+                id: id,
+                userId: userId,
+                routineName: routineName,
+                durationDays: durationDays,
+                movementsJson: movementsJson,
+                wellnessJson: wellnessJson,
+                routineItemsJson: routineItemsJson,
+                isActive: isActive,
+                createdAt: createdAt,
+                updatedAt: updatedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$UserRoutinesTableTable, UserRoutine>(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $UserRoutinesTableTable,
+                    UserRoutine
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$UserRoutinesTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $UserRoutinesTableTable,
+      UserRoutine,
+      $$UserRoutinesTableTableFilterComposer,
+      $$UserRoutinesTableTableOrderingComposer,
+      $$UserRoutinesTableTableAnnotationComposer,
+      $$UserRoutinesTableTableCreateCompanionBuilder,
+      $$UserRoutinesTableTableUpdateCompanionBuilder,
+      (
+        UserRoutine,
+        BaseReferences<_$AppDatabase, $UserRoutinesTableTable, UserRoutine>,
+      ),
+      UserRoutine,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -7043,4 +8965,8 @@ class $AppDatabaseManager {
       $$BandDevicesTableTableTableManager(_db, _db.bandDevicesTable);
   $$SyncQueueTableTableTableManager get syncQueueTable =>
       $$SyncQueueTableTableTableManager(_db, _db.syncQueueTable);
+  $$WorkoutSessionsTableTableTableManager get workoutSessionsTable =>
+      $$WorkoutSessionsTableTableTableManager(_db, _db.workoutSessionsTable);
+  $$UserRoutinesTableTableTableManager get userRoutinesTable =>
+      $$UserRoutinesTableTableTableManager(_db, _db.userRoutinesTable);
 }

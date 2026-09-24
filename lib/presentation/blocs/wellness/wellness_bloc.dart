@@ -31,13 +31,10 @@ class WellnessBloc extends Bloc<WellnessEvent, WellnessState> {
       }
     });
 
-    on<AddHydrationEvent>((event, emit) {
-      if (state.data != null) {
-        final newHydration = (state.data!.hydrationCurrent + event.amountMl)
-            .clamp(0, 5000);
-        final updated = state.data!.copyWith(hydrationCurrent: newHydration);
-        emit(state.copyWith(data: updated));
-      }
+    on<AddHydrationEvent>((event, emit) async {
+      await repository.addHydration(event.amountMl);
+      final data = repository.getWellnessData();
+      emit(state.copyWith(data: data));
     });
 
     on<SyncBandVitalsEvent>((event, emit) {

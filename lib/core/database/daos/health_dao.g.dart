@@ -14,6 +14,10 @@ mixin _$HealthDataDaoMixin on DatabaseAccessor<AppDatabase> {
       attachedDatabase.sleepPhasesTable;
   $VitalsRecordsTableTable get vitalsRecordsTable =>
       attachedDatabase.vitalsRecordsTable;
+  $WorkoutSessionsTableTable get workoutSessionsTable =>
+      attachedDatabase.workoutSessionsTable;
+  $UserRoutinesTableTable get userRoutinesTable =>
+      attachedDatabase.userRoutinesTable;
   HealthDataDaoManager get managers => HealthDataDaoManager(this);
 }
 
@@ -44,5 +48,15 @@ class HealthDataDaoManager {
       $$VitalsRecordsTableTableTableManager(
         _db.attachedDatabase,
         _db.vitalsRecordsTable,
+      );
+  $$WorkoutSessionsTableTableTableManager get workoutSessionsTable =>
+      $$WorkoutSessionsTableTableTableManager(
+        _db.attachedDatabase,
+        _db.workoutSessionsTable,
+      );
+  $$UserRoutinesTableTableTableManager get userRoutinesTable =>
+      $$UserRoutinesTableTableTableManager(
+        _db.attachedDatabase,
+        _db.userRoutinesTable,
       );
 }

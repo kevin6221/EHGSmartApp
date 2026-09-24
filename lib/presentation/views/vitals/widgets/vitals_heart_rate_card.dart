@@ -36,21 +36,10 @@ class _VitalsHeartRateCardState extends State<VitalsHeartRateCard> {
   @override
   void initState() {
     super.initState();
-    // Default scrubber index to the recorded day or last non-zero day
-    final foundIndex = widget.weeklyHeartRate.lastIndexOf(
-      widget.currentHeartRate.toDouble(),
-    );
-    final firstValidIndex = widget.weeklyHeartRate.indexWhere((v) => v > 0);
-
-    _activeScrubIndexNotifier = ValueNotifier<int>(
-      foundIndex != -1
-          ? foundIndex
-          : (firstValidIndex != -1
-              ? firstValidIndex
-              : (widget.weeklyHeartRate.length > 1
-                  ? widget.weeklyHeartRate.length - 1
-                  : 0)),
-    );
+    // Default scrubber index to today's weekday index (Mon=0 .. Sun=6)
+    final int todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
+    final int maxIdx = widget.weeklyHeartRate.isEmpty ? 6 : widget.weeklyHeartRate.length - 1;
+    _activeScrubIndexNotifier = ValueNotifier<int>(todayIdx.clamp(0, maxIdx));
   }
 
   @override
@@ -58,19 +47,9 @@ class _VitalsHeartRateCardState extends State<VitalsHeartRateCard> {
     super.didUpdateWidget(oldWidget);
     if (!listEquals(oldWidget.weeklyHeartRate, widget.weeklyHeartRate) ||
         oldWidget.currentHeartRate != widget.currentHeartRate) {
-      final maxIdx = widget.weeklyHeartRate.isEmpty ? 0 : widget.weeklyHeartRate.length - 1;
-      final foundIndex = widget.weeklyHeartRate.lastIndexOf(
-        widget.currentHeartRate.toDouble(),
-      );
-      final firstValidIndex = widget.weeklyHeartRate.indexWhere((v) => v > 0);
-
-      if (foundIndex != -1) {
-        _activeScrubIndexNotifier.value = foundIndex;
-      } else if (firstValidIndex != -1) {
-        _activeScrubIndexNotifier.value = firstValidIndex;
-      } else {
-        _activeScrubIndexNotifier.value = _activeScrubIndexNotifier.value.clamp(0, maxIdx);
-      }
+      final int todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
+      final maxIdx = widget.weeklyHeartRate.isEmpty ? 6 : widget.weeklyHeartRate.length - 1;
+      _activeScrubIndexNotifier.value = todayIdx.clamp(0, maxIdx);
     }
   }
 

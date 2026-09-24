@@ -11,6 +11,7 @@ class SparklineChart extends StatelessWidget {
   final double height;
   final double width;
   final double strokeWidth;
+  final int? activeDayIndex;
 
   const SparklineChart({
     super.key,
@@ -20,6 +21,7 @@ class SparklineChart extends StatelessWidget {
     this.height = 40,
     this.width = 110,
     this.strokeWidth = 2.0,
+    this.activeDayIndex,
   });
 
   @override
@@ -32,6 +34,7 @@ class SparklineChart extends StatelessWidget {
           lineColor: lineColor,
           showFill: showFill,
           strokeWidth: strokeWidth,
+          activeDayIndex: activeDayIndex,
         ),
       ),
     );

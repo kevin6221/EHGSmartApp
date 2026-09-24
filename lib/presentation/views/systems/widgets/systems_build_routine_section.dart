@@ -17,6 +17,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
   final ValueNotifier<Set<String>> selectedWellnessNotifier;
   final ValueNotifier<List<Map<String, String>>> activeRoutineNotifier;
   final Responsive r;
+  final VoidCallback? onSaveRoutine;
 
   const SystemsBuildRoutineSection({
     super.key,
@@ -26,6 +27,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
     required this.selectedWellnessNotifier,
     required this.activeRoutineNotifier,
     required this.r,
+    this.onSaveRoutine,
   });
 
   void _onToggleMovement(String key) {
@@ -438,7 +440,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
                 text: 'Save routine',
                 useGradient: true,
                 showArrow: false,
-                onPressed: () {},
+                onPressed: onSaveRoutine ?? () {},
                 height: 46.0,
               ),
             ],

@@ -10,6 +10,8 @@ part 'health_dao.g.dart';
   SleepSessionsTable,
   SleepPhasesTable,
   VitalsRecordsTable,
+  WorkoutSessionsTable,
+  UserRoutinesTable,
 ])
 class HealthDataDao extends DatabaseAccessor<AppDatabase> with _$HealthDataDaoMixin {
   HealthDataDao(super.db);
@@ -71,6 +73,27 @@ class HealthDataDao extends DatabaseAccessor<AppDatabase> with _$HealthDataDaoMi
           ..orderBy([(t) => OrderingTerm.desc(t.date)])
           ..limit(1))
         .watchSingleOrNull();
+  }
+
+  Future<List<DailyHealthSummary>> getWeeklySummaries(String userId, String startDate, String endDate) {
+    return (select(dailyHealthSummariesTable)
+          ..where((tbl) =>
+              tbl.userId.equals(userId) &
+              tbl.date.isBiggerOrEqualValue(startDate) &
+              tbl.date.isSmallerOrEqualValue(endDate))
+          ..orderBy([(t) => OrderingTerm.asc(t.date)]))
+        .get();
+  }
+
+  Future<DailyHealthSummary?> getPreviousDailySummary(String userId, String beforeDate) {
+    return (select(dailyHealthSummariesTable)
+          ..where((tbl) =>
+              tbl.userId.equals(userId) &
+              tbl.date.isSmallerThanValue(beforeDate) &
+              tbl.wellnessScore.isNotNull())
+          ..orderBy([(t) => OrderingTerm.desc(t.date)])
+          ..limit(1))
+        .getSingleOrNull();
   }
 
   // Heart Rate Samples
@@ -178,4 +201,95 @@ class HealthDataDao extends DatabaseAccessor<AppDatabase> with _$HealthDataDaoMi
           ..orderBy([(t) => OrderingTerm.asc(t.timestamp)]))
         .get();
   }
+
+  /// Atomically deletes all local health records across all health entities.
+  Future<void> deleteAllHealthData() {
+    return transaction(() async {
+      await delete(dailyHealthSummariesTable).go();
+      await delete(heartRateSamplesTable).go();
+      await delete(sleepPhasesTable).go();
+      await delete(sleepSessionsTable).go();
+      await delete(vitalsRecordsTable).go();
+      await delete(workoutSessionsTable).go();
+      await delete(userRoutinesTable).go();
+    });
+  }
+
+  /// Retrieves all historical daily summaries for data export.
+  Future<List<DailyHealthSummary>> getAllDailySummaries([String? userId]) {
+    var query = select(dailyHealthSummariesTable);
+    if (userId != null && userId.isNotEmpty) {
+      query.where((tbl) => tbl.userId.equals(userId));
+    }
+    return (query..orderBy([(t) => OrderingTerm.desc(t.date)])).get();
+  }
+
+  // Workout Sessions
+  Future<int> insertWorkoutSession(WorkoutSessionsTableCompanion session) {
+    return into(workoutSessionsTable).insert(session);
+  }
+
+  Future<WorkoutSession?> getLatestWorkoutSession([String? userId]) {
+    var query = select(workoutSessionsTable);
+    if (userId != null && userId.isNotEmpty) {
+      query.where((tbl) => tbl.userId.equals(userId));
+    }
+    return (query
+          ..orderBy([(t) => OrderingTerm.desc(t.startTime)])
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  Future<List<WorkoutSession>> getRecentWorkoutSessions({String? userId, int limit = 10}) {
+    var query = select(workoutSessionsTable);
+    if (userId != null && userId.isNotEmpty) {
+      query.where((tbl) => tbl.userId.equals(userId));
+    }
+    return (query
+          ..orderBy([(t) => OrderingTerm.desc(t.startTime)])
+          ..limit(limit))
+        .get();
+  }
+
+  Stream<List<WorkoutSession>> watchRecentWorkoutSessions({String? userId, int limit = 10}) {
+    var query = select(workoutSessionsTable);
+    if (userId != null && userId.isNotEmpty) {
+      query.where((tbl) => tbl.userId.equals(userId));
+    }
+    return (query
+          ..orderBy([(t) => OrderingTerm.desc(t.startTime)])
+          ..limit(limit))
+        .watch();
+  }
+
+  // User Routines
+  Future<int> insertUserRoutine(UserRoutinesTableCompanion routine) {
+    return into(userRoutinesTable).insert(routine);
+  }
+
+  Future<List<UserRoutine>> getUserRoutines({String? userId}) {
+    var query = select(userRoutinesTable)
+      ..where((tbl) => tbl.isActive.equals(true))
+      ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)]);
+    if (userId != null && userId.isNotEmpty) {
+      query.where((tbl) => tbl.userId.equals(userId));
+    }
+    return query.get();
+  }
+
+  Future<UserRoutine?> getLatestActiveUserRoutine({String? userId}) {
+    var query = select(userRoutinesTable)
+      ..where((tbl) => tbl.isActive.equals(true))
+      ..orderBy([(tbl) => OrderingTerm.desc(tbl.createdAt)])
+      ..limit(1);
+    if (userId != null && userId.isNotEmpty) {
+      query.where((tbl) => tbl.userId.equals(userId));
+    }
+    return query.getSingleOrNull();
+  }
+
+  Future<int> deleteUserRoutine(int id) {
+    return (delete(userRoutinesTable)..where((tbl) => tbl.id.equals(id))).go();
+  }
 }
+

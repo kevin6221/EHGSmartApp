@@ -5,6 +5,8 @@ PODS:
     - FlutterMacOS
   - permission_handler_apple (9.4.8):
     - Flutter
+  - share_plus (0.0.1):
+    - Flutter
   - url_launcher_ios (0.0.1):
     - Flutter
 
@@ -12,6 +14,7 @@ DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_secure_storage_darwin (from `.symlinks/plugins/flutter_secure_storage_darwin/darwin`)
   - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
+  - share_plus (from `.symlinks/plugins/share_plus/ios`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
 
 EXTERNAL SOURCES:
@@ -21,6 +24,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/flutter_secure_storage_darwin/darwin"
   permission_handler_apple:
     :path: ".symlinks/plugins/permission_handler_apple/ios"
+  share_plus:
+    :path: ".symlinks/plugins/share_plus/ios"
   url_launcher_ios:
     :path: ".symlinks/plugins/url_launcher_ios/ios"
 
@@ -28,6 +33,7 @@ SPEC CHECKSUMS:
   Flutter: 71a624a5bc0c04062bf19101d501e466baf2fb47
   flutter_secure_storage_darwin: 46e401699982ee74142909676535e0f6a7321e58
   permission_handler_apple: 92d754bbaa7361d436db2d6c3c1c2a0fdcec462e
+  share_plus: 50da8cb520a8f0f65671c6c6a99b3617ed10a58a
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
 
 PODFILE CHECKSUM: 1d729b6808f212879c6c0efc2b850522cf0bb319

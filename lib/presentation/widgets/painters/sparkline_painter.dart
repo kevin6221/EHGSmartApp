@@ -12,12 +12,14 @@ class SparklinePainter extends CustomPainter {
   final Color lineColor;
   final bool showFill;
   final double strokeWidth;
+  final int? activeDayIndex;
 
   const SparklinePainter({
     required this.values,
     required this.lineColor,
     required this.showFill,
     required this.strokeWidth,
+    this.activeDayIndex,
   });
 
   @override
@@ -39,8 +41,6 @@ class SparklinePainter extends CustomPainter {
 
     final int totalSlots = values.length >= 7 ? 7 : values.length;
     final List<Offset> points = [];
-
-    final firstValid = validIndices.first;
 
     for (int i = 0; i < totalSlots; i++) {
       final double x = totalSlots > 1 ? (i / (totalSlots - 1)) * width : width * 0.5;
@@ -84,8 +84,11 @@ class SparklinePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawPath(path, linePaint);
 
-    // Draw active indicator dot on the first valid weekday reading
-    final activePt = points[firstValid.clamp(0, points.length - 1)];
+    // Draw active indicator dot on the active day / today
+    final int todayIdx = (DateTime.now().weekday - 1).clamp(0, points.length - 1);
+    final int targetIdx = (activeDayIndex ?? todayIdx).clamp(0, points.length - 1);
+    final activePt = points[targetIdx];
+
     final glowPaint = Paint()
       ..color = lineColor.withValues(alpha: 0.25)
       ..style = PaintingStyle.fill;
@@ -102,6 +105,7 @@ class SparklinePainter extends CustomPainter {
     return !listEquals(oldDelegate.values, values) ||
         oldDelegate.lineColor != lineColor ||
         oldDelegate.showFill != showFill ||
-        oldDelegate.strokeWidth != strokeWidth;
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.activeDayIndex != activeDayIndex;
   }
 }

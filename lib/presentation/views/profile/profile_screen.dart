@@ -1,7 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -71,6 +75,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _shareExportFile(BuildContext context, {required bool isCsv}) async {
+    try {
+      final repo = context.read<BandRepository>();
+      final tempDir = await getTemporaryDirectory();
+      final now = DateTime.now().toIso8601String().replaceAll(':', '-');
+      final fileName = isCsv ? 'ehg_health_export_$now.csv' : 'ehg_health_export_$now.json';
+      final file = File('${tempDir.path}/$fileName');
+
+      if (isCsv) {
+        final csvData = await repo.exportHealthDataCsv();
+        await file.writeAsString(csvData);
+      } else {
+        final jsonData = repo.exportHealthDataJson();
+        await file.writeAsString(jsonData);
+      }
+
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          subject: 'EHG Smart Wellness Health Export',
+          text: 'EHG Smart Band Health Data Export ($now)',
+        ),
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: $e')),
+        );
+      }
+    }
+  }
+
   void _showExportDialog(BuildContext context) {
     final jsonStr = context.read<BandRepository>().exportHealthDataJson();
     showDialog(
@@ -84,30 +120,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: ctx.textPrimary,
           ),
         ),
-        content: SingleChildScrollView(
-          child: Text(
-            jsonStr,
-            style: TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 12.0,
-              color: ctx.textPrimary,
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Export your complete health metrics, vitals history, and sleep stages. You can share as a CSV spreadsheet or JSON file.',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13.0,
+                color: ctx.textSecondary,
+              ),
             ),
-          ),
+            const SizedBox(height: 12.0),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 140.0),
+              padding: const EdgeInsets.all(8.0),
+              decoration: BoxDecoration(
+                color: ctx.cardBackground,
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              child: SingleChildScrollView(
+                child: Text(
+                  jsonStr,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11.0,
+                    color: ctx.textPrimary,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text('Close', style: TextStyle(color: ctx.textSecondary)),
           ),
-          ElevatedButton(
+          OutlinedButton(
             onPressed: () {
               Clipboard.setData(ClipboardData(text: jsonStr));
               Navigator.of(ctx).pop();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Exported data copied to clipboard!')),
+                const SnackBar(content: Text('Exported JSON copied to clipboard!')),
               );
             },
             child: const Text('Copy JSON'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _shareExportFile(context, isCsv: true);
+            },
+            child: const Text('Share CSV'),
           ),
         ],
       ),
@@ -142,13 +207,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.systemRed,
             ),
-            onPressed: () {
-              context.read<BandRepository>().clearLocalData();
-              context.read<BandBloc>().add(const DisconnectBandEvent(unpair: true));
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('All local health data cleared.')),
-              );
+            onPressed: () async {
+              await context.read<BandRepository>().clearLocalData();
+              if (context.mounted) {
+                context.read<BandBloc>().add(const DisconnectBandEvent(unpair: true));
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('All local health data cleared.')),
+                );
+              }
             },
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),

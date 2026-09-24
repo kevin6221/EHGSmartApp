@@ -113,3 +113,33 @@ class SyncQueueTable extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get lastAttemptAt => dateTime().nullable()();
 }
+
+@DataClassName('WorkoutSession')
+class WorkoutSessionsTable extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get userId => text().withDefault(const Constant(''))();
+  TextColumn get title => text()();
+  TextColumn get category => text()(); // run, walk, cycling, strength, hit
+  IntColumn get durationSeconds => integer()();
+  IntColumn get burnedCalories => integer().withDefault(const Constant(0))();
+  IntColumn get avgHeartRate => integer().withDefault(const Constant(0))();
+  IntColumn get peakHeartRate => integer().withDefault(const Constant(0))();
+  DateTimeColumn get startTime => dateTime()();
+  DateTimeColumn get endTime => dateTime()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
+@DataClassName('UserRoutine')
+class UserRoutinesTable extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get userId => text().withDefault(const Constant(''))();
+  TextColumn get routineName => text()();
+  IntColumn get durationDays => integer().withDefault(const Constant(14))();
+  TextColumn get movementsJson => text().withDefault(const Constant('[]'))();
+  TextColumn get wellnessJson => text().withDefault(const Constant('[]'))();
+  TextColumn get routineItemsJson => text().withDefault(const Constant('[]'))();
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+}
+

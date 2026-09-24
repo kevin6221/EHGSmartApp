@@ -89,6 +89,17 @@ class SecureStorageService {
     return await read(_keyRefreshToken);
   }
 
+  /// Returns the persistent active user ID derived from user profile or device install.
+  Future<String> getActiveUserId() async {
+    final email = await getUserEmail();
+    if (email != null && email.isNotEmpty) return email;
+    final token = await getUserAuthToken();
+    if (token != null && token.isNotEmpty) return token;
+    final name = await getUserName();
+    if (name != null && name.isNotEmpty) return name.toLowerCase().replaceAll(' ', '_');
+    return 'ehg_primary_user';
+  }
+
   // --- App & Profile Accessors ---
 
   Future<void> setOnboardingCompleted(bool completed) async {

@@ -6,7 +6,12 @@ import '../../../../core/theme/responsive.dart';
 
 /// Pattern banner card found by the band for the Journal screen.
 class JournalPatternBanner extends StatelessWidget {
-  const JournalPatternBanner({super.key});
+  final String? patternText;
+
+  const JournalPatternBanner({
+    super.key,
+    this.patternText,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +53,8 @@ class JournalPatternBanner extends StatelessWidget {
               const SizedBox(width: 12.0),
               Expanded(
                 child: Text(
-                  "Your energy averages 4.5 after 7h+ sleep, and 2.7 when you sleep less. Across 5 entries, sleep is your strongest lever.",
+                  patternText ??
+                      "Your energy averages 4.5 after 7h+ sleep, and 2.7 when you sleep less. Across your entries, sleep is your strongest lever.",
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(14.0),
                     fontWeight: FontWeight.w600,

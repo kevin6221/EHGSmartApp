@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/constants/app_icons.dart';
+import '../../../core/engine/recommendation_engine.dart';
 import '../../../core/sync/health_sync_manager.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
@@ -83,6 +84,17 @@ class _VitalsScreenState extends State<VitalsScreen> {
         if (data == null) {
           return const Center(child: CircularProgressIndicator());
         }
+
+        final restingHrRec = RecommendationEngine.getRestingHrRecommendation(
+          data.restingHr,
+          data.weeklyRestingHr,
+        );
+        final oxygenRec = RecommendationEngine.getBloodOxygenRecommendation(
+          data.bloodOxygen,
+        );
+        final breathingRec = RecommendationEngine.getBreathingRateRecommendation(
+          data.breathingRate,
+        );
 
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -172,7 +184,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         title: 'Resting Heart Rate',
                         value: data.restingHr > 0 ? '${data.restingHr}' : '--',
                         unit: 'bpm',
-                        status: data.restingHr > 0 ? 'In your range' : '--',
+                        status: data.restingHr > 0 ? restingHrRec.status : '--',
                         showWeekdays: true,
                         isExpandedNotifier: _expandNotifiers[1],
                         onTap: () => _onToggleCard(1),
@@ -182,13 +194,9 @@ class _VitalsScreenState extends State<VitalsScreen> {
                           showFill: true,
                           width: double.infinity,
                         ),
-                        whatItIs:
-                            'Your heart rate when completely at rest, measured during deep sleep or quiet wakefulness. A lower resting heart rate indicates stronger cardiovascular efficiency.',
-                        yourReading: data.restingHr > 0
-                            ? 'In your optimal range. Your resting heart rate indicates healthy autonomic recovery.'
-                            : 'No resting heart rate data recorded yet. Wear your band during sleep to track baseline readings.',
-                        doThis:
-                            'Prioritize an extra hour of sleep tonight and avoid heavy meals or alcohol before bed.',
+                        whatItIs: restingHrRec.whatItIs,
+                        yourReading: restingHrRec.yourReading,
+                        doThis: restingHrRec.doThis,
                       ),
                       SizedBox(height: itemSpacing),
 
@@ -199,7 +207,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         title: 'Blood oxygen',
                         value: data.bloodOxygen > 0 ? '${data.bloodOxygen}' : '--',
                         unit: '%',
-                        status: data.bloodOxygen > 0 ? 'In your range' : '--',
+                        status: data.bloodOxygen > 0 ? oxygenRec.status : '--',
                         showWeekdays: false, // CapsuleBarChart already renders weekdays
                         isExpandedNotifier: _expandNotifiers[2],
                         onTap: () => _onToggleCard(2),
@@ -207,13 +215,9 @@ class _VitalsScreenState extends State<VitalsScreen> {
                           values: data.weeklyOxygen,
                           activeColor: AppColors.greenMetric,
                         ),
-                        whatItIs:
-                            'The percentage of oxygen your red blood cells carry from your lungs to the rest of your body. Normal levels range from 95% to 100%.',
-                        yourReading: data.bloodOxygen > 0
-                            ? 'In your optimal range. Your blood oxygen saturation has remained healthy and stable.'
-                            : 'No blood oxygen data recorded yet. Sync your band or trigger a measurement to view saturation levels.',
-                        doThis:
-                            'Maintain optimal hydration and practice deep diaphragmatic breathing throughout your day.',
+                        whatItIs: oxygenRec.whatItIs,
+                        yourReading: oxygenRec.yourReading,
+                        doThis: oxygenRec.doThis,
                       ),
                       SizedBox(height: itemSpacing),
 
@@ -224,7 +228,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         title: 'Breathing rate',
                         value: data.breathingRate > 0 ? '${data.breathingRate}' : '--',
                         unit: '/min.',
-                        status: data.breathingRate > 0 ? 'Normal' : '--',
+                        status: data.breathingRate > 0 ? breathingRec.status : '--',
                         showWeekdays: true,
                         isExpandedNotifier: _expandNotifiers[3],
                         onTap: () => _onToggleCard(3),
@@ -235,12 +239,9 @@ class _VitalsScreenState extends State<VitalsScreen> {
                           showFill: true,
                           width: double.infinity,
                         ),
-                        whatItIs:
-                            'The number of breaths you take per minute during sleep. A steady, baseline breathing rate indicates undisturbed sleep and good respiratory efficiency.',
-                        yourReading:
-                            'Slightly elevated at ${data.breathingRate} breaths/min. This can be caused by physical exertion earlier in the day, warmer bedroom temperatures, or mild nasal congestion.',
-                        doThis:
-                            'Wind down with 5 minutes of slow box breathing before sleep to calm your autonomic nervous system.',
+                        whatItIs: breathingRec.whatItIs,
+                        yourReading: breathingRec.yourReading,
+                        doThis: breathingRec.doThis,
                       ),
                       SizedBox(height: cardSpacing),
 

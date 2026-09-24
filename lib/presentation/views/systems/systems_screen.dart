@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
+import '../../../data/repositories/wellness_repository.dart';
 import '../../widgets/common/screen_header.dart';
 import 'widgets/systems_build_routine_section.dart';
 import 'widgets/systems_journeys_section.dart';
@@ -49,6 +52,44 @@ class _SystemsScreenState extends State<SystemsScreen> {
         'type': 'movement',
       },
     ]);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      try {
+        final savedRoutine = await context
+            .read<WellnessRepository>()
+            .getLatestActiveUserRoutine();
+        if (savedRoutine != null && mounted) {
+          _routineNameController.text = savedRoutine.routineName;
+          _selectedDurationNotifier.value = savedRoutine.durationDays;
+
+          final movementsList =
+              (jsonDecode(savedRoutine.movementsJson) as List<dynamic>?)
+                  ?.map((e) => e.toString())
+                  .toSet();
+          if (movementsList != null && movementsList.isNotEmpty) {
+            _selectedMovementsNotifier.value = movementsList;
+          }
+
+          final wellnessList =
+              (jsonDecode(savedRoutine.wellnessJson) as List<dynamic>?)
+                  ?.map((e) => e.toString())
+                  .toSet();
+          if (wellnessList != null && wellnessList.isNotEmpty) {
+            _selectedWellnessNotifier.value = wellnessList;
+          }
+
+          final rawItems =
+              jsonDecode(savedRoutine.routineItemsJson) as List<dynamic>?;
+          if (rawItems != null && rawItems.isNotEmpty) {
+            final parsedItems = rawItems
+                .map((e) => Map<String, String>.from(e as Map))
+                .toList();
+            _activeRoutineNotifier.value = parsedItems;
+          }
+        }
+      } catch (_) {}
+    });
   }
 
   @override
@@ -189,6 +230,7 @@ class _SystemsScreenState extends State<SystemsScreen> {
                     selectedWellnessNotifier: _selectedWellnessNotifier,
                     activeRoutineNotifier: _activeRoutineNotifier,
                     r: r,
+                    onSaveRoutine: _saveRoutine,
                   ),
                   SizedBox(height: (screenHeight * 0.025).clamp(18.0, 24.0)),
                 ],
@@ -198,5 +240,30 @@ class _SystemsScreenState extends State<SystemsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _saveRoutine() async {
+    final name = _routineNameController.text.trim();
+    final routineName = name.isNotEmpty ? name : 'My Daily Routine';
+    final duration = _selectedDurationNotifier.value;
+    final movements = _selectedMovementsNotifier.value;
+    final wellness = _selectedWellnessNotifier.value;
+    final items = _activeRoutineNotifier.value;
+
+    await context.read<WellnessRepository>().saveUserRoutine(
+      routineName: routineName,
+      durationDays: duration,
+      movements: movements,
+      wellness: wellness,
+      routineItems: items,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Routine "$routineName" saved to your health profile!'),
+        ),
+      );
+    }
   }
 }
