@@ -5,6 +5,7 @@ class BandState extends Equatable {
   final BandConnectionStatus status;
   final List<DiscoveredBandDevice> discoveredDevices;
   final BandDeviceInfo? connectedDevice;
+  final DiscoveredBandDevice? boundDevice;
   final BandBatteryInfo battery;
   final int liveHeartRate;
   final bool isSyncingVitals;
@@ -17,7 +18,8 @@ class BandState extends Equatable {
     this.status = BandConnectionStatus.disconnected,
     this.discoveredDevices = const [],
     this.connectedDevice,
-    this.battery = const BandBatteryInfo(percentage: 30),
+    this.boundDevice,
+    this.battery = const BandBatteryInfo(percentage: 0),
     this.liveHeartRate = 0,
     this.isSyncingVitals = false,
     this.lastSyncedVitals,
@@ -29,6 +31,7 @@ class BandState extends Equatable {
   bool get isConnected => status == BandConnectionStatus.connected;
   bool get isScanning => status == BandConnectionStatus.scanning;
   bool get isConnecting => status == BandConnectionStatus.connecting;
+  bool get isBound => boundDevice != null || connectedDevice != null;
 
   bool get isBluetoothEnabled {
     if (bluetoothState == BandBluetoothState.poweredOff ||
@@ -56,10 +59,13 @@ class BandState extends Equatable {
     List<DiscoveredBandDevice>? discoveredDevices,
     BandDeviceInfo? connectedDevice,
     bool clearConnectedDevice = false,
+    DiscoveredBandDevice? boundDevice,
+    bool clearBoundDevice = false,
     BandBatteryInfo? battery,
     int? liveHeartRate,
     bool? isSyncingVitals,
     BandSyncedVitals? lastSyncedVitals,
+    bool clearLastSyncedVitals = false,
     String? errorMessage,
     bool clearError = false,
     BandBluetoothState? bluetoothState,
@@ -69,10 +75,11 @@ class BandState extends Equatable {
       status: status ?? this.status,
       discoveredDevices: discoveredDevices ?? this.discoveredDevices,
       connectedDevice: clearConnectedDevice ? null : (connectedDevice ?? this.connectedDevice),
+      boundDevice: clearBoundDevice ? null : (boundDevice ?? this.boundDevice),
       battery: battery ?? this.battery,
       liveHeartRate: liveHeartRate ?? this.liveHeartRate,
       isSyncingVitals: isSyncingVitals ?? this.isSyncingVitals,
-      lastSyncedVitals: lastSyncedVitals ?? this.lastSyncedVitals,
+      lastSyncedVitals: clearLastSyncedVitals ? null : (lastSyncedVitals ?? this.lastSyncedVitals),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       bluetoothState: bluetoothState ?? this.bluetoothState,
       permissionDetails: permissionDetails ?? this.permissionDetails,
@@ -84,6 +91,7 @@ class BandState extends Equatable {
         status,
         discoveredDevices,
         connectedDevice,
+        boundDevice,
         battery,
         liveHeartRate,
         isSyncingVitals,

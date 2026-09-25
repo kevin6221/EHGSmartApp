@@ -30,6 +30,12 @@
 	<string>EHG Smart App uses Bluetooth to connect with your EHG Smart Band and sync your wellness vitals.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>EHG Smart App uses Bluetooth to connect with your EHG Smart Band and sync your wellness vitals.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>EHG Smart App uses your location to discover and securely connect to nearby EHG Smart Bands via Bluetooth and record workout paths.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>EHG Smart App uses your location to maintain connection with your EHG Smart Band and sync health data.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>EHG Smart App uses your location to maintain connection with your EHG Smart Band and sync health data.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-central</string>

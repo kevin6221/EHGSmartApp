@@ -18,6 +18,9 @@ enum BandPermissionDialogType {
 
   /// Android Location services (GPS) is disabled.
   locationOff,
+
+  /// Bluetooth pairing / encryption key mismatch (requires forgetting device in OS Bluetooth settings).
+  pairingMismatch,
 }
 
 /// A premium modal sheet informing the user about permissions and hardware requirements
@@ -72,6 +75,17 @@ class BandPermissionDialog extends StatelessWidget {
     final String actionButtonText;
 
     switch (type) {
+      case BandPermissionDialogType.pairingMismatch:
+        iconData = Icons.link_off_rounded;
+        iconColor = AppColors.systemRed;
+        iconBgColor = AppColors.systemRed.withValues(alpha: 0.12);
+        title = 'Pairing Info Mismatch';
+        description = Platform.isIOS
+            ? 'The stored pairing key on your iPhone no longer matches the band.\n\nPlease open iPhone Settings > Bluetooth, tap the (i) icon next to this device, tap "Forget This Device", and then connect again.'
+            : 'Bluetooth pairing info does not match. Please unpair the band in Bluetooth Settings and connect again.';
+        actionButtonText = 'Open Settings';
+        break;
+
       case BandPermissionDialogType.permanentlyDenied:
         iconData = Icons.settings_suggest_rounded;
         iconColor = AppColors.primary;
@@ -213,6 +227,52 @@ class BandPermissionDialog extends StatelessWidget {
                         color: AppColors.textPrimary,
                         height: 1.4,
                       ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (type == BandPermissionDialogType.pairingMismatch) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.info_outline_rounded,
+                        size: 16,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Follow these steps:',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    Platform.isIOS
+                        ? '1. Open iPhone Settings > Bluetooth\n2. Find your band under MY DEVICES\n3. Tap (i) icon > "Forget This Device"\n4. Return here and tap connect again'
+                        : '1. Open phone Settings > Bluetooth\n2. Tap the paired band and tap "Unpair"\n3. Return here and tap connect again',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
+                      height: 1.5,
                     ),
                   ),
                 ],

@@ -210,10 +210,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () async {
               await context.read<BandRepository>().clearLocalData();
               if (context.mounted) {
-                context.read<BandBloc>().add(const DisconnectBandEvent(unpair: true));
+                context.read<BandBloc>().add(UnbindBandEvent());
                 Navigator.of(ctx).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('All local health data cleared.')),
+                  const SnackBar(content: Text('All local health data cleared and band unbound.')),
                 );
               }
             },

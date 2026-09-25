@@ -20,9 +20,14 @@ class BandBloc extends Bloc<BandEvent, BandState> {
   StreamSubscription<BandBluetoothState>? _btSubscription;
   StreamSubscription<BandPedometerInfo>? _pedometerSubscription;
   StreamSubscription<BandSyncedVitals>? _syncedVitalsSubscription;
+  StreamSubscription<String>? _errorSubscription;
 
   BandBloc({required this.repository, this.wellnessBloc})
-      : super(BandState(lastSyncedVitals: repository.lastSyncedVitals)) {
+      : super(BandState(
+          lastSyncedVitals: repository.lastSyncedVitals,
+          boundDevice: repository.boundDevice,
+          connectedDevice: repository.currentConnectedDevice,
+        )) {
     _initSubscriptions();
 
     on<StartBandScanEvent>(_onStartScan);
@@ -30,7 +35,10 @@ class BandBloc extends Bloc<BandEvent, BandState> {
     on<DiscoveredDevicesUpdatedEvent>(_onDevicesUpdated);
     on<ConnectBandEvent>(_onConnect);
     on<DisconnectBandEvent>(_onDisconnect);
+    on<UnbindBandEvent>(_onUnbindBand);
+    on<ReconnectBandEvent>(_onReconnectBand);
     on<ConnectionStatusChangedEvent>(_onConnectionStatusChanged);
+    on<BandConnectionFailedEvent>(_onConnectionFailed);
     on<LiveHeartRateUpdatedEvent>(_onLiveHeartRateUpdated);
     on<BatteryUpdatedEvent>(_onBatteryUpdated);
     on<PedometerUpdatedEvent>(_onPedometerUpdated);
@@ -50,6 +58,10 @@ class BandBloc extends Bloc<BandEvent, BandState> {
 
     // Wait for cached vitals to be restored from SQLite before propagating to state & wellnessBloc
     repository.ensureInitialized().then((_) {
+      final bound = repository.boundDevice;
+      if (bound != null) {
+        add(ConnectionStatusChangedEvent(repository.connectionStatus));
+      }
       final cached = repository.lastSyncedVitals;
       if (cached.steps > 0 ||
           cached.calories > 0 ||
@@ -88,6 +100,10 @@ class BandBloc extends Bloc<BandEvent, BandState> {
 
     _syncedVitalsSubscription = repository.syncedVitalsStream.listen((vitals) {
       add(SyncedVitalsUpdatedEvent(vitals));
+    });
+
+    _errorSubscription = repository.connectionErrorStream.listen((error) {
+      add(BandConnectionFailedEvent(error));
     });
   }
 
@@ -304,8 +320,11 @@ class BandBloc extends Bloc<BandEvent, BandState> {
       emit(state.copyWith(
         status: BandConnectionStatus.connected,
         connectedDevice: info,
+        boundDevice: event.device,
         battery: repository.currentBattery,
       ));
+      // Auto-trigger full sync on successful bind/connect, matching QWatch Pro!
+      add(SyncVitalsEvent());
     } else {
       final errorMsg = repository.lastConnectionError ??
           'Failed to connect to ${event.device.name}. Ensure it is charged, nearby, and unlinked from other apps (like QwatchPro).';
@@ -327,29 +346,40 @@ class BandBloc extends Bloc<BandEvent, BandState> {
     ));
     final success = await repository.tryAutoReconnect();
     if (success) {
+      final bound = repository.lastPairedDevice;
       final info = repository.currentConnectedDevice ??
-          (repository.lastPairedDevice != null
+          (bound != null
               ? BandDeviceInfo(
-                  name: repository.lastPairedDevice!.name,
-                  id: repository.lastPairedDevice!.id,
-                  macAddress: repository.lastPairedDevice!.mac,
+                  name: bound.name,
+                  id: bound.id,
+                  macAddress: bound.mac,
                 )
               : null);
       emit(state.copyWith(
         status: BandConnectionStatus.connected,
         connectedDevice: info,
+        boundDevice: bound,
         battery: repository.currentBattery,
         clearError: true,
       ));
+      // Trigger full sync on reconnect
+      add(SyncVitalsEvent());
     } else {
       if (state.status != BandConnectionStatus.connected) {
-        emit(state.copyWith(status: BandConnectionStatus.disconnected));
+        emit(state.copyWith(
+          status: BandConnectionStatus.disconnected,
+          errorMessage: repository.lastConnectionError,
+        ));
       }
     }
   }
 
   Future<void> _onDisconnect(DisconnectBandEvent event, Emitter<BandState> emit) async {
-    await repository.disconnect(unpair: event.unpair);
+    if (event.unpair) {
+      add(UnbindBandEvent());
+      return;
+    }
+    await repository.disconnect(unpair: false);
     emit(state.copyWith(
       status: BandConnectionStatus.disconnected,
       clearConnectedDevice: true,
@@ -357,19 +387,40 @@ class BandBloc extends Bloc<BandEvent, BandState> {
     ));
   }
 
+  Future<void> _onUnbindBand(UnbindBandEvent event, Emitter<BandState> emit) async {
+    debugPrint('🗑️ [BAND BLOC] Unbinding band and purging local cache...');
+    await repository.unbindBand();
+    emit(state.copyWith(
+      status: BandConnectionStatus.disconnected,
+      clearConnectedDevice: true,
+      clearBoundDevice: true,
+      clearLastSyncedVitals: true,
+      battery: const BandBatteryInfo(percentage: 0),
+      liveHeartRate: 0,
+      clearError: true,
+    ));
+    wellnessBloc?.add(const SyncBandFullVitalsEvent(BandSyncedVitals()));
+  }
+
+  void _onReconnectBand(ReconnectBandEvent event, Emitter<BandState> emit) {
+    add(AutoReconnectBandEvent());
+  }
+
   void _onConnectionStatusChanged(ConnectionStatusChangedEvent event, Emitter<BandState> emit) {
     if (event.status == BandConnectionStatus.connected) {
+      final bound = repository.lastPairedDevice;
       final info = repository.currentConnectedDevice ??
-          (repository.lastPairedDevice != null
+          (bound != null
               ? BandDeviceInfo(
-                  name: repository.lastPairedDevice!.name,
-                  id: repository.lastPairedDevice!.id,
-                  macAddress: repository.lastPairedDevice!.mac,
+                  name: bound.name,
+                  id: bound.id,
+                  macAddress: bound.mac,
                 )
               : null);
       emit(state.copyWith(
         status: BandConnectionStatus.connected,
         connectedDevice: info,
+        boundDevice: bound,
         battery: repository.currentBattery,
         clearError: true,
       ));
@@ -377,11 +428,25 @@ class BandBloc extends Bloc<BandEvent, BandState> {
       emit(state.copyWith(
         status: BandConnectionStatus.disconnected,
         clearConnectedDevice: true,
+        boundDevice: repository.lastPairedDevice,
         liveHeartRate: 0,
+        errorMessage: repository.lastConnectionError,
       ));
     } else {
-      emit(state.copyWith(status: event.status));
+      emit(state.copyWith(
+        status: event.status,
+        boundDevice: repository.lastPairedDevice,
+      ));
     }
+  }
+
+  void _onConnectionFailed(BandConnectionFailedEvent event, Emitter<BandState> emit) {
+    emit(state.copyWith(
+      status: BandConnectionStatus.disconnected,
+      clearConnectedDevice: true,
+      liveHeartRate: 0,
+      errorMessage: event.error,
+    ));
   }
 
   void _onLiveHeartRateUpdated(LiveHeartRateUpdatedEvent event, Emitter<BandState> emit) {
@@ -459,6 +524,7 @@ class BandBloc extends Bloc<BandEvent, BandState> {
     _btSubscription?.cancel();
     _pedometerSubscription?.cancel();
     _syncedVitalsSubscription?.cancel();
+    _errorSubscription?.cancel();
     repository.dispose();
     return super.close();
   }

@@ -45,12 +45,14 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
   @override
   void initState() {
     super.initState();
-    final initialHr = context.read<BandBloc>().state.liveHeartRate;
+    final bandState = context.read<BandBloc>().state;
+    final initialHr = bandState.liveHeartRate > 0
+        ? bandState.liveHeartRate
+        : (bandState.lastSyncedVitals?.restingHeartRate ?? 0);
     _selectedZoneNotifier = ValueNotifier<int>(
       initialHr > 0 ? _calculateZone(initialHr) : 1,
     );
     context.read<BandBloc>().add(StartLiveHeartRateEvent());
-    context.read<BandBloc>().add(SyncVitalsEvent());
     _ticker = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         context.read<TrainingBloc>().add(const TickWorkoutEvent());
@@ -127,17 +129,25 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                                 children: [
                                   Expanded(
                                     child: BlocConsumer<BandBloc, BandState>(
-                                      listenWhen: (prev, curr) => prev.liveHeartRate != curr.liveHeartRate,
+                                      listenWhen: (prev, curr) =>
+                                          prev.liveHeartRate != curr.liveHeartRate ||
+                                          prev.lastSyncedVitals?.restingHeartRate != curr.lastSyncedVitals?.restingHeartRate,
                                       listener: (context, bandState) {
-                                        if (bandState.liveHeartRate > 0) {
-                                          _selectedZoneNotifier.value = _calculateZone(bandState.liveHeartRate);
+                                        final hr = bandState.liveHeartRate > 0
+                                            ? bandState.liveHeartRate
+                                            : (bandState.lastSyncedVitals?.restingHeartRate ?? 0);
+                                        if (hr > 0) {
+                                          _selectedZoneNotifier.value = _calculateZone(hr);
                                         }
                                       },
-                                      buildWhen: (prev, curr) => prev.liveHeartRate != curr.liveHeartRate,
+                                      buildWhen: (prev, curr) =>
+                                          prev.liveHeartRate != curr.liveHeartRate ||
+                                          prev.lastSyncedVitals?.restingHeartRate != curr.lastSyncedVitals?.restingHeartRate,
                                       builder: (context, bandState) {
-                                        final hrValue = bandState.liveHeartRate > 0
-                                            ? '${bandState.liveHeartRate}'
-                                            : '--';
+                                        final hr = bandState.liveHeartRate > 0
+                                            ? bandState.liveHeartRate
+                                            : (bandState.lastSyncedVitals?.restingHeartRate ?? 0);
+                                        final hrValue = hr > 0 ? '$hr' : '--';
                                         return TrainingMetricCard(
                                           icon: AppIcons.heartPulse,
                                           label: 'Heart Rate',

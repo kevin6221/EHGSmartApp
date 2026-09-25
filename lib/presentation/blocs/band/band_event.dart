@@ -42,12 +42,24 @@ class DisconnectBandEvent extends BandEvent {
   List<Object?> get props => [unpair];
 }
 
+class UnbindBandEvent extends BandEvent {}
+
+class ReconnectBandEvent extends BandEvent {}
+
 class ConnectionStatusChangedEvent extends BandEvent {
   final BandConnectionStatus status;
   const ConnectionStatusChangedEvent(this.status);
 
   @override
   List<Object?> get props => [status];
+}
+
+class BandConnectionFailedEvent extends BandEvent {
+  final String error;
+  const BandConnectionFailedEvent(this.error);
+
+  @override
+  List<Object?> get props => [error];
 }
 
 class LiveHeartRateUpdatedEvent extends BandEvent {

@@ -212,8 +212,16 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
                     ScaffoldMessenger.of(context).hideCurrentSnackBar();
                     final bloc = context.read<BandBloc>();
 
-                    if (state.isPermanentlyDenied ||
-                        (state.errorMessage?.contains('Settings') ?? false)) {
+                    if (state.errorMessage!.contains('Pairing info mismatch') ||
+                        state.errorMessage!.contains('Forget This Device') ||
+                        state.errorMessage!.toLowerCase().contains('pairing')) {
+                      _showPermissionModal(
+                        context,
+                        BandPermissionDialogType.pairingMismatch,
+                        () => bloc.add(OpenAppSettingsEvent()),
+                      );
+                    } else if (state.isPermanentlyDenied ||
+                        (state.errorMessage?.contains('permanently') ?? false)) {
                       _showPermissionModal(
                         context,
                         BandPermissionDialogType.permanentlyDenied,

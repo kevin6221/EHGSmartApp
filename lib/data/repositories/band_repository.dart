@@ -30,6 +30,7 @@ class BandRepository {
   StreamSubscription<BandPedometerInfo>? _pedometerSubscription;
   StreamSubscription<BandMeasurementResult>? _measurementSubscription;
   StreamSubscription<BandBatteryInfo>? _batterySubscription;
+  StreamSubscription<String>? _errorSubscription;
 
   bool _isExplicitDisconnect = false;
   bool _isAutoReconnecting = false;
@@ -118,6 +119,15 @@ class BandRepository {
         );
         _persistVitals(_lastSyncedVitals);
         _syncedVitalsController.add(_lastSyncedVitals);
+      }
+    });
+
+    _errorSubscription = _service.connectionErrorStream.listen((error) {
+      if (error.contains('Pairing info mismatch') || error.contains('Forget This Device')) {
+        debugPrint('🛑 [BAND REPO] Auto-reconnect aborted due to pairing info mismatch: $error');
+        _autoReconnectTimer?.cancel();
+        _autoReconnectTimer = null;
+        _isAutoReconnecting = false;
       }
     });
   }
@@ -402,8 +412,11 @@ class BandRepository {
   BandDeviceInfo? get currentConnectedDevice => _connectedDevice;
   BandBatteryInfo get currentBattery => _battery;
   DiscoveredBandDevice? get lastPairedDevice => _lastPairedDevice;
+  DiscoveredBandDevice? get boundDevice => _lastPairedDevice;
+  bool get isBound => _lastPairedDevice != null;
   BandSyncedVitals get lastSyncedVitals => _lastSyncedVitals;
   String? get lastConnectionError => _service.lastConnectionError;
+  Stream<String> get connectionErrorStream => _service.connectionErrorStream;
   bool get isConnected => _currentStatus == BandConnectionStatus.connected;
   BandConnectionStatus get connectionStatus => _currentStatus;
   Future<bool> reconnect() => tryAutoReconnect();
@@ -538,9 +551,19 @@ class BandRepository {
     _connectedDevice = null;
     if (unpair) {
       _lastPairedDevice = null;
+      _lastSyncedVitals = const BandSyncedVitals();
+      _battery = const BandBatteryInfo(percentage: 0);
+      _syncedVitalsController.add(_lastSyncedVitals);
       await _secureStorage.clearBondedDevice();
+      await _secureStorage.delete('cached_band_synced_vitals_v1');
       await _db.deviceDao.clearBonding();
     }
+  }
+
+  /// Explicitly unbinds the band matching QWatch Pro:
+  /// Disconnects GATT, removes OS bond, clears database & secure storage, and resets cached metrics.
+  Future<void> unbindBand() async {
+    await disconnect(unpair: true);
   }
 
   /// Triggers find device vibration on the band.
@@ -707,6 +730,7 @@ class BandRepository {
     _pedometerSubscription?.cancel();
     _measurementSubscription?.cancel();
     _batterySubscription?.cancel();
+    _errorSubscription?.cancel();
     _syncedVitalsController.close();
     _service.dispose();
   }

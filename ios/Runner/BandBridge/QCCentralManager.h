@@ -109,6 +109,12 @@ typedef NS_ENUM(NSInteger, QCBluetoothState) {
 
 /// retrieve peripheral with UUID
 - (nullable CBPeripheral *)periperalWithUUID:(NSString *)uuid;
+
+/// Reconnect to last connected peripheral
+- (void)startToReconnect;
+
+/// Last connected peripheral
+- (nullable CBPeripheral *)lastPeripheral;
 @end
 
 NS_ASSUME_NONNULL_END

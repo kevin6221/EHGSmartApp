@@ -19,8 +19,8 @@
 		ABC7553EA001CE35A55BA68B /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F7400B5D978FC97470C0F67F /* Pods_Runner.framework */; };
 		E009C711498F7B29D274E138 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 10DDE95A396088DA7AA4F8D8 /* Pods_RunnerTests.framework */; };
 		EHG000021CF9000F007C117D /* QCBandSDK.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = EHG000011CF9000F007C117D /* QCBandSDK.xcframework */; };
-		EHG000061CF9000F007C117D /* QCCentralManager.m in Sources */ = {isa = PBXBuildFile; fileRef = EHG000051CF9000F007C117D /* QCCentralManager.m */; };
-		EHG000091CF9000F007C117D /* EHGBandNativePlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = EHG000081CF9000F007C117D /* EHGBandNativePlugin.m */; };
+		EHG000061CF9000F007C117D /* BandBridge/QCCentralManager.m in Sources */ = {isa = PBXBuildFile; fileRef = EHG000051CF9000F007C117D /* BandBridge/QCCentralManager.m */; };
+		EHG000091CF9000F007C117D /* BandBridge/EHGBandNativePlugin.m in Sources */ = {isa = PBXBuildFile; fileRef = EHG000081CF9000F007C117D /* BandBridge/EHGBandNativePlugin.m */; };
 		FIREBASE00011CF9000F007C /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = FIREBASE00021CF9000F007C /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
 
@@ -73,10 +73,10 @@
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9DC82054288E8C7891EF4170 /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		EHG000011CF9000F007C117D /* QCBandSDK.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = QCBandSDK.xcframework; path = Frameworks/QCBandSDK.xcframework; sourceTree = SOURCE_ROOT; };
-		EHG000041CF9000F007C117D /* QCCentralManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BandBridge/QCCentralManager.h; sourceTree = "<group>"; };
-		EHG000051CF9000F007C117D /* QCCentralManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BandBridge/QCCentralManager.m; sourceTree = "<group>"; };
-		EHG000071CF9000F007C117D /* EHGBandNativePlugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BandBridge/EHGBandNativePlugin.h; sourceTree = "<group>"; };
-		EHG000081CF9000F007C117D /* EHGBandNativePlugin.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BandBridge/EHGBandNativePlugin.m; sourceTree = "<group>"; };
+		EHG000041CF9000F007C117D /* BandBridge/QCCentralManager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BandBridge/QCCentralManager.h; sourceTree = "<group>"; };
+		EHG000051CF9000F007C117D /* BandBridge/QCCentralManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BandBridge/QCCentralManager.m; sourceTree = "<group>"; };
+		EHG000071CF9000F007C117D /* BandBridge/EHGBandNativePlugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = BandBridge/EHGBandNativePlugin.h; sourceTree = "<group>"; };
+		EHG000081CF9000F007C117D /* BandBridge/EHGBandNativePlugin.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = BandBridge/EHGBandNativePlugin.m; sourceTree = "<group>"; };
 		F7400B5D978FC97470C0F67F /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		FIREBASE00021CF9000F007C /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -121,7 +121,6 @@
 				454FC07F67382DA344DA3EB0 /* Pods-RunnerTests.release.xcconfig */,
 				42042F7E0BBC04A3744005ED /* Pods-RunnerTests.profile.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -171,10 +170,10 @@
 				74858FAE1ED2DC5600515810 /* AppDelegate.swift */,
 				7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */,
 				74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */,
-				EHG000041CF9000F007C117D /* QCCentralManager.h */,
-				EHG000051CF9000F007C117D /* QCCentralManager.m */,
-				EHG000071CF9000F007C117D /* EHGBandNativePlugin.h */,
-				EHG000081CF9000F007C117D /* EHGBandNativePlugin.m */,
+				EHG000041CF9000F007C117D /* BandBridge/QCCentralManager.h */,
+				EHG000051CF9000F007C117D /* BandBridge/QCCentralManager.m */,
+				EHG000071CF9000F007C117D /* BandBridge/EHGBandNativePlugin.h */,
+				EHG000081CF9000F007C117D /* BandBridge/EHGBandNativePlugin.m */,
 				FIREBASE00021CF9000F007C /* GoogleService-Info.plist */,
 			);
 			path = Runner;
@@ -267,7 +266,7 @@
 			);
 			mainGroup = 97C146E51CF9000F007C117D;
 			packageReferences = (
-				781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "FlutterGeneratedPluginSwiftPackage" */,
+				781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage" */,
 			);
 			productRefGroup = 97C146EF1CF9000F007C117D /* Products */;
 			projectDirPath = "";
@@ -348,9 +347,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Embed Pods Frameworks";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-frameworks-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -365,9 +368,13 @@
 			inputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-input-files.xcfilelist",
 			);
+			inputPaths = (
+			);
 			name = "[CP] Copy Pods Resources";
 			outputFileListPaths = (
 				"${PODS_ROOT}/Target Support Files/Pods-Runner/Pods-Runner-resources-${CONFIGURATION}-output-files.xcfilelist",
+			);
+			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -429,8 +436,8 @@
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
-				EHG000061CF9000F007C117D /* QCCentralManager.m in Sources */,
-				EHG000091CF9000F007C117D /* EHGBandNativePlugin.m in Sources */,
+				EHG000061CF9000F007C117D /* BandBridge/QCCentralManager.m in Sources */,
+				EHG000091CF9000F007C117D /* BandBridge/EHGBandNativePlugin.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -523,7 +530,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = R2JMN45J36;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
@@ -708,7 +715,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = R2JMN45J36;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
@@ -731,7 +738,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				CURRENT_PROJECT_VERSION = 2;
 				DEVELOPMENT_TEAM = R2JMN45J36;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Runner/Info.plist;
@@ -783,7 +790,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "FlutterGeneratedPluginSwiftPackage" */ = {
+		781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage;
 		};

@@ -56,6 +56,9 @@ class MockBandService implements BandService {
   String? get lastConnectionError => null;
 
   @override
+  Stream<String> get connectionErrorStream => const Stream.empty();
+
+  @override
   Future<BandPermissionDetails> checkPermissions() async {
     return const BandPermissionDetails(
       status: BandPermissionStatus.granted,
@@ -139,6 +142,16 @@ class MockBandService implements BandService {
     await Future<void>.delayed(const Duration(milliseconds: 400));
     _currentStatus = BandConnectionStatus.disconnected;
     _connectionStatusController.add(_currentStatus);
+  }
+
+  @override
+  Future<void> unbind() async {
+    await disconnect(unpair: true);
+  }
+
+  @override
+  Future<bool> reconnect() async {
+    return connect('EH-9F2C-MOCK');
   }
 
   @override

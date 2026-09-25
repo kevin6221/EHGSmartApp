@@ -26,6 +26,9 @@ abstract class BandService {
   /// The most recent error message from a failed connection attempt.
   String? get lastConnectionError;
 
+  /// Stream of connection failure error messages.
+  Stream<String> get connectionErrorStream;
+
   /// Inspects current OS permission status and Bluetooth/Location state.
   Future<BandPermissionDetails> checkPermissions();
 
@@ -53,8 +56,14 @@ abstract class BandService {
   /// Checks if the band hardware is actively connected natively.
   Future<bool> isConnected();
 
-  /// Disconnects / unbinds from the currently connected band.
+  /// Disconnects from the currently connected band.
   Future<void> disconnect({bool unpair = false});
+
+  /// Explicitly unbinds the band, removing hardware bonding and clearing cached state.
+  Future<void> unbind();
+
+  /// Reconnects to the previously saved band.
+  Future<bool> reconnect();
 
   /// Reads current battery level from the band.
   Future<BandBatteryInfo> getBattery();

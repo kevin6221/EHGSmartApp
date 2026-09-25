@@ -2,6 +2,7 @@ package com.ehgsmartwellness.app
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.Application
 import android.Manifest
 import android.bluetooth.*
 import android.bluetooth.le.*
@@ -15,6 +16,9 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
+import android.os.Vibrator
+import android.os.VibratorManager
+import android.os.VibrationEffect
 import android.util.Log
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
@@ -50,6 +54,8 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
     private var heartRateCharacteristic: BluetoothGattCharacteristic? = null
     private var qcTxCharacteristic: BluetoothGattCharacteristic? = null
     private var qcRxCharacteristic: BluetoothGattCharacteristic? = null
+    private var qcTx2Characteristic: BluetoothGattCharacteristic? = null
+    private var qcRx2Characteristic: BluetoothGattCharacteristic? = null
     private var hasSentConnectionVibration = false
     private var pendingBatteryResult: MethodChannel.Result? = null
     private var pendingConnectResult: MethodChannel.Result? = null
@@ -78,10 +84,136 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
     private val lastKnownSleepPhases = Collections.synchronizedList(mutableListOf<Map<String, Any>>())
     private val lastKnownHeartRateHistory = Collections.synchronizedList(mutableListOf<Map<String, Any>>())
 
-    // ─── Health Data Synchronization Coordination ──────────────────────────────
-    private var pendingSyncResult: MethodChannel.Result? = null
-    private val pendingSyncCommands = Collections.synchronizedSet(mutableSetOf<Int>())
+    // ─── Health Data Synchronization Coordination (Sequential State Machine) ───
+    private data class SyncStep(val id: String, val cmdHex: String, val responseCmds: Set<Int>, val timeoutMs: Long = 1500L)
+
+    private fun getActiveSyncSteps(): List<SyncStep> {
+        val cal = Calendar.getInstance()
+        val year = cal.get(Calendar.YEAR) % 100
+        val month = cal.get(Calendar.MONTH) + 1
+        val day = cal.get(Calendar.DAY_OF_MONTH)
+
+        // Today midnight unix timestamp in LOCAL seconds since epoch (matches iOS OdmBandGetSchedualHeartRateData):
+        // [midnightDate timeIntervalSince1970] + [NSTimeZone systemTimeZone].secondsFromGMT;
+        // Hardware band RTC operates in local time and expects a 4-byte LITTLE-ENDIAN hex string.
+        val midnightCal = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val tzOffsetSec = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 1000
+        val localMidnightSec = (midnightCal.timeInMillis / 1000) + tzOffsetSec
+
+        val b0 = (localMidnightSec and 0xFF).toInt()
+        val b1 = ((localMidnightSec shr 8) and 0xFF).toInt()
+        val b2 = ((localMidnightSec shr 16) and 0xFF).toInt()
+        val b3 = ((localMidnightSec shr 24) and 0xFF).toInt()
+        val hrCmdHex = "15%02X%02X%02X%02X".format(b0, b1, b2, b3)
+        val sleepCmdHex = "44%02X%02X%02X00".format(year, month, day)
+
+        // Manual BP command with timestamp 0 to fetch recent manual BP records (matches iOS OdmBandGetManualBloodPressureHistoryData)
+        // iOS SDK: 14%@00%02X -> [0x14, 4-byte little-endian timestamp (00000000), 0x00, count (0x32 = 50)]
+        val bpManualCmdHex = "14000000000032"
+
+        // DFU SpO2 query with today midnight timestamp (matches iOS QCBloodOxygenList / QCDFU_Utils)
+        // BC 2A 01 00 CRC16(BF40) dayIndex(00)
+        val dfuSpo2Cmd = "BC2A0100BF4000"
+
+        // 1. "48"  -> OdmBandGetCurrentSportInfo (summary steps, calories, distance)
+        // 2. "03"  -> OdmBandReadBattery (battery percentage, charging state)
+        // 3. "15"  -> OdmBandGetSchedualHeartRateData (24h continuous 5-min HR samples & resting HR)
+        // 4. "14.."-> OdmBandGetManualBloodPressureHistoryData (latest manual/calibrated BP reading)
+        // 5. "0D00"-> OdmBandGetBPHistoryData Stage 0 (systolic BP)
+        // 6. "0E00"-> OdmBandGetBPHistoryData Stage 1 (diastolic BP)
+        // 7. "BC2A"-> QCDFU_Utils / QCBloodOxygenList DFU query (SpO2 long packet - primary)
+        // 8. "2A00"-> QCBloodOxygenList / OdmBandSchedualBloodOxgyenInfo (SpO2 standard fallback)
+        // 9. "3700"-> QCGetScheualStressData (stress 1..100)
+        // 10."3900"-> QCGetScheualHRVDataCmd (HRV in ms)
+        // 11."44"  -> OdmBandGetSleepDetailInfo (total sleep, deep sleep, sleep phases)
+        // 12."2500"-> QCSchedualTemperatureList (skin temperature - NOT 08 which is shutdown!)
+        return listOf(
+            SyncStep("sport", "48", setOf(0x48, 0xC8, 0x02, 0x82)),
+            SyncStep("battery", "03", setOf(0x03, 0x83)),
+            SyncStep("heartRate", hrCmdHex, setOf(0x15, 0x95, 0x05, 0x85), timeoutMs = 3000L),
+            SyncStep("bpManual", bpManualCmdHex, setOf(0x14, 0x94), timeoutMs = 2500L),
+            SyncStep("bpSystolic", "0D00", setOf(0x0D, 0x8D), timeoutMs = 3000L),
+            SyncStep("bpDiastolic", "0E00", setOf(0x0E, 0x8E), timeoutMs = 3000L),
+            SyncStep("oxygenDfu", dfuSpo2Cmd, setOf(0xBC), timeoutMs = 3500L),
+            SyncStep("oxygen", "2A00", setOf(0x2A, 0xAA, 0x2C, 0xAC, 0x06, 0x86), timeoutMs = 2500L),
+            SyncStep("stress", "3700", setOf(0x37, 0xB7)),
+            SyncStep("hrv", "3900", setOf(0x39, 0xB9), timeoutMs = 3000L),
+            SyncStep("sleep", sleepCmdHex, setOf(0x44, 0xC4, 0x04, 0x84), timeoutMs = 2500L),
+            SyncStep("temperature", "2500", setOf(0x25, 0xA5))
+        )
+    }
+
+    private var activeSyncSteps: List<SyncStep> = emptyList()
+
+    private var isSyncInProgress = false
+    private var currentSyncStepIndex = 0
+    private var syncStepTimeoutRunnable: Runnable? = null
     private var syncMasterTimeoutRunnable: Runnable? = null
+    private val pendingSyncResults = Collections.synchronizedList(mutableListOf<MethodChannel.Result>())
+    private var syncAdvanceDebounceRunnable: Runnable? = null
+    private var syncAdvanceRunnable: Runnable? = null
+    private var hasEmittedConnected = false
+
+    private fun triggerMinorVibration() {
+        try {
+            // 1. Phone minor haptic vibration on connect (matching iOS haptic experience)
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vibratorManager = activity.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                vibratorManager?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                activity.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            }
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator?.vibrate(VibrationEffect.createOneShot(80L, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(80L)
+            }
+            Log.i(TAG, "Triggered phone minor haptic vibration on connect")
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not trigger phone vibration: ${e.message}")
+        }
+
+        // 2. Also ensure band confirms connection with single minor vibration (QC alertBindingSuccess 0x10)
+        try {
+            if (!hasSentConnectionVibration && qcTxCharacteristic != null) {
+                val packet = buildQcPacket("10")
+                writeQcPacketDirect(packet)
+                hasSentConnectionVibration = true
+                Log.i(TAG, "Triggered band connection vibration (0x10)")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not trigger band vibration: ${e.message}")
+        }
+    }
+
+    private fun notifyConnectedState() {
+        if (hasEmittedConnected) return
+        hasEmittedConnected = true
+        val devName = connectedDevice?.name ?: "EHG Smart Band"
+        val devId = connectedDevice?.address ?: ""
+        Log.i(TAG, "Notifying Flutter: Band successfully connected and ready: $devName ($devId)")
+
+        triggerMinorVibration()
+
+        sendEvent(mapOf(
+            "type" to "connection_state",
+            "state" to "connected",
+            "name" to devName,
+            "id" to devId,
+            "mac" to devId
+        ))
+        pendingConnectResult?.success(true)
+        pendingConnectResult = null
+        startStepPolling()
+    }
 
     private fun buildCachedSyncMap(): Map<String, Any> {
         val sbp = if (lastKnownSbp > 0) lastKnownSbp else prefs.getInt("last_known_sbp", 0)
@@ -115,48 +247,199 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
         )
     }
 
-    private fun onSyncPacketReceived(cmd: Int) {
-        if (pendingSyncCommands.remove(cmd)) {
-            Log.d(TAG, "onSyncPacketReceived: cmd=0x%02X received, remaining=%d (%s)".format(cmd, pendingSyncCommands.size, pendingSyncCommands))
-            if (pendingSyncCommands.isEmpty()) {
-                Log.i(TAG, "onSyncPacketReceived: All requested health sync packets received from band! Completing sync.")
-                completeSyncIfPending()
+    private var syncDrainRetries = 0
+
+    private fun scheduleSyncAdvanceDebounce(cmd: Int, delayMs: Long = 350L) {
+        syncAdvanceDebounceRunnable?.let { mainHandler.removeCallbacks(it) }
+        val r = Runnable {
+            syncAdvanceDebounceRunnable = null
+            onSyncPacketReceived(cmd)
+        }
+        syncAdvanceDebounceRunnable = r
+        mainHandler.postDelayed(r, delayMs)
+    }
+
+    private fun startSequentialHealthSync(result: MethodChannel.Result) {
+        if (connectedGatt == null || !isDeviceConnected) {
+            Log.w(TAG, "startSequentialHealthSync: Band not connected. Returning cached health metrics immediately.")
+            result.success(buildCachedSyncMap())
+            return
+        }
+
+        pendingSyncResults.add(result)
+
+        if (isSyncInProgress) {
+            Log.i(TAG, "startSequentialHealthSync: Sync already in progress, registered caller to receive full fresh payload.")
+            return
+        }
+
+        // Safety guard: if the GATT queue still has pending init pipeline operations,
+        // wait for them to drain before starting the sync. This prevents interleaving
+        // sync commands with init commands.
+        if (gattBusy || gattQueue.isNotEmpty()) {
+            if (syncDrainRetries < 10) {
+                syncDrainRetries++
+                Log.i(TAG, "startSequentialHealthSync: GATT queue still busy (queueSize=${gattQueue.size}, busy=$gattBusy). " +
+                        "Waiting 500ms for init pipeline to drain (retry $syncDrainRetries/10)...")
+                mainHandler.postDelayed({
+                    if (isDeviceConnected && !isSyncInProgress) {
+                        startSequentialHealthSyncInternal()
+                    }
+                }, 500L)
+                return
+            } else {
+                Log.w(TAG, "startSequentialHealthSync: GATT queue drain retries exhausted. Proceeding with sync anyway.")
             }
+        }
+        syncDrainRetries = 0
+        startSequentialHealthSyncInternal()
+    }
+
+    private fun startSequentialHealthSyncInternal() {
+        if (isSyncInProgress || connectedGatt == null || !isDeviceConnected) return
+        activeSyncSteps = getActiveSyncSteps()
+        isSyncInProgress = true
+        currentSyncStepIndex = 0
+
+        // 30-second master watchdog: if band communication drops completely, return best-effort cached data
+        // Increased from 20s to 30s to accommodate longer per-step timeouts for multi-packet BP/SpO2/HRV queries
+        syncMasterTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+        val masterTimeout = Runnable {
+            Log.w(TAG, "Sequential sync: Master 30s watchdog expired. Finishing with accumulated metrics.")
+            finishSequentialSync()
+        }
+        syncMasterTimeoutRunnable = masterTimeout
+        mainHandler.postDelayed(masterTimeout, 30_000L)
+
+        Log.i(TAG, "startSequentialHealthSync: Starting sequential health data sync (${activeSyncSteps.size} steps)...")
+        executeCurrentSyncStep()
+    }
+
+    private fun executeCurrentSyncStep() {
+        if (!isSyncInProgress || connectedGatt == null) {
+            finishSequentialSync()
+            return
+        }
+
+        if (currentSyncStepIndex >= activeSyncSteps.size) {
+            Log.i(TAG, "Sequential sync: All ${activeSyncSteps.size} sync steps completed successfully!")
+            finishSequentialSync()
+            return
+        }
+
+        val step = activeSyncSteps[currentSyncStepIndex]
+        Log.d(TAG, "Sequential sync: Starting step ${currentSyncStepIndex + 1}/${activeSyncSteps.size} [${step.id}] (cmd=${step.cmdHex}, timeout=${step.timeoutMs}ms)")
+
+        // Per-step timeout: multi-packet steps (BP, SpO2 DFU, HRV) get longer timeouts
+        // because the band sends header → data → EOF packets over multiple GATT notifications
+        syncStepTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+        val timeoutRunnable = Runnable {
+            Log.w(TAG, "Sequential sync: Step [${step.id}] timed out after ${step.timeoutMs}ms. Advancing safely to next step.")
+            advanceSyncStep()
+        }
+        syncStepTimeoutRunnable = timeoutRunnable
+        mainHandler.postDelayed(timeoutRunnable, step.timeoutMs)
+
+        // Enqueue only the single query for this specific step
+        enqueueGattOp(OpType.CHAR_WRITE, "sync-${step.id}") {
+            writeQcPacketDirect(buildQcPacket(step.cmdHex))
         }
     }
 
-    private fun completeSyncIfPending() {
+    private fun onSyncPacketReceived(cmd: Int) {
+        if (!isSyncInProgress) return
+        syncAdvanceDebounceRunnable?.let {
+            mainHandler.removeCallbacks(it)
+            syncAdvanceDebounceRunnable = null
+        }
+        val currentStep = if (currentSyncStepIndex < activeSyncSteps.size) activeSyncSteps[currentSyncStepIndex] else null
+        if (currentStep != null && (currentStep.responseCmds.contains(cmd) || (cmd and 0x7F) == (currentStep.responseCmds.first() and 0x7F))) {
+            Log.d(TAG, "Sequential sync: Matched response 0x%02X for step [${currentStep.id}]. Advancing after 150ms delay...".format(cmd))
+            syncStepTimeoutRunnable?.let {
+                mainHandler.removeCallbacks(it)
+                syncStepTimeoutRunnable = null
+            }
+            // Cancel any previously scheduled advance runnable to prevent multiple advances
+            // from accumulating when a step receives multiple response packets (e.g. stress)
+            syncAdvanceRunnable?.let { mainHandler.removeCallbacks(it) }
+            val r = Runnable {
+                syncAdvanceRunnable = null
+                advanceSyncStep()
+            }
+            syncAdvanceRunnable = r
+            mainHandler.postDelayed(r, 150L)
+        }
+    }
+
+    private fun advanceSyncStep() {
+        syncStepTimeoutRunnable?.let {
+            mainHandler.removeCallbacks(it)
+            syncStepTimeoutRunnable = null
+        }
+        syncAdvanceDebounceRunnable?.let {
+            mainHandler.removeCallbacks(it)
+            syncAdvanceDebounceRunnable = null
+        }
+        syncAdvanceRunnable?.let {
+            mainHandler.removeCallbacks(it)
+            syncAdvanceRunnable = null
+        }
+        currentSyncStepIndex++
+        executeCurrentSyncStep()
+    }
+
+    private fun finishSequentialSync() {
         mainHandler.post {
+            isSyncInProgress = false
+            syncStepTimeoutRunnable?.let {
+                mainHandler.removeCallbacks(it)
+                syncStepTimeoutRunnable = null
+            }
+            syncAdvanceDebounceRunnable?.let {
+                mainHandler.removeCallbacks(it)
+                syncAdvanceDebounceRunnable = null
+            }
+            syncAdvanceRunnable?.let {
+                mainHandler.removeCallbacks(it)
+                syncAdvanceRunnable = null
+            }
             syncMasterTimeoutRunnable?.let {
                 mainHandler.removeCallbacks(it)
                 syncMasterTimeoutRunnable = null
             }
-            val res = pendingSyncResult ?: return@post
-            pendingSyncResult = null
-            pendingSyncCommands.clear()
+            val waitingList = synchronized(pendingSyncResults) {
+                val list = ArrayList(pendingSyncResults)
+                pendingSyncResults.clear()
+                list
+            }
             val syncMap = buildCachedSyncMap()
-            Log.i(TAG, "completeSyncIfPending: Returning fresh health data sync payload to Flutter.")
-            try {
-                res.success(syncMap)
-            } catch (e: Exception) {
-                Log.e(TAG, "completeSyncIfPending: Failed to send success result: ${e.message}")
+            Log.i(TAG, "finishSequentialSync: Returning fresh health data sync payload to ${waitingList.size} Flutter caller(s): steps=${syncMap["steps"]}, cal=${syncMap["calories"]}, bp=${syncMap["systolicBP"]}/${syncMap["diastolicBP"]}, spo2=${syncMap["bloodOxygen"]}%, hrv=${syncMap["hrvMs"]}ms")
+            for (res in waitingList) {
+                try {
+                    res.success(syncMap)
+                } catch (e: Exception) {
+                    Log.e(TAG, "finishSequentialSync: Failed to send success result: ${e.message}")
+                }
             }
         }
     }
 
-    private fun resetVitalsMemory() {
+    private fun resetVitalsMemory(clearAll: Boolean = false) {
         lastKnownSteps = 0
         lastKnownCalories = 0
         lastKnownDistance = 0
-        lastKnownSbp = 0
-        lastKnownDbp = 0
+        lastKnownSbp = if (clearAll) 0 else prefs.getInt("last_known_sbp", 0)
+        lastKnownDbp = if (clearAll) 0 else prefs.getInt("last_known_dbp", 0)
         lastKnownSleepMinutes = 0
         lastKnownDeepSleepMinutes = 0
-        lastKnownBloodOxygen = 0.0
+        lastKnownBloodOxygen = if (clearAll) 0.0 else prefs.getFloat("last_known_spo2", 0f).toDouble()
         lastKnownSkinTemperature = 0.0
-        lastKnownStressLevel = 0
-        lastKnownHrvMs = 0
-        lastKnownRestingHeartRate = 0
+        lastKnownStressLevel = if (clearAll) 0 else prefs.getInt("last_known_stress", 0)
+        lastKnownHrvMs = if (clearAll) 0 else prefs.getInt("last_known_hrv", 0)
+        lastKnownRestingHeartRate = if (clearAll) 0 else prefs.getInt("last_known_resting_hr", 0)
+        if (clearAll) {
+            currentBatteryPercentage = null
+        }
         lastKnownSleepPhases.clear()
         lastKnownHeartRateHistory.clear()
     }
@@ -222,7 +505,7 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
         mainHandler.postDelayed({
             gattBusy = false
             drainGattQueue()
-        }, 100L)
+        }, 150L)
     }
 
     /** Clear the queue (e.g. on disconnect). */
@@ -301,6 +584,49 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
         } catch (e: Exception) {
             Log.e(TAG, "Failed to register bluetoothStateReceiver", e)
         }
+
+        // Register application lifecycle callbacks to mirror iOS handleAppWillEnterForeground
+        try {
+            activity.application.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
+                override fun onActivityResumed(act: Activity) {
+                    if (act == activity) {
+                        Log.d(TAG, "📱 App resumed in foreground - checking band connection...")
+                        if (isDeviceConnected && connectedDevice != null) {
+                            val dev = connectedDevice!!
+                            sendEvent(mapOf(
+                                "type" to "connection_state",
+                                "state" to "connected",
+                                "name" to (dev.name ?: "EHG Smart Band"),
+                                "id" to dev.address,
+                                "mac" to dev.address
+                            ))
+                            if (currentBatteryPercentage != null) {
+                                sendEvent(mapOf(
+                                    "type" to "battery_update",
+                                    "battery" to currentBatteryPercentage,
+                                    "charging" to false
+                                ))
+                            }
+                            sendReadBattery()
+                        } else {
+                            val lastMac = prefs.getString("last_connected_mac", null)
+                            if (!lastMac.isNullOrEmpty() && bluetoothAdapter?.isEnabled == true) {
+                                Log.d(TAG, "📱 App resumed and band disconnected, triggering auto-reconnect to $lastMac")
+                                connectToDevice(lastMac, null)
+                            }
+                        }
+                    }
+                }
+                override fun onActivityPaused(act: Activity) {}
+                override fun onActivityStarted(act: Activity) {}
+                override fun onActivityStopped(act: Activity) {}
+                override fun onActivitySaveInstanceState(act: Activity, outState: android.os.Bundle) {}
+                override fun onActivityCreated(act: Activity, savedInstanceState: android.os.Bundle?) {}
+                override fun onActivityDestroyed(act: Activity) {}
+            })
+        } catch (e: Exception) {
+            Log.w(TAG, "Could not register ActivityLifecycleCallbacks: ${e.message}")
+        }
     }
 
     private fun sendEvent(event: Map<String, Any?>) {
@@ -316,7 +642,7 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
         val btState = if (bluetoothAdapter?.isEnabled == true) "poweredOn" else "poweredOff"
         events?.success(mapOf("type" to "bluetooth_state", "state" to btState))
 
-        // If band is already connected (e.g. across Hot Restart), emit connected immediately
+        // If band is already connected (e.g. across Hot Restart or stream re-listen), emit connected immediately
         val dev = connectedDevice
         if (connectedGatt != null && dev != null) {
             val manager = activity.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
@@ -330,6 +656,14 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                     "id" to dev.address,
                     "mac" to dev.address
                 ))
+                if (currentBatteryPercentage != null) {
+                    events?.success(mapOf(
+                        "type" to "battery_update",
+                        "battery" to currentBatteryPercentage,
+                        "charging" to false
+                    ))
+                }
+                sendReadBattery()
             }
         }
     }
@@ -376,35 +710,56 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                 }
                 connectToDevice(deviceId, result)
             }
-            "disconnect" -> {
-                val unpair = call.argument<Boolean>("unpair") ?: false
+            "disconnect", "unbind" -> {
+                val unpair = (call.method == "unbind") || (call.argument<Boolean>("unpair") ?: false)
                 if (unpair) {
+                    val lastMac = prefs.getString("last_connected_mac", null)
+                    try {
+                        val dev = connectedDevice ?: if (!lastMac.isNullOrEmpty()) {
+                            try { bluetoothAdapter?.getRemoteDevice(lastMac) } catch (_: Exception) { null }
+                        } else null
+                        if (dev != null && dev.bondState == BluetoothDevice.BOND_BONDED) {
+                            val method = dev.javaClass.getMethod("removeBond")
+                            method.invoke(dev)
+                            Log.i(TAG, "Unpair/Unbind: Device ${dev.address} unbonded from Android OS Bluetooth")
+                        }
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to removeBond on unbind: ${e.message}")
+                    }
                     prefs.edit().clear().apply()
-                    resetVitalsMemory()
+                    resetVitalsMemory(clearAll = true)
                 }
                 disconnectDevice()
                 result.success(true)
             }
             "reconnect" -> {
-                val lastMac = prefs.getString("last_connected_mac", null)
-                if (!lastMac.isNullOrEmpty()) {
-                    connectToDevice(lastMac, result)
+                if (isDeviceConnected && connectedGatt != null) {
+                    Log.d(TAG, "Reconnect: Band is already actively connected natively.")
+                    result.success(true)
                 } else {
-                    result.success(false)
+                    val lastMac = prefs.getString("last_connected_mac", null)
+                    if (!lastMac.isNullOrEmpty()) {
+                        connectToDevice(lastMac, result)
+                    } else {
+                        result.success(false)
+                    }
                 }
             }
             "getBattery" -> {
                 readBattery(result)
             }
             "getDeviceInfo" -> {
-                val mac = connectedDevice?.address ?: ""
-                val name = connectedDevice?.name ?: "EHG Smart Band"
+                val mac = connectedDevice?.address ?: prefs.getString("last_connected_mac", "") ?: ""
+                val name = connectedDevice?.name ?: prefs.getString("last_connected_name", "EHG Smart Band") ?: "EHG Smart Band"
+                val soft = prefs.getString("band_soft_version", "1.0.4") ?: "1.0.4"
+                val hard = prefs.getString("band_hard_version", "1.0.0") ?: "1.0.0"
                 result.success(
                     mapOf(
                         "name" to name,
+                        "id" to mac,
                         "macAddress" to mac,
-                        "softVersion" to "",
-                        "hardVersion" to ""
+                        "softVersion" to soft,
+                        "hardVersion" to hard
                     )
                 )
             }
@@ -646,7 +1001,23 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
             val state = manager?.getConnectionState(connectedGatt?.device, BluetoothProfile.GATT)
             if (state == BluetoothProfile.STATE_CONNECTED) {
                 Log.d(TAG, "Device $deviceId is ALREADY connected in Android GATT. Returning success.")
-                sendEvent(mapOf("type" to "connection_state", "state" to "connected", "name" to (connectedDevice?.name ?: "EHG Smart Band"), "id" to deviceId))
+                val devName = connectedDevice?.name ?: "EHG Smart Band"
+                sendEvent(mapOf(
+                    "type" to "connection_state",
+                    "state" to "connected",
+                    "name" to devName,
+                    "id" to deviceId,
+                    "mac" to deviceId
+                ))
+                if (currentBatteryPercentage != null) {
+                    sendEvent(mapOf(
+                        "type" to "battery_update",
+                        "battery" to currentBatteryPercentage,
+                        "charging" to false
+                    ))
+                }
+                sendReadBattery()
+                startStepPolling()
                 result?.success(true)
                 return
             }
@@ -749,6 +1120,7 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                 stopStepPolling()
                 clearGattQueue()
                 isLiveHeartRateActive = false
+                hasEmittedConnected = false
                 realtimeHrHoldRunnable?.let {
                     mainHandler.removeCallbacks(it)
                     realtimeHrHoldRunnable = null
@@ -758,9 +1130,9 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                     measuringTimeoutRunnable = null
                 }
                 hasSentConnectionVibration = false
-                if (pendingSyncResult != null) {
-                    Log.w(TAG, "Band disconnected during active health sync. Completing with cached metrics.")
-                    completeSyncIfPending()
+                if (isSyncInProgress) {
+                    Log.w(TAG, "Band disconnected during active sequential sync. Completing with cached metrics.")
+                    finishSequentialSync()
                 }
                 sendEvent(mapOf("type" to "connection_state", "state" to "disconnected"))
                 if (pendingConnectResult != null) {
@@ -805,17 +1177,20 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                     .putString("last_connected_name", devName)
                     .apply()
 
-                sendEvent(mapOf(
-                    "type" to "connection_state",
-                    "state" to "connected",
-                    "name" to devName,
-                    "id" to devId
-                ))
-                pendingConnectResult?.success(true)
-                pendingConnectResult = null
-
-                // Reset vibration flag for this new connection session
+                // Reset flags for this connection session
                 hasSentConnectionVibration = false
+                hasEmittedConnected = false
+
+                // Safety fallback (8s): If the entire init pipeline + sentinel somehow never
+                // fires, this guarantees Flutter still gets notified. Under normal conditions
+                // the sentinel op at the end of the pipeline fires notifyConnectedState
+                // well before this timeout.
+                mainHandler.postDelayed({
+                    if (connectedGatt != null && !hasEmittedConnected) {
+                        Log.w(TAG, "Safety fallback timer (8s) fired: notifying connected state to Flutter")
+                        notifyConnectedState()
+                    }
+                }, 8000L)
 
                 // ── Serial initialization pipeline via GATT queue (identical to iOS) ──
                 // Brief 150ms delay gives the Android BLE service cache time to stabilize
@@ -823,7 +1198,7 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                 mainHandler.postDelayed({
                     if (connectedGatt == null || connectedGatt != gatt) return@postDelayed
 
-                    // Step 1: Enable CCCD notifications on QC RX characteristic
+                    // Step 1: Enable CCCD notifications on QC RX characteristic and standard Heart Rate characteristic
                     val rxChar = qcRxCharacteristic
                     if (rxChar != null) {
                         Log.i(TAG, "QC Band proprietary RX located (${rxChar.uuid}), queueing CCCD enable...")
@@ -839,7 +1214,41 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                                 gatt.writeDescriptor(cccd)
                             }
                         }
-                    } else if (batteryCharacteristic != null) {
+                    }
+
+                    val rx2Char = qcRx2Characteristic
+                    if (rx2Char != null) {
+                        Log.i(TAG, "QC Band DFU RX located (${rx2Char.uuid}), queueing CCCD enable...")
+                        enqueueGattOp(OpType.DESCRIPTOR_WRITE, "CCCD-enable-qcRx2") {
+                            if (!gatt.setCharacteristicNotification(rx2Char, true)) return@enqueueGattOp false
+                            val cccd = rx2Char.getDescriptor(CCCD_UUID) ?: return@enqueueGattOp false
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                gatt.writeDescriptor(cccd, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) == android.bluetooth.BluetoothStatusCodes.SUCCESS
+                            } else {
+                                @Suppress("DEPRECATION")
+                                cccd.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                                @Suppress("DEPRECATION")
+                                gatt.writeDescriptor(cccd)
+                            }
+                        }
+                    }
+
+                    val hrChar = heartRateCharacteristic
+                    if (hrChar != null) {
+                        Log.i(TAG, "Standard Heart Rate characteristic located (${hrChar.uuid}), queueing CCCD enable...")
+                        enqueueGattOp(OpType.DESCRIPTOR_WRITE, "CCCD-enable-heartRate") {
+                            if (!gatt.setCharacteristicNotification(hrChar, true)) return@enqueueGattOp false
+                            val cccd = hrChar.getDescriptor(CCCD_UUID) ?: return@enqueueGattOp false
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                gatt.writeDescriptor(cccd, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) == android.bluetooth.BluetoothStatusCodes.SUCCESS
+                            } else {
+                                @Suppress("DEPRECATION")
+                                cccd.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                                @Suppress("DEPRECATION")
+                                gatt.writeDescriptor(cccd)
+                            }
+                        }
+                    } else if (batteryCharacteristic != null && rxChar == null) {
                         val batChar = batteryCharacteristic!!
                         enqueueGattOp(OpType.DESCRIPTOR_WRITE, "CCCD-enable-battery") {
                             if (!gatt.setCharacteristicNotification(batChar, true)) return@enqueueGattOp false
@@ -903,11 +1312,11 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                         ok
                     }
 
-                    // Step 6: Query today's steps/sport data (CMD 0x02)
+                    // Step 6: Query today's steps/sport data (CMD 0x48 / OdmBandGetCurrentSportInfo)
                     enqueueGattOp(OpType.CHAR_WRITE, "query-today-sport") {
-                        val packet = buildQcPacket("02")
+                        val packet = buildQcPacket("48")
                         val ok = writeQcPacketDirect(packet)
-                        Log.i(TAG, "queryTodaySport (queued) packet='02', success=$ok")
+                        Log.i(TAG, "queryTodaySport (queued) packet='48', success=$ok")
                         ok
                     }
 
@@ -920,7 +1329,20 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                         }
                     }
 
-                    // Step 8: Standard init complete (realtime updates reserved for Heart Rate)
+                    // Step 8: SENTINEL — Notify Flutter "connected" only AFTER the entire
+                    // init pipeline has finished. This prevents Flutter from triggering
+                    // syncFullHealthData() while init commands are still draining through
+                    // the serial GATT queue, which would interleave sync commands with
+                    // init commands and overwhelm the band firmware.
+                    enqueueGattOp(OpType.CHAR_WRITE, "init-pipeline-sentinel") {
+                        Log.i(TAG, "Init pipeline sentinel reached — all init ops complete. Notifying Flutter.")
+                        mainHandler.post {
+                            notifyConnectedState()
+                        }
+                        // Return false so no actual GATT write is attempted
+                        // (this is a virtual sentinel, not a real BLE write)
+                        false
+                    }
                 }, 150L)
             } else {
                 Log.e(TAG, "Service discovery failed with status $status")
@@ -940,6 +1362,11 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
             status: Int
         ) {
             Log.d(TAG, "onDescriptorWrite status=$status, descUuid=${descriptor?.uuid}")
+            // NOTE: We intentionally do NOT call notifyConnectedState() here.
+            // The init-pipeline-sentinel at the end of the GATT queue handles it.
+            // Emitting 'connected' early causes Flutter to start syncFullHealthData()
+            // while the init pipeline is still draining, interleaving commands and
+            // corrupting the QC protocol state (all zeros + disconnect).
             mainHandler.post { onGattOpComplete("descriptor-write") }
         }
 
@@ -1034,21 +1461,25 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                 }
             } else if (uuid == BATTERY_CHAR_UUID) {
                 publishBattery(characteristic)
-            } else if (uuid == QC_CHAR_RX || uuid == QC_CHAR_RX_2 || uuid == qcRxCharacteristic?.uuid) {
+            } else if (uuid == QC_CHAR_RX || uuid == QC_CHAR_RX_2 || uuid == qcRxCharacteristic?.uuid || uuid == qcRx2Characteristic?.uuid) {
                 if (value.isEmpty()) return
                 val cmd = value[0].toInt() and 0xFF
                 Log.d(TAG, "QC RX packet: cmd=0x%02X, len=%d, hex=%s".format(cmd, value.size, value.joinToString("") { "%02X".format(it) }))
 
                 when (cmd) {
-                    0x1E -> {
+                    0x1E, 0x9E -> {
                         // RealTimeHeartRate response / live continuous PPG packet
-                        // Byte layout in Oudmon protocol: [0x1E, status, hr, ...]
-                        val hr = if (value.size > 2) (value[2].toInt() and 0xFF) else 0
-                        val fallbackHr = if (value.size > 1) (value[1].toInt() and 0xFF) else 0
-                        val finalHr = if (hr in 30..240) hr else if (fallbackHr in 30..240) fallbackHr else null
+                        // Byte layout in Oudmon SDK: [0x1E, hr, ...] or [0x1E, status, hr, ...]
+                        val b1 = if (value.size > 1) (value[1].toInt() and 0xFF) else 0
+                        val b2 = if (value.size > 2) (value[2].toInt() and 0xFF) else 0
+                        val finalHr = when {
+                            b1 in 30..240 -> b1
+                            b2 in 30..240 -> b2
+                            else -> null
+                        }
 
                         if (finalHr != null && finalHr > 0) {
-                            Log.i(TAG, "Received Live Heart Rate from band: $finalHr bpm")
+                            Log.i(TAG, "Received Live Heart Rate from band (CMD 0x%02X): $finalHr bpm".format(cmd))
                             sendEvent(mapOf(
                                 "type" to "live_heart_rate",
                                 "bpm" to finalHr
@@ -1062,33 +1493,40 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                             }
                         }
                     }
-                    0x69 -> {
+                    0x69, 0xE9 -> {
                         // Active measurement response (StartHeartRateRsp)
-                        // Layout: [0x69, measureType, errCode, value, (sbp), (dbp)...]
+                        // Layout: [0x69, measureType, errCode/status, value, (sbp), (dbp)...]
                         val mType = if (value.size > 1) (value[1].toInt() and 0xFF) else 0
-                        val errCode = if (value.size > 2) (value[2].toInt() and 0xFF) else -1
+                        val byte2 = if (value.size > 2) (value[2].toInt() and 0xFF) else -1
                         val rawVal = if (value.size > 3) (value[3].toInt() and 0xFF) else 0
 
-                        if (errCode == 0) {
+                        val hrCandidate = when {
+                            rawVal in 30..240 -> rawVal
+                            byte2 in 30..240 -> byte2
+                            else -> 0
+                        }
+
+                        if (byte2 == 0 || hrCandidate > 0) {
                             measuringTimeoutRunnable?.let {
                                 mainHandler.removeCallbacks(it)
                                 measuringTimeoutRunnable = null
                             }
                             when (mType) {
                                 1 -> { // Heart Rate
-                                    if (rawVal in 30..240) {
-                                        if (lastKnownRestingHeartRate == 0 || rawVal < lastKnownRestingHeartRate) {
-                                            lastKnownRestingHeartRate = rawVal
-                                            prefs.edit().putInt("last_known_resting_hr", rawVal).apply()
+                                    val hrToUse = if (hrCandidate > 0) hrCandidate else rawVal
+                                    if (hrToUse in 30..240) {
+                                        if (lastKnownRestingHeartRate == 0 || hrToUse < lastKnownRestingHeartRate) {
+                                            lastKnownRestingHeartRate = hrToUse
+                                            prefs.edit().putInt("last_known_resting_hr", hrToUse).apply()
                                         }
                                         sendEvent(mapOf(
                                             "type" to "measurement_result",
                                             "measureType" to "heartRate",
-                                            "hr" to rawVal
+                                            "hr" to hrToUse
                                         ))
                                         sendEvent(mapOf(
                                             "type" to "live_heart_rate",
-                                            "bpm" to rawVal
+                                            "bpm" to hrToUse
                                         ))
                                     }
                                 }
@@ -1128,42 +1566,160 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                                         "temperature" to rawVal
                                     ))
                                 }
+                                5 -> { // Stress
+                                    if (rawVal in 1..100) {
+                                        lastKnownStressLevel = rawVal
+                                        prefs.edit().putInt("last_known_stress", rawVal).apply()
+                                    }
+                                    sendEvent(mapOf(
+                                        "type" to "measurement_result",
+                                        "measureType" to "stress",
+                                        "stress" to rawVal
+                                    ))
+                                }
+                                6 -> { // HRV
+                                    if (rawVal in 10..250) {
+                                        lastKnownHrvMs = rawVal
+                                        prefs.edit().putInt("last_known_hrv", rawVal).apply()
+                                    }
+                                    sendEvent(mapOf(
+                                        "type" to "measurement_result",
+                                        "measureType" to "hrv",
+                                        "hrv" to rawVal
+                                    ))
+                                }
                             }
-                        } else if (errCode > 0) {
+                        } else if (byte2 > 0) {
                             sendEvent(mapOf(
                                 "type" to "measurement_fail",
                                 "measureType" to (activeMeasuringType ?: "heartRate"),
-                                "error" to "Band reported measurement error code $errCode. Please wear band snugly."
+                                "error" to "Band reported measurement error code $byte2. Please wear band snugly."
                             ))
                         }
                     }
-                    0x02 -> {
-                        // Today sport data packet (steps, calories, distance)
+                    0x6A, 0xEA -> {
+                        Log.i(TAG, "QC Band confirmed stop measurement response (0x6A ACK)")
+                    }
+                    0x07, 0x87 -> {
+                        // Realtime Sport / Workout Activity packet
+                        // Byte layout in Oudmon protocol: [0x07, sportType, state, hr, step(3), cal(3), dist(3)...]
                         try {
-                            if (value.size >= 10) {
+                            if (value.size >= 4) {
+                                val sportHr = value[3].toInt() and 0xFF
+                                if (sportHr in 30..240) {
+                                    sendEvent(mapOf(
+                                        "type" to "live_heart_rate",
+                                        "bpm" to sportHr
+                                    ))
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Error parsing sport packet 0x07: ${e.message}")
+                        }
+                    }
+                    0x48, 0xC8 -> {
+                        // Current day sport summary (steps, calories, distance) - Matches iOS OdmBandGetCurrentSportInfo
+                        try {
+                            if (value.size >= 13) {
+                                val steps = ((value[1].toInt() and 0xFF) shl 16) or ((value[2].toInt() and 0xFF) shl 8) or (value[3].toInt() and 0xFF)
+                                val runSteps = ((value[4].toInt() and 0xFF) shl 16) or ((value[5].toInt() and 0xFF) shl 8) or (value[6].toInt() and 0xFF)
+                                val calories = ((value[7].toInt() and 0xFF) shl 16) or ((value[8].toInt() and 0xFF) shl 8) or (value[9].toInt() and 0xFF)
+                                val distance = ((value[10].toInt() and 0xFF) shl 16) or ((value[11].toInt() and 0xFF) shl 8) or (value[12].toInt() and 0xFF)
+                                if (steps > 0 || calories > 0 || distance > 0 || lastKnownSteps == 0) {
+                                    lastKnownSteps = steps
+                                    lastKnownCalories = calories
+                                    lastKnownDistance = distance
+                                    prefs.edit()
+                                        .putInt("last_known_steps", steps)
+                                        .putInt("last_known_calories", calories)
+                                        .putInt("last_known_distance", distance)
+                                        .apply()
+                                    sendEvent(mapOf(
+                                        "type" to "step_update",
+                                        "steps" to steps,
+                                        "calories" to calories,
+                                        "distance" to distance
+                                    ))
+                                    Log.i(TAG, "QC Sport summary parsed (CMD 0x48, 13B): $steps steps, run=$runSteps, $calories kcal, $distance m")
+                                }
+                            } else if (value.size >= 10) {
                                 val steps = ((value[1].toInt() and 0xFF) shl 16) or ((value[2].toInt() and 0xFF) shl 8) or (value[3].toInt() and 0xFF)
                                 val calories = ((value[4].toInt() and 0xFF) shl 16) or ((value[5].toInt() and 0xFF) shl 8) or (value[6].toInt() and 0xFF)
                                 val distance = ((value[7].toInt() and 0xFF) shl 16) or ((value[8].toInt() and 0xFF) shl 8) or (value[9].toInt() and 0xFF)
-                                lastKnownSteps = steps
-                                lastKnownCalories = calories
-                                lastKnownDistance = distance
-                                prefs.edit()
-                                    .putInt("last_known_steps", steps)
-                                    .putInt("last_known_calories", calories)
-                                    .putInt("last_known_distance", distance)
-                                    .apply()
-                                sendEvent(mapOf(
-                                    "type" to "step_update",
-                                    "steps" to steps,
-                                    "calories" to calories,
-                                    "distance" to distance
-                                ))
+                                if (steps > 0 || calories > 0 || distance > 0 || lastKnownSteps == 0) {
+                                    lastKnownSteps = steps
+                                    lastKnownCalories = calories
+                                    lastKnownDistance = distance
+                                    prefs.edit()
+                                        .putInt("last_known_steps", steps)
+                                        .putInt("last_known_calories", calories)
+                                        .putInt("last_known_distance", distance)
+                                        .apply()
+                                    sendEvent(mapOf(
+                                        "type" to "step_update",
+                                        "steps" to steps,
+                                        "calories" to calories,
+                                        "distance" to distance
+                                    ))
+                                    Log.i(TAG, "QC Sport summary parsed (CMD 0x48, 10B): $steps steps, $calories kcal, $distance m")
+                                }
                             }
                         } finally {
-                            onSyncPacketReceived(0x02)
+                            onSyncPacketReceived(cmd)
                         }
                     }
-                    0x03 -> {
+                    0x02, 0x82 -> {
+                        // Today sport data packet fallback
+                        try {
+                            if (value.size >= 13) {
+                                val steps = ((value[1].toInt() and 0xFF) shl 16) or ((value[2].toInt() and 0xFF) shl 8) or (value[3].toInt() and 0xFF)
+                                val runSteps = ((value[4].toInt() and 0xFF) shl 16) or ((value[5].toInt() and 0xFF) shl 8) or (value[6].toInt() and 0xFF)
+                                val calories = ((value[7].toInt() and 0xFF) shl 16) or ((value[8].toInt() and 0xFF) shl 8) or (value[9].toInt() and 0xFF)
+                                val distance = ((value[10].toInt() and 0xFF) shl 16) or ((value[11].toInt() and 0xFF) shl 8) or (value[12].toInt() and 0xFF)
+                                if (steps > 0 || calories > 0 || distance > 0 || lastKnownSteps == 0) {
+                                    lastKnownSteps = steps
+                                    lastKnownCalories = calories
+                                    lastKnownDistance = distance
+                                    prefs.edit()
+                                        .putInt("last_known_steps", steps)
+                                        .putInt("last_known_calories", calories)
+                                        .putInt("last_known_distance", distance)
+                                        .apply()
+                                    sendEvent(mapOf(
+                                        "type" to "step_update",
+                                        "steps" to steps,
+                                        "calories" to calories,
+                                        "distance" to distance
+                                    ))
+                                    Log.i(TAG, "QC Sport fallback parsed (CMD 0x02, 13B): $steps steps, run=$runSteps, $calories kcal, $distance m")
+                                }
+                            } else if (value.size >= 10) {
+                                val steps = ((value[1].toInt() and 0xFF) shl 16) or ((value[2].toInt() and 0xFF) shl 8) or (value[3].toInt() and 0xFF)
+                                val calories = ((value[4].toInt() and 0xFF) shl 16) or ((value[5].toInt() and 0xFF) shl 8) or (value[6].toInt() and 0xFF)
+                                val distance = ((value[7].toInt() and 0xFF) shl 16) or ((value[8].toInt() and 0xFF) shl 8) or (value[9].toInt() and 0xFF)
+                                if (steps > 0 || calories > 0 || distance > 0 || lastKnownSteps == 0) {
+                                    lastKnownSteps = steps
+                                    lastKnownCalories = calories
+                                    lastKnownDistance = distance
+                                    prefs.edit()
+                                        .putInt("last_known_steps", steps)
+                                        .putInt("last_known_calories", calories)
+                                        .putInt("last_known_distance", distance)
+                                        .apply()
+                                    sendEvent(mapOf(
+                                        "type" to "step_update",
+                                        "steps" to steps,
+                                        "calories" to calories,
+                                        "distance" to distance
+                                    ))
+                                    Log.i(TAG, "QC Sport fallback parsed (CMD 0x02, 10B): $steps steps, $calories kcal, $distance m")
+                                }
+                            }
+                        } finally {
+                            onSyncPacketReceived(cmd)
+                        }
+                    }
+                    0x03, 0x83 -> {
                         // Battery packet
                         try {
                             if (value.size >= 3) {
@@ -1179,21 +1735,345 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                                 }
                             }
                         } finally {
-                            onSyncPacketReceived(0x03)
+                            onSyncPacketReceived(cmd)
                         }
                     }
-                    0x04 -> {
-                        // QC Sleep packet (total sleep, deep sleep, sleep phases)
+                    0x15, 0x95, 0x05, 0x85 -> {
+                        // QC Scheduled 24h Heart Rate History (matches iOS OdmBandGetSchedualHeartRateData)
+                        var isFinished = false
                         try {
-                            if (value.size >= 4) {
-                                try {
+                            if (value.size >= 3) {
+                                val packetIdx = value[1].toInt() and 0xFF
+                                if (packetIdx != 0xEE) {
+                                    if (packetIdx == 0) {
+                                        // Header packet: value[2] = total packets, value[3] = interval in minutes
+                                        lastKnownHeartRateHistory.clear()
+                                        Log.d(TAG, "QC HeartRateHistory header: totalPackets=${value[2].toInt() and 0xFF}, interval=${value[3].toInt() and 0xFF}")
+                                    } else if (packetIdx != 0xFF) {
+                                        // Data packet: value[2..14] are heart rate readings (13 samples per packet)
+                                        var minNonZero = lastKnownRestingHeartRate
+                                        for (i in 2 until value.size - 1) {
+                                            val bpm = value[i].toInt() and 0xFF
+                                            if (bpm in 35..220) {
+                                                if (minNonZero == 0 || bpm < minNonZero) {
+                                                    minNonZero = bpm
+                                                }
+                                                lastKnownHeartRateHistory.add(mapOf(
+                                                    "bpm" to bpm,
+                                                    "timestamp" to "sample#${lastKnownHeartRateHistory.size + 1}"
+                                                ))
+                                            }
+                                        }
+                                        if (minNonZero > 0) {
+                                            lastKnownRestingHeartRate = minNonZero
+                                            prefs.edit().putInt("last_known_resting_hr", minNonZero).apply()
+                                        }
+                                        Log.i(TAG, "QC HeartRateHistory packet $packetIdx: accumulated ${lastKnownHeartRateHistory.size} samples, resting=$minNonZero bpm")
+                                    } else {
+                                        // packetIdx == 0xFF: End of HR history transmission
+                                        isFinished = true
+                                        Log.i(TAG, "QC HeartRateHistory complete (CMD 0x%02X): ${lastKnownHeartRateHistory.size} total samples, resting=$lastKnownRestingHeartRate bpm".format(cmd))
+                                    }
+                                } else {
+                                    isFinished = true
+                                    Log.d(TAG, "QC HeartRateHistory: No historical HR data recorded for today (code 0xEE)")
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Error parsing QC HR history packet: ${e.message}")
+                            isFinished = true
+                        } finally {
+                            if (isFinished) {
+                                onSyncPacketReceived(cmd)
+                            }
+                        }
+                    }
+                    0x0D, 0x8D -> {
+                        // QC Scheduled Blood Pressure - Systolic (matches iOS OdmBandGetBPHistoryData Stage 0)
+                        // Multi-packet: header(idx=0) → data(idx=1..N) → EOF(0xFF/0xEE)
+                        // Use debounce for data packets; immediate advance for EOF/no-data
+                        // Guard: if current sync step is bpDiastolic, ignore residual systolic packets
+                        val currentStepId = if (isSyncInProgress && currentSyncStepIndex < activeSyncSteps.size) activeSyncSteps[currentSyncStepIndex].id else ""
+                        if (currentStepId == "bpDiastolic") {
+                            Log.d(TAG, "QC Systolic BP: Ignoring residual 0x0D packet during bpDiastolic step")
+                        } else {
+                            var isFinished = false
+                            try {
+                                if (value.size >= 3) {
+                                    val packetIdx = value[1].toInt() and 0xFF
+                                    if (packetIdx == 0xFF || packetIdx == 0xEE) {
+                                        isFinished = true
+                                        Log.d(TAG, "QC Systolic BP: End of packets (0x%02X)".format(packetIdx))
+                                    } else if (packetIdx == 0) {
+                                        // Header packet: reset per-step timeout to wait for data packets
+                                        Log.d(TAG, "QC Systolic BP: Header packet received (resetting timeout for data packets)")
+                                        syncStepTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+                                        val step = if (currentSyncStepIndex < activeSyncSteps.size) activeSyncSteps[currentSyncStepIndex] else null
+                                        val stepTimeout = step?.timeoutMs ?: 3000L
+                                        val timeoutRunnable = Runnable {
+                                            Log.w(TAG, "QC Systolic BP: Data timeout after header. Advancing.")
+                                            advanceSyncStep()
+                                        }
+                                        syncStepTimeoutRunnable = timeoutRunnable
+                                        mainHandler.postDelayed(timeoutRunnable, stepTimeout)
+                                    } else {
+                                        var count = 0
+                                        for (i in 2 until value.size - 1) {
+                                            val sbp = value[i].toInt() and 0xFF
+                                            if (sbp in 60..240) {
+                                                lastKnownSbp = sbp
+                                                prefs.edit().putInt("last_known_sbp", sbp).apply()
+                                                count++
+                                            }
+                                        }
+                                        Log.i(TAG, "QC Systolic BP parsed (CMD 0x0D, packet $packetIdx): sbp=$lastKnownSbp mmHg (read $count samples)")
+                                        scheduleSyncAdvanceDebounce(cmd, 500L)
+                                    }
+                                }
+                            } finally {
+                                if (isFinished) {
+                                    onSyncPacketReceived(cmd)
+                                }
+                            }
+                        }
+                    }
+                    0x0E, 0x8E -> {
+                        // QC Scheduled Blood Pressure - Diastolic (matches iOS OdmBandGetBPHistoryData Stage 1)
+                        // Multi-packet: header(idx=0) → data(idx=1..N) → EOF(0xFF/0xEE)
+                        var isFinished = false
+                        try {
+                            if (value.size >= 3) {
+                                val packetIdx = value[1].toInt() and 0xFF
+                                if (packetIdx == 0xFF || packetIdx == 0xEE) {
+                                    isFinished = true
+                                    Log.d(TAG, "QC Diastolic BP: End of packets (0x%02X)".format(packetIdx))
+                                } else if (packetIdx == 0) {
+                                    // Header packet: reset per-step timeout to wait for data packets
+                                    Log.d(TAG, "QC Diastolic BP: Header packet received (resetting timeout for data packets)")
+                                    syncStepTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+                                    val step = if (currentSyncStepIndex < activeSyncSteps.size) activeSyncSteps[currentSyncStepIndex] else null
+                                    val stepTimeout = step?.timeoutMs ?: 3000L
+                                    val timeoutRunnable = Runnable {
+                                        Log.w(TAG, "QC Diastolic BP: Data timeout after header. Advancing.")
+                                        advanceSyncStep()
+                                    }
+                                    syncStepTimeoutRunnable = timeoutRunnable
+                                    mainHandler.postDelayed(timeoutRunnable, stepTimeout)
+                                } else {
+                                    var count = 0
+                                    for (i in 2 until value.size - 1) {
+                                        val dbp = value[i].toInt() and 0xFF
+                                        if (dbp in 40..160) {
+                                            lastKnownDbp = dbp
+                                            prefs.edit().putInt("last_known_dbp", dbp).apply()
+                                            count++
+                                        }
+                                    }
+                                    Log.i(TAG, "QC Diastolic BP parsed (CMD 0x0E, packet $packetIdx): dbp=$lastKnownDbp mmHg (read $count samples)")
+                                    scheduleSyncAdvanceDebounce(cmd, 500L)
+                                }
+                            }
+                        } finally {
+                            if (isFinished) {
+                                onSyncPacketReceived(cmd)
+                            }
+                        }
+                    }
+                    0x14, 0x94 -> {
+                        // QC Manual Blood Pressure History (matches iOS OdmBandGetManualBloodPressureHistoryData)
+                        // Layout: [0x14, ts0, ts1, ts2, ts3, dbp, sbp, ...]
+                        var isFinished = false
+                        try {
+                            if (value.size >= 7) {
+                                val b1 = value[1].toInt() and 0xFF
+                                val b2 = value[2].toInt() and 0xFF
+                                if (b1 == 0xFF && b2 == 0xFF) {
+                                    isFinished = true
+                                    Log.d(TAG, "QC Manual Blood Pressure: End of records (0xFFFF)")
+                                } else {
+                                    val dbp = value[5].toInt() and 0xFF
+                                    val sbp = value[6].toInt() and 0xFF
+                                    if (sbp in 60..240 && dbp in 40..160) {
+                                        lastKnownSbp = sbp
+                                        lastKnownDbp = dbp
+                                        prefs.edit().putInt("last_known_sbp", sbp).putInt("last_known_dbp", dbp).apply()
+                                        Log.i(TAG, "QC Manual Blood Pressure parsed (CMD 0x14): $sbp/$dbp mmHg")
+                                    }
+                                    scheduleSyncAdvanceDebounce(cmd, 400L)
+                                }
+                            }
+                        } finally {
+                            if (isFinished) {
+                                onSyncPacketReceived(cmd)
+                            }
+                        }
+                    }
+                    0x2A, 0xAA, 0x2C, 0xAC, 0x06, 0x86 -> {
+                        // QC Blood Oxygen (SpO2) standard query (matches iOS QCBloodOxygenList / OdmBandSchedualBloodOxgyenInfo)
+                        try {
+                            if (value.size >= 2) {
+                                val statusByte = value[1].toInt() and 0xFF
+                                if (statusByte != 0xEE && statusByte != 0xFF) {
+                                    var foundSpo2 = 0
+                                    for (i in 1 until value.size) {
+                                        val spo2 = value[i].toInt() and 0xFF
+                                        if (spo2 in 70..100) {
+                                            foundSpo2 = spo2
+                                        }
+                                    }
+                                    if (foundSpo2 > 0) {
+                                        lastKnownBloodOxygen = foundSpo2.toDouble()
+                                        prefs.edit().putFloat("last_known_spo2", foundSpo2.toFloat()).apply()
+                                        Log.i(TAG, "QC SpO2 parsed (CMD 0x%02X): ${lastKnownBloodOxygen}%%".format(cmd))
+                                    }
+                                } else {
+                                    Log.d(TAG, "QC SpO2 standard query: No data (status=0x%02X)".format(statusByte))
+                                }
+                            }
+                        } finally {
+                            onSyncPacketReceived(cmd)
+                        }
+                    }
+                    0xBC -> {
+                        // QC Long Packet / DFU Protocol (matches iOS QCDFU_Utils / QCBloodOxygenList)
+                        // Layout: [0xBC, type, lenLow, lenHigh, crcLow, crcHigh, payload...]
+                        try {
+                            if (value.size >= 6) {
+                                val type = value[1].toInt() and 0xFF
+                                val len = (value[2].toInt() and 0xFF) or ((value[3].toInt() and 0xFF) shl 8)
+                                Log.d(TAG, "QC DFU/LongPacket received: type=0x%02X, len=$len, totalBytes=${value.size}".format(type))
+                                when (type) {
+                                    0x2A, 0x49, 0x5F -> {
+                                        // Blood oxygen list (0x2A), manual blood oxygen (0x49), interval blood oxygen (0x5F)
+                                        var foundSpo2 = 0
+                                        for (i in 6 until value.size) {
+                                            val spo2 = value[i].toInt() and 0xFF
+                                            if (spo2 in 70..100) {
+                                                foundSpo2 = spo2
+                                            }
+                                        }
+                                        if (foundSpo2 > 0) {
+                                            lastKnownBloodOxygen = foundSpo2.toDouble()
+                                            prefs.edit().putFloat("last_known_spo2", foundSpo2.toFloat()).apply()
+                                            Log.i(TAG, "QC SpO2 parsed from DFU packet (type 0x%02X): ${lastKnownBloodOxygen}%%".format(type))
+                                        } else {
+                                            Log.d(TAG, "QC DFU SpO2: No valid SpO2 values in payload (type 0x%02X)".format(type))
+                                        }
+                                    }
+                                    else -> {
+                                        Log.d(TAG, "QC DFU: Unhandled type 0x%02X (len=$len)".format(type))
+                                    }
+                                }
+                            } else if (value.size >= 2) {
+                                // Short DFU response — likely an error/no-data indicator
+                                val type = value[1].toInt() and 0xFF
+                                Log.d(TAG, "QC DFU: Short response (${value.size} bytes), type=0x%02X — no data available".format(type))
+                            }
+                        } finally {
+                            onSyncPacketReceived(cmd)
+                        }
+                    }
+                    0x37, 0xB7 -> {
+                        // QC Stress Level (matches iOS QCGetScheualStressData)
+                        // Multi-packet: band sends 5+ packets. Use debounce to collect all data
+                        // before advancing, preventing race conditions with subsequent steps.
+                        try {
+                            if (value.size >= 3) {
+                                val statusByte = value[1].toInt() and 0xFF
+                                if (statusByte == 0xEE || statusByte == 0xFF) {
+                                    Log.d(TAG, "QC Stress: No data (status=0x%02X)".format(statusByte))
+                                    onSyncPacketReceived(cmd)
+                                } else {
+                                    for (i in 2 until value.size - 1) {
+                                        val stress = value[i].toInt() and 0xFF
+                                        if (stress in 1..100) {
+                                            lastKnownStressLevel = stress
+                                            prefs.edit().putInt("last_known_stress", stress).apply()
+                                        }
+                                    }
+                                    Log.i(TAG, "QC Stress Level parsed (CMD 0x37): $lastKnownStressLevel")
+                                    // Use debounce: more stress packets may follow
+                                    scheduleSyncAdvanceDebounce(cmd, 500L)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Error parsing stress packet: ${e.message}")
+                            onSyncPacketReceived(cmd)
+                        }
+                    }
+                    0x39, 0xB9, 0x2D, 0xAD -> {
+                        // QC HRV (matches iOS QCGetScheualHRVDataCmd)
+                        // Multi-packet: header(idx=0) → data(idx=1..N) → EOF(0xFF/0xEE)
+                        // Header packet may contain HRV data starting at byte 3.
+                        // Data packets contain HRV values starting at byte 2.
+                        // Use debounce to wait for all packets before advancing.
+                        var isFinished = false
+                        try {
+                            if (value.size >= 3) {
+                                val packetIdx = value[1].toInt() and 0xFF
+                                if (packetIdx == 0xFF || packetIdx == 0xEE) {
+                                    isFinished = true
+                                    Log.d(TAG, "QC HRV: End of packets (0x%02X), final HRV=${lastKnownHrvMs}ms".format(packetIdx))
+                                } else if (packetIdx == 0) {
+                                    // Header packet: byte[2]=totalPackets, bytes[3..]=first HRV values
+                                    val totalPackets = value[2].toInt() and 0xFF
+                                    Log.d(TAG, "QC HRV: Header packet received (totalPackets=$totalPackets)")
+                                    if (totalPackets == 0) {
+                                        isFinished = true
+                                    } else {
+                                        // Parse any HRV data embedded in the header packet (bytes 3+)
+                                        for (i in 3 until value.size) {
+                                            val hrv = value[i].toInt() and 0xFF
+                                            if (hrv in 10..250) {
+                                                lastKnownHrvMs = hrv
+                                                prefs.edit().putInt("last_known_hrv", hrv).apply()
+                                            }
+                                        }
+                                        Log.d(TAG, "QC HRV: Header parsed, current HRV=${lastKnownHrvMs}ms (waiting for data packets)")
+                                        // Reset step timeout to wait for subsequent data packets
+                                        syncStepTimeoutRunnable?.let { mainHandler.removeCallbacks(it) }
+                                        val step = if (currentSyncStepIndex < activeSyncSteps.size) activeSyncSteps[currentSyncStepIndex] else null
+                                        val stepTimeout = step?.timeoutMs ?: 3000L
+                                        val timeoutRunnable = Runnable {
+                                            Log.w(TAG, "QC HRV: Data timeout after header. Advancing with HRV=${lastKnownHrvMs}ms")
+                                            advanceSyncStep()
+                                        }
+                                        syncStepTimeoutRunnable = timeoutRunnable
+                                        mainHandler.postDelayed(timeoutRunnable, stepTimeout)
+                                    }
+                                } else {
+                                    // Data packet: bytes[2..] are HRV readings
+                                    for (i in 2 until value.size) {
+                                        val hrv = value[i].toInt() and 0xFF
+                                        if (hrv in 10..250) {
+                                            lastKnownHrvMs = hrv
+                                            prefs.edit().putInt("last_known_hrv", hrv).apply()
+                                        }
+                                    }
+                                    Log.i(TAG, "QC HRV parsed (CMD 0x39, packet $packetIdx): ${lastKnownHrvMs}ms")
+                                    // Use debounce: more data packets may follow
+                                    scheduleSyncAdvanceDebounce(cmd, 500L)
+                                }
+                            }
+                        } finally {
+                            if (isFinished) {
+                                onSyncPacketReceived(cmd)
+                            }
+                        }
+                    }
+                    0x44, 0xC4, 0x04, 0x84 -> {
+                        // QC Sleep packet (total sleep, deep sleep, sleep phases) - Matches iOS OdmBandGetSleepDetailInfo
+                        try {
+                            if (value.size >= 3) {
+                                val errByte = value[1].toInt() and 0xFF
+                                if (errByte != 0xEE && errByte != 0xFF && value.size >= 4) {
                                     val totalMinutes = ((value[1].toInt() and 0xFF) shl 8) or (value[2].toInt() and 0xFF)
                                     val deepMinutes = if (value.size >= 6) {
                                         ((value[3].toInt() and 0xFF) shl 8) or (value[4].toInt() and 0xFF)
                                     } else {
                                         (totalMinutes * 0.25).toInt()
                                     }
-                                    if (totalMinutes in 30..900) {
+                                    if (totalMinutes in 10..1200) {
                                         lastKnownSleepMinutes = totalMinutes
                                         lastKnownDeepSleepMinutes = deepMinutes
                                         prefs.edit()
@@ -1215,119 +2095,37 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                                             lastKnownSleepPhases.add(phaseMap)
                                         }
                                     }
-                                } catch (e: Exception) {
-                                    Log.w(TAG, "Error parsing QC sleep packet: ${e.message}")
-                                }
-                            }
-                        } finally {
-                            onSyncPacketReceived(0x04)
-                        }
-                    }
-                    0x05 -> {
-                        // QC Scheduled 24h Heart Rate History
-                        try {
-                            if (value.size >= 3) {
-                                try {
-                                    var minNonZero = 0
-                                    val hrList = mutableListOf<Map<String, Any>>()
-                                    for (i in 2 until value.size - 1) {
-                                        val bpm = value[i].toInt() and 0xFF
-                                        if (bpm in 35..220) {
-                                            if (minNonZero == 0 || bpm < minNonZero) {
-                                                minNonZero = bpm
-                                            }
-                                            hrList.add(mapOf(
-                                                "bpm" to bpm,
-                                                "timestamp" to "today#$i"
-                                            ))
-                                        }
-                                    }
-                                    if (hrList.isNotEmpty()) {
-                                        lastKnownHeartRateHistory.clear()
-                                        lastKnownHeartRateHistory.addAll(hrList)
-                                        if (minNonZero > 0) {
-                                            lastKnownRestingHeartRate = minNonZero
-                                            prefs.edit().putInt("last_known_resting_hr", minNonZero).apply()
-                                        }
-                                        Log.i(TAG, "QC HeartRateHistory parsed: ${hrList.size} samples, resting=$minNonZero bpm")
-                                    }
-                                } catch (e: Exception) {
-                                    Log.w(TAG, "Error parsing QC HR history packet: ${e.message}")
-                                }
-                            }
-                        } finally {
-                            onSyncPacketReceived(0x05)
-                        }
-                    }
-                    0x06 -> {
-                        // QC Blood Oxygen (SpO2)
-                        try {
-                            if (value.size >= 3) {
-                                val spo2 = value[2].toInt() and 0xFF
-                                val fallback = value[1].toInt() and 0xFF
-                                val valid = if (spo2 in 70..100) spo2 else if (fallback in 70..100) fallback else 0
-                                if (valid > 0) {
-                                    lastKnownBloodOxygen = valid.toDouble()
-                                    prefs.edit().putFloat("last_known_spo2", valid.toFloat()).apply()
-                                    Log.i(TAG, "QC SpO2 parsed: $valid%")
-                                }
-                            }
-                        } finally {
-                            onSyncPacketReceived(0x06)
-                        }
-                    }
-                    0x08 -> {
-                        // QC Skin Temperature
-                        try {
-                            if (value.size >= 3) {
-                                val rawTemp = if (value.size >= 4) {
-                                    ((value[2].toInt() and 0xFF) shl 8) or (value[3].toInt() and 0xFF)
                                 } else {
-                                    value[2].toInt() and 0xFF
-                                }
-                                val temp = if (rawTemp in 300..450) rawTemp / 10.0 else if (rawTemp in 30..45) rawTemp.toDouble() else 0.0
-                                if (temp > 0.0) {
-                                    lastKnownSkinTemperature = temp
-                                    prefs.edit().putFloat("last_known_temp", temp.toFloat()).apply()
-                                    Log.i(TAG, "QC Skin Temperature parsed: $temp°C")
+                                    Log.d(TAG, "QC Sleep: No historical sleep data recorded for today")
                                 }
                             }
+                        } catch (e: Exception) {
+                            Log.w(TAG, "Error parsing QC sleep packet: ${e.message}")
                         } finally {
-                            onSyncPacketReceived(0x08)
+                            onSyncPacketReceived(cmd)
                         }
                     }
-                    0x2C -> {
-                        // QC Stress Level
+                    0x25, 0xA5 -> {
+                        // QC Skin Temperature (matches iOS QCSchedualTemperatureList - NOT 08 which is shutdown!)
                         try {
                             if (value.size >= 3) {
-                                val stress = value[2].toInt() and 0xFF
-                                val fallback = value[1].toInt() and 0xFF
-                                val valid = if (stress in 1..100) stress else if (fallback in 1..100) fallback else 0
-                                if (valid > 0) {
-                                    lastKnownStressLevel = valid
-                                    prefs.edit().putInt("last_known_stress", valid).apply()
-                                    Log.i(TAG, "QC Stress Level parsed: $valid")
+                                val statusByte = value[1].toInt() and 0xFF
+                                if (statusByte != 0xEE && statusByte != 0xFF) {
+                                    val rawTemp = if (value.size >= 4) {
+                                        ((value[2].toInt() and 0xFF) shl 8) or (value[3].toInt() and 0xFF)
+                                    } else {
+                                        value[2].toInt() and 0xFF
+                                    }
+                                    val temp = if (rawTemp in 300..450) rawTemp / 10.0 else if (rawTemp in 30..45) rawTemp.toDouble() else 0.0
+                                    if (temp > 0.0) {
+                                        lastKnownSkinTemperature = temp
+                                        prefs.edit().putFloat("last_known_temp", temp.toFloat()).apply()
+                                        Log.i(TAG, "QC Skin Temperature parsed: $temp°C")
+                                    }
                                 }
                             }
                         } finally {
-                            onSyncPacketReceived(0x2C)
-                        }
-                    }
-                    0x2D -> {
-                        // QC HRV
-                        try {
-                            if (value.size >= 3) {
-                                val hrv = value[2].toInt() and 0xFF
-                                val fallback = value[1].toInt() and 0xFF
-                                val valid = if (hrv in 10..250) hrv else if (fallback in 10..250) fallback else 0
-                                if (valid > 0) {
-                                    lastKnownHrvMs = valid
-                                    prefs.edit().putInt("last_known_hrv", valid).apply()
-                                    Log.i(TAG, "QC HRV parsed: ${valid}ms")
-                                }
-                            }
-                        } finally {
-                            onSyncPacketReceived(0x2D)
+                            onSyncPacketReceived(cmd)
                         }
                     }
                     0x10 -> {
@@ -1344,6 +2142,8 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
     private fun resolveQcCharacteristics(gatt: BluetoothGatt) {
         qcTxCharacteristic = null
         qcRxCharacteristic = null
+        qcTx2Characteristic = null
+        qcRx2Characteristic = null
 
         // 1. Check primary QC Service 1
         val s1 = gatt.getService(QC_SERVICE_UUID_1)
@@ -1352,46 +2152,60 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
             qcRxCharacteristic = s1.getCharacteristic(QC_CHAR_RX)
         }
 
-        // 2. Check primary QC Service 2
-        if (qcTxCharacteristic == null || qcRxCharacteristic == null) {
-            val s2 = gatt.getService(QC_SERVICE_UUID_2)
-            if (s2 != null) {
-                if (qcTxCharacteristic == null) qcTxCharacteristic = s2.getCharacteristic(QC_CHAR_TX_2)
-                if (qcRxCharacteristic == null) qcRxCharacteristic = s2.getCharacteristic(QC_CHAR_RX_2)
-            }
+        // 2. Check primary QC Service 2 (DFU / Long packet service)
+        val s2 = gatt.getService(QC_SERVICE_UUID_2)
+        if (s2 != null) {
+            qcTx2Characteristic = s2.getCharacteristic(QC_CHAR_TX_2)
+            qcRx2Characteristic = s2.getCharacteristic(QC_CHAR_RX_2)
+            if (qcTxCharacteristic == null) qcTxCharacteristic = qcTx2Characteristic
+            if (qcRxCharacteristic == null) qcRxCharacteristic = qcRx2Characteristic
         }
 
         // 3. Fallback: Search all discovered services
-        if (qcTxCharacteristic == null || qcRxCharacteristic == null) {
+        if (qcTxCharacteristic == null || qcRxCharacteristic == null || qcTx2Characteristic == null || qcRx2Characteristic == null) {
             for (service in gatt.services) {
                 val sUuid = service.uuid.toString().lowercase()
                 for (charac in service.characteristics) {
                     val cUuid = charac.uuid.toString().lowercase()
                     if (qcTxCharacteristic == null && (
                         cUuid.startsWith("6e400002") || 
-                        cUuid.startsWith("de5bf72a") ||
-                        ((charac.properties and (BluetoothGattCharacteristic.PROPERTY_WRITE or BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE)) != 0 && (sUuid.contains("fff0") || sUuid.contains("de5b")))
+                        ((charac.properties and (BluetoothGattCharacteristic.PROPERTY_WRITE or BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE)) != 0 && sUuid.contains("fff0"))
                     )) {
                         qcTxCharacteristic = charac
                         Log.i(TAG, "Located QC TX characteristic via fallback: ${charac.uuid}")
                     }
                     if (qcRxCharacteristic == null && (
                         cUuid.startsWith("6e400003") || 
-                        cUuid.startsWith("de5bf729") ||
-                        ((charac.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0 && (sUuid.contains("fff0") || sUuid.contains("de5b")))
+                        ((charac.properties and BluetoothGattCharacteristic.PROPERTY_NOTIFY) != 0 && sUuid.contains("fff0"))
                     )) {
                         qcRxCharacteristic = charac
                         Log.i(TAG, "Located QC RX characteristic via fallback: ${charac.uuid}")
                     }
+                    if (qcTx2Characteristic == null && cUuid.startsWith("de5bf72a")) {
+                        qcTx2Characteristic = charac
+                        Log.i(TAG, "Located QC TX2 (DFU) characteristic via fallback: ${charac.uuid}")
+                    }
+                    if (qcRx2Characteristic == null && cUuid.startsWith("de5bf729")) {
+                        qcRx2Characteristic = charac
+                        Log.i(TAG, "Located QC RX2 (DFU) characteristic via fallback: ${charac.uuid}")
+                    }
                 }
             }
         }
-        Log.i(TAG, "Resolved QC Characteristics: TX=${qcTxCharacteristic?.uuid}, RX=${qcRxCharacteristic?.uuid}")
+        Log.i(TAG, "Resolved QC Characteristics: TX=${qcTxCharacteristic?.uuid}, RX=${qcRxCharacteristic?.uuid}, TX2=${qcTx2Characteristic?.uuid}, RX2=${qcRx2Characteristic?.uuid}")
     }
 
     private fun buildQcPacket(hexString: String): ByteArray {
         val cleanHex = hexString.replace(" ", "").uppercase()
         val byteCount = cleanHex.length / 2
+        // DFU Long packet (matches iOS QCDFU_Utils)
+        if (cleanHex.startsWith("BC")) {
+            val packet = ByteArray(byteCount)
+            for (i in 0 until byteCount) {
+                packet[i] = cleanHex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+            }
+            return packet
+        }
         val packet = ByteArray(16)
         var sum = 0
         for (i in 0 until byteCount) {
@@ -1409,7 +2223,8 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
      */
     private fun writeQcPacketDirect(packet: ByteArray): Boolean {
         val gatt = connectedGatt ?: return false
-        val txChar = qcTxCharacteristic ?: return false
+        val isDfuPacket = packet.isNotEmpty() && (packet[0].toInt() and 0xFF) == 0xBC
+        val txChar = if (isDfuPacket && qcTx2Characteristic != null) qcTx2Characteristic!! else (qcTxCharacteristic ?: return false)
 
         // Oudmon SDK WriteRequest.execute always uses WRITE_TYPE_DEFAULT (type=2, write with response).
         val writeType = if ((txChar.properties and BluetoothGattCharacteristic.PROPERTY_WRITE) != 0) {
@@ -1423,8 +2238,12 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 val res = gatt.writeCharacteristic(txChar, packet, writeType)
-                Log.d(TAG, "writeQcPacketDirect (API33+) writeType=$writeType, result=$res, packet=${packet.joinToString("") { "%02X".format(it) }}")
-                res == android.bluetooth.BluetoothStatusCodes.SUCCESS
+                Log.d(TAG, "writeQcPacketDirect (API33+) char=${txChar.uuid}, writeType=$writeType, result=$res, packet=${packet.joinToString("") { "%02X".format(it) }}")
+                val ok = res == android.bluetooth.BluetoothStatusCodes.SUCCESS
+                if (ok && writeType == BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE) {
+                    mainHandler.postDelayed({ onGattOpComplete("char-write-no-resp") }, 50L)
+                }
+                ok
             } else {
                 @Suppress("DEPRECATION")
                 txChar.value = packet
@@ -1432,7 +2251,10 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                 txChar.writeType = writeType
                 @Suppress("DEPRECATION")
                 val ok = gatt.writeCharacteristic(txChar)
-                Log.d(TAG, "writeQcPacketDirect (legacy) writeType=$writeType, result=$ok, packet=${packet.joinToString("") { "%02X".format(it) }}")
+                Log.d(TAG, "writeQcPacketDirect (legacy) char=${txChar.uuid}, writeType=$writeType, result=$ok, packet=${packet.joinToString("") { "%02X".format(it) }}")
+                if (ok && writeType == BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE) {
+                    mainHandler.postDelayed({ onGattOpComplete("char-write-no-resp") }, 50L)
+                }
                 ok
             }
         } catch (e: Exception) {
@@ -1523,41 +2345,56 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
     }
 
     private fun startRealtimeHeartRateQc(): Boolean {
-        if (connectedGatt == null || qcTxCharacteristic == null) return false
+        val gatt = connectedGatt ?: return false
+        if (qcTxCharacteristic == null && heartRateCharacteristic == null) return false
         isLiveHeartRateActive = true
 
-        // Send RealTimeHeartRate START (CMD 0x1E, subCmd 0x01)
-        // This immediately triggers the green optical PPG LEDs on the band.
-        enqueueGattOp(OpType.CHAR_WRITE, "qc-realtime-hr-start") {
-            val packet = buildQcPacket("1E01")
-            val ok = writeQcPacketDirect(packet)
-            Log.i(TAG, "startRealtimeHeartRateQc packet='1E01' (PPG LEDs ON), success=$ok")
-            ok
-        }
-
-        // Repeating keep-alive timer (every 15s) sending CMD 0x1E03 (Hold)
-        // QC Wireless band turns off the optical PPG LEDs after ~20s unless Hold is periodically refreshed.
-        realtimeHrHoldRunnable?.let { mainHandler.removeCallbacks(it) }
-        val holdTask = object : Runnable {
-            override fun run() {
-                if (!isLiveHeartRateActive || connectedGatt == null || qcTxCharacteristic == null) return
-                enqueueGattOp(OpType.CHAR_WRITE, "qc-realtime-hr-hold") {
-                    val packet = buildQcPacket("1E03")
-                    val ok = writeQcPacketDirect(packet)
-                    Log.d(TAG, "sendRealtimeHeartRateHold packet='1E03' (PPG Keep-Alive), success=$ok")
-                    ok
-                }
-                mainHandler.postDelayed(this, 15_000L)
-            }
-        }
-        realtimeHrHoldRunnable = holdTask
-        mainHandler.postDelayed(holdTask, 15_000L)
-
-        // Ensure CCCD notification is enabled on QC RX
+        // Ensure notifications on RX are enabled
         val rxChar = qcRxCharacteristic
-        val gatt = connectedGatt
-        if (gatt != null && rxChar != null) {
-            enableNotifications(gatt, rxChar)
+        if (rxChar != null) {
+            gatt.setCharacteristicNotification(rxChar, true)
+        }
+        val hrChar = heartRateCharacteristic
+        if (hrChar != null) {
+            enableNotifications(gatt, hrChar)
+        }
+
+        if (qcTxCharacteristic != null) {
+            // Step 1: Send RealTimeHeartRate START (CMD 0x1E, subCmd 0x01)
+            enqueueGattOp(OpType.CHAR_WRITE, "qc-realtime-hr-start") {
+                val packet = buildQcPacket("1E01")
+                val ok = writeQcPacketDirect(packet)
+                Log.i(TAG, "startRealtimeHeartRateQc packet='1E01' enqueued, success=$ok")
+                ok
+            }
+
+            // Step 2: Trigger optical PPG green LEDs on the band (CMD 0x69, type 0x01, sub 0x00)
+            // On QC Wireless / Oudmon firmware, CMD 0x690100 explicitly commands the sensor MCU
+            // to turn on the green optical PPG LEDs and begin active sampling.
+            enqueueGattOp(OpType.CHAR_WRITE, "qc-realtime-hr-sensor-on") {
+                val packet = buildQcPacket("690100")
+                val ok = writeQcPacketDirect(packet)
+                Log.i(TAG, "startRealtimeHeartRateQc packet='690100' (PPG Green LEDs ON), success=$ok")
+                ok
+            }
+
+            // Repeating keep-alive timer (every 10s) sending CMD 0x1E03 (Hold)
+            // QC Wireless band turns off the optical PPG LEDs after ~20s unless refreshed.
+            realtimeHrHoldRunnable?.let { mainHandler.removeCallbacks(it) }
+            val holdTask = object : Runnable {
+                override fun run() {
+                    if (!isLiveHeartRateActive || connectedGatt == null || qcTxCharacteristic == null) return
+                    enqueueGattOp(OpType.CHAR_WRITE, "qc-realtime-hr-hold") {
+                        val packet = buildQcPacket("1E03")
+                        val ok = writeQcPacketDirect(packet)
+                        Log.d(TAG, "sendRealtimeHeartRateHold packet='1E03' (PPG Keep-Alive), success=$ok")
+                        ok
+                    }
+                    mainHandler.postDelayed(this, 10_000L)
+                }
+            }
+            realtimeHrHoldRunnable = holdTask
+            mainHandler.postDelayed(holdTask, 10_000L)
         }
         return true
     }
@@ -1572,7 +2409,13 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
             enqueueGattOp(OpType.CHAR_WRITE, "qc-realtime-hr-end") {
                 val packet = buildQcPacket("1E02")
                 val ok = writeQcPacketDirect(packet)
-                Log.i(TAG, "stopRealtimeHeartRateQc packet='1E02' (PPG LEDs OFF), success=$ok")
+                Log.i(TAG, "stopRealtimeHeartRateQc packet='1E02' (Continuous HR End), success=$ok")
+                ok
+            }
+            enqueueGattOp(OpType.CHAR_WRITE, "qc-realtime-hr-sensor-off") {
+                val packet = buildQcPacket("6A0100")
+                val ok = writeQcPacketDirect(packet)
+                Log.i(TAG, "stopRealtimeHeartRateQc packet='6A0100' (PPG Green LEDs OFF), success=$ok")
                 ok
             }
         }
@@ -1585,20 +2428,20 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
             override fun run() {
                 val gatt = connectedGatt
                 if (gatt != null && qcTxCharacteristic != null) {
-                    if (gattQueue.isEmpty() && !gattBusy && activeMeasuringType == null) {
-                        enqueueGattOp(OpType.CHAR_WRITE, "poll-sport-02") {
-                            val packet = buildQcPacket("02")
+                    if (gattQueue.isEmpty() && !gattBusy && !isSyncInProgress && activeMeasuringType == null && !isLiveHeartRateActive) {
+                        enqueueGattOp(OpType.CHAR_WRITE, "poll-sport-48") {
+                            val packet = buildQcPacket("48")
                             writeQcPacketDirect(packet)
                         }
                     }
-                    mainHandler.postDelayed(this, 10_000L)
+                    mainHandler.postDelayed(this, 15_000L)
                 } else {
                     stopStepPolling()
                 }
             }
         }
         stepPollRunnable = pollTask
-        mainHandler.postDelayed(pollTask, 10_000L)
+        mainHandler.postDelayed(pollTask, 15_000L)
     }
 
     private fun stopStepPolling() {
@@ -1642,6 +2485,18 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                     writeQcPacketDirect(packet)
                 }
             }
+            "stress" -> {
+                enqueueGattOp(OpType.CHAR_WRITE, "start-measuring-stress") {
+                    val packet = buildQcPacket("690500")
+                    writeQcPacketDirect(packet)
+                }
+            }
+            "hrv" -> {
+                enqueueGattOp(OpType.CHAR_WRITE, "start-measuring-hrv") {
+                    val packet = buildQcPacket("690600")
+                    writeQcPacketDirect(packet)
+                }
+            }
             else -> {
                 // Heart rate / oneKey: activate optical PPG LEDs via 1E01 & 690100
                 enqueueGattOp(OpType.CHAR_WRITE, "start-measuring-hr-ppg") {
@@ -1676,6 +2531,24 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                     writeQcPacketDirect(packet)
                 }
             }
+            "temperature" -> {
+                enqueueGattOp(OpType.CHAR_WRITE, "stop-measuring-temp") {
+                    val packet = buildQcPacket("6A0400")
+                    writeQcPacketDirect(packet)
+                }
+            }
+            "stress" -> {
+                enqueueGattOp(OpType.CHAR_WRITE, "stop-measuring-stress") {
+                    val packet = buildQcPacket("6A0500")
+                    writeQcPacketDirect(packet)
+                }
+            }
+            "hrv" -> {
+                enqueueGattOp(OpType.CHAR_WRITE, "stop-measuring-hrv") {
+                    val packet = buildQcPacket("6A0600")
+                    writeQcPacketDirect(packet)
+                }
+            }
             else -> {
                 enqueueGattOp(OpType.CHAR_WRITE, "stop-measuring-hr") {
                     val packet = buildQcPacket("1E02")
@@ -1691,62 +2564,7 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
     }
 
     private fun syncFullHealthData(result: MethodChannel.Result) {
-        if (connectedGatt == null) {
-            Log.w(TAG, "syncFullHealthData: Band not currently connected. Returning cached health metrics immediately.")
-            result.success(buildCachedSyncMap())
-            return
-        }
-
-        // Complete any previously uncompleted sync request gracefully
-        pendingSyncResult?.let { oldResult ->
-            try {
-                oldResult.success(buildCachedSyncMap())
-            } catch (_: Exception) {}
-        }
-        syncMasterTimeoutRunnable?.let {
-            mainHandler.removeCallbacks(it)
-            syncMasterTimeoutRunnable = null
-        }
-
-        pendingSyncResult = result
-        pendingSyncCommands.clear()
-        pendingSyncCommands.addAll(listOf(0x02, 0x03, 0x04, 0x05, 0x06, 0x08, 0x2C, 0x2D))
-
-        // 15-second master watchdog: if band drops packets, return best-effort cached/accumulated data
-        val timeoutRunnable = Runnable {
-            Log.w(TAG, "syncFullHealthData: 15s timeout expired. Remaining packets: $pendingSyncCommands. Returning accumulated data.")
-            completeSyncIfPending()
-        }
-        syncMasterTimeoutRunnable = timeoutRunnable
-        mainHandler.postDelayed(timeoutRunnable, 15000L)
-
-        Log.i(TAG, "syncFullHealthData: Enqueueing 8 health sync GATT queries and awaiting responses...")
-
-        // Enqueue sport query packet (0x02) and battery packet (0x03)
-        enqueueGattOp(OpType.CHAR_WRITE, "sync-sport-02") {
-            writeQcPacketDirect(buildQcPacket("02"))
-        }
-        enqueueGattOp(OpType.CHAR_WRITE, "sync-battery-03") {
-            writeQcPacketDirect(buildQcPacket("03"))
-        }
-        enqueueGattOp(OpType.CHAR_WRITE, "sync-sleep-04") {
-            writeQcPacketDirect(buildQcPacket("0400"))
-        }
-        enqueueGattOp(OpType.CHAR_WRITE, "sync-hr-history-05") {
-            writeQcPacketDirect(buildQcPacket("0500"))
-        }
-        enqueueGattOp(OpType.CHAR_WRITE, "sync-oxygen-06") {
-            writeQcPacketDirect(buildQcPacket("0600"))
-        }
-        enqueueGattOp(OpType.CHAR_WRITE, "sync-temp-08") {
-            writeQcPacketDirect(buildQcPacket("0800"))
-        }
-        enqueueGattOp(OpType.CHAR_WRITE, "sync-stress-2c") {
-            writeQcPacketDirect(buildQcPacket("2C00"))
-        }
-        enqueueGattOp(OpType.CHAR_WRITE, "sync-hrv-2d") {
-            writeQcPacketDirect(buildQcPacket("2D00"))
-        }
+        startSequentialHealthSync(result)
     }
 
     private fun enableNotifications(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic): Boolean {

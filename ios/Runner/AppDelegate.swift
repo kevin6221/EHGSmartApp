@@ -9,6 +9,8 @@ import UIKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+//     GeneratedPluginRegistrant.register(with: self)
+//     registerBandPlugin(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -16,12 +18,13 @@ import UIKit
     guard !isPluginRegistered else { return }
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     registerBandPlugin(with: engineBridge.pluginRegistry)
-    isPluginRegistered = true
   }
 
   private func registerBandPlugin(with registry: FlutterPluginRegistry) {
+    guard !isPluginRegistered else { return }
     if let registrar = registry.registrar(forPlugin: "EHGBandNativePlugin") {
       EHGBandNativePlugin.register(with: registrar)
+      isPluginRegistered = true
     }
   }
 }

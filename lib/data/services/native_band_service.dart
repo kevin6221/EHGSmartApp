@@ -27,6 +27,8 @@ class NativeBandService implements BandService {
       StreamController<BandPedometerInfo>.broadcast();
   final StreamController<BandBluetoothState> _bluetoothStateController =
       StreamController<BandBluetoothState>.broadcast();
+  final StreamController<String> _connectionErrorController =
+      StreamController<String>.broadcast();
 
   StreamSubscription<dynamic>? _eventSubscription;
   final List<DiscoveredBandDevice> _currentDiscovered = [];
@@ -145,6 +147,9 @@ class NativeBandService implements BandService {
       case 'connection_failed':
         _lastConnectionError = event['error']?.toString();
         debugPrint('❌ [BAND CONNECTION FAILED] $_lastConnectionError');
+        if (_lastConnectionError != null && _lastConnectionError!.isNotEmpty) {
+          _connectionErrorController.add(_lastConnectionError!);
+        }
         _status = BandConnectionStatus.disconnected;
         _connectionStatusController.add(BandConnectionStatus.disconnected);
         if (_connectCompleter != null && !_connectCompleter!.isCompleted) {
@@ -305,6 +310,9 @@ class NativeBandService implements BandService {
   String? get lastConnectionError => _lastConnectionError;
 
   @override
+  Stream<String> get connectionErrorStream => _connectionErrorController.stream;
+
+  @override
   Future<bool> connect(String deviceId) async {
     _connectionStatusController.add(BandConnectionStatus.connecting);
     _lastConnectionError = null;
@@ -314,16 +322,19 @@ class NativeBandService implements BandService {
           .timeout(const Duration(seconds: 20), onTimeout: () {
             _lastConnectionError =
                 'Connection timed out after 20s. Ensure band is nearby, charged, and unlinked from other apps (like QwatchPro).';
+            _connectionErrorController.add(_lastConnectionError!);
             _connectionStatusController.add(BandConnectionStatus.disconnected);
             return false;
           });
       return res == true;
     } on PlatformException catch (e) {
       _lastConnectionError = e.message ?? e.details?.toString() ?? 'Platform connection error';
+      _connectionErrorController.add(_lastConnectionError!);
       _connectionStatusController.add(BandConnectionStatus.disconnected);
       return false;
     } catch (e) {
       _lastConnectionError = e.toString();
+      _connectionErrorController.add(_lastConnectionError!);
       _connectionStatusController.add(BandConnectionStatus.disconnected);
       return false;
     }
@@ -348,6 +359,25 @@ class NativeBandService implements BandService {
       await _methodChannel.invokeMethod('disconnect', {'unpair': unpair});
     } catch (_) {}
     _connectionStatusController.add(BandConnectionStatus.disconnected);
+  }
+
+  @override
+  Future<void> unbind() async {
+    _connectionStatusController.add(BandConnectionStatus.disconnecting);
+    try {
+      await _methodChannel.invokeMethod('unbind');
+    } catch (_) {}
+    _connectionStatusController.add(BandConnectionStatus.disconnected);
+  }
+
+  @override
+  Future<bool> reconnect() async {
+    try {
+      final res = await _methodChannel.invokeMethod<bool>('reconnect');
+      return res == true;
+    } catch (_) {
+      return false;
+    }
   }
 
   @override
