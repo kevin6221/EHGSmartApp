@@ -16,6 +16,7 @@ class VitalsHrvCard extends StatelessWidget {
   final ValueNotifier<bool>? isExpandedNotifier;
   final VoidCallback? onExpandChanged;
   final VoidCallback? onTap;
+  final VoidCallback? onHeaderActionTap;
 
   const VitalsHrvCard({
     super.key,
@@ -25,6 +26,7 @@ class VitalsHrvCard extends StatelessWidget {
     this.isExpandedNotifier,
     this.onExpandChanged,
     this.onTap,
+    this.onHeaderActionTap,
   });
 
   @override
@@ -41,6 +43,7 @@ class VitalsHrvCard extends StatelessWidget {
       isExpandedNotifier: isExpandedNotifier,
       onExpandChanged: onExpandChanged,
       onTap: onTap,
+      onHeaderActionTap: onHeaderActionTap,
       chart: SparklineChart(
         values: weeklyHrv,
         lineColor: AppColors.primary,

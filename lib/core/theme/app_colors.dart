@@ -227,6 +227,66 @@ class AppColors {
   static const Color chartDarkBg = Color(0xFF334155);
 
   // ===========================================================================
+  // Qwatch Pro Health & Detail Theme Swatches
+  // ===========================================================================
+  /// Qwatch Pro Deep sleep royal purple (#4F17EA).
+  static const Color qwatchDeepSleep = Color(0xFF4F17EA);
+
+  /// Qwatch Pro Light sleep lavender (#D1C4F9).
+  static const Color qwatchLightSleep = Color(0xFFD1C4F9);
+
+  /// Qwatch Pro REM sleep vibrant violet (#8C52FF).
+  static const Color qwatchRemSleep = Color(0xFF8C52FF);
+
+  /// Qwatch Pro Wake up amber/orange (#F5A623).
+  static const Color qwatchWakeSleep = Color(0xFFF5A623);
+
+  /// Qwatch Pro Normal pill badge text green (#00C28A).
+  static const Color qwatchNormalGreen = Color(0xFF00C28A);
+
+  /// Qwatch Pro Normal pill badge background tint (#E8F9F3).
+  static const Color qwatchNormalGreenBg = Color(0xFFE8F9F3);
+
+  /// Qwatch Pro Blood Oxygen cyan/blue (#0084FF).
+  static const Color qwatchOxygenBlue = Color(0xFF0084FF);
+
+  /// Qwatch Pro Steps vibrant orange (#FF6B00).
+  static const Color qwatchStepOrange = Color(0xFFFF6B00);
+
+  /// Qwatch Pro Chart scrub guide vertical line (#00D2FF).
+  static const Color qwatchScrubLine = Color(0xFF00D2FF);
+
+  /// Qwatch Pro Chart scrub circle handle (#FFFFFF).
+  static const Color qwatchScrubHandle = Color(0xFFFFFFFF);
+
+  /// Qwatch Pro Chart horizontal subtle grid line (#F1F3F5).
+  static const Color qwatchChartGrid = Color(0xFFF1F3F5);
+
+  /// Qwatch Pro Stress chart cyan vertical bar (#26C6DA).
+  static const Color qwatchStressCyan = Color(0xFF26C6DA);
+
+  /// Qwatch Pro Stress Relax dot blue (#2196F3).
+  static const Color qwatchStressRelax = Color(0xFF2196F3);
+
+  /// Qwatch Pro Stress Normal dot cyan (#26C6DA).
+  static const Color qwatchStressNormal = Color(0xFF26C6DA);
+
+  /// Qwatch Pro Stress Medium dot yellow (#FFCA28).
+  static const Color qwatchStressMedium = Color(0xFFFFCA28);
+
+  /// Qwatch Pro Stress High dot orange (#FF7043).
+  static const Color qwatchStressHigh = Color(0xFFFF7043);
+
+  /// Qwatch Pro Systolic blood pressure line/dot yellow (#FFB300).
+  static const Color qwatchSystolicYellow = Color(0xFFFFB300);
+
+  /// Qwatch Pro Diastolic blood pressure line/dot purple (#8C52FF).
+  static const Color qwatchDiastolicPurple = Color(0xFF8C52FF);
+
+  /// Qwatch Pro HRV trend line and scrub line coral red (#FF5252).
+  static const Color qwatchHrvRed = Color(0xFFFF5252);
+
+  // ===========================================================================
   // 8. General Health Metrics & Status Indicators
   // ===========================================================================
   static const Color sleep = Color(0xFF2563EB);

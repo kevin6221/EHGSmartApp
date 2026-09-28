@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -41,7 +40,6 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _chartAnimController;
   late final Animation<double> _chartAnim;
-  Timer? _heartRatePeriodicTimer;
 
   @override
   void initState() {
@@ -55,37 +53,11 @@ class _HomeScreenState extends State<HomeScreen>
       curve: AppCurves.chartEase,
     );
     _chartAnimController.forward();
-
-    // Check HR immediately if due
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _checkHeartRateIfDue();
-    });
-
-    // Schedule 5-minute periodic check while on dashboard
-    _heartRatePeriodicTimer = Timer.periodic(const Duration(minutes: 5), (_) {
-      if (!mounted) return;
-      _checkHeartRateIfDue();
-    });
-  }
-
-  void _checkHeartRateIfDue() {
-    try {
-      final syncMgr = context.read<HealthSyncManager>();
-      final bandRepo = context.read<BandRepository>();
-      final wellnessRepo = context.read<WellnessRepository>();
-      syncMgr.syncHeartRateIfDue(bandRepo: bandRepo, wellnessRepo: wellnessRepo).then((_) {
-        if (mounted) {
-          context.read<WellnessBloc>().add(const LoadWellnessDataEvent());
-          context.read<VitalsBloc>().add(LoadVitalsEvent());
-        }
-      });
-    } catch (_) {}
+    // No automatic polling — data updates only via pull-to-refresh.
   }
 
   @override
   void dispose() {
-    _heartRatePeriodicTimer?.cancel();
     _chartAnimController.dispose();
     super.dispose();
   }

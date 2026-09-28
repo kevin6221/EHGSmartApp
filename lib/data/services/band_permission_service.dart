@@ -47,9 +47,12 @@ class BandPermissionService {
       final connectStatus = await ph.Permission.bluetoothConnect.status;
       final locationStatus = await ph.Permission.location.status;
 
+      final isPermDenied = scanStatus.isPermanentlyDenied ||
+          connectStatus.isPermanentlyDenied ||
+          locationStatus.isPermanentlyDenied;
+
       final isBtGranted = scanStatus.isGranted && connectStatus.isGranted;
-      final isPermDenied =
-          scanStatus.isPermanentlyDenied || connectStatus.isPermanentlyDenied;
+      final isLocGranted = locationStatus.isGranted;
 
       final btService = await ph.Permission.bluetooth.serviceStatus;
       final locService = await ph.Permission.location.serviceStatus;
@@ -58,10 +61,12 @@ class BandPermissionService {
       final isLocEnabled = locService != ph.ServiceStatus.disabled;
 
       BandPermissionStatus permStatus;
-      if (isBtGranted || locationStatus.isGranted) {
-        permStatus = BandPermissionStatus.granted;
-      } else if (isPermDenied || locationStatus.isPermanentlyDenied) {
+      if (isPermDenied) {
         permStatus = BandPermissionStatus.permanentlyDenied;
+      } else if (isBtGranted) {
+        permStatus = BandPermissionStatus.granted;
+      } else if (isLocGranted && (scanStatus.isLimited || !scanStatus.isDenied)) {
+        permStatus = BandPermissionStatus.granted;
       } else {
         permStatus = BandPermissionStatus.denied;
       }
@@ -70,11 +75,11 @@ class BandPermissionService {
         status: permStatus,
         isBluetoothEnabled: isBtEnabled,
         isLocationEnabled: isLocEnabled,
-        isPermanentlyDenied: isPermDenied || locationStatus.isPermanentlyDenied,
-        message: (isPermDenied || locationStatus.isPermanentlyDenied)
-            ? 'Bluetooth / Location permission is permanently denied. Please allow it in Settings.'
+        isPermanentlyDenied: isPermDenied,
+        message: isPermDenied
+            ? 'Bluetooth / Nearby Devices permission is permanently denied. Please allow it in App Settings.'
             : (permStatus == BandPermissionStatus.denied
-                ? 'Bluetooth & Location permissions are required to find your band.'
+                ? 'Bluetooth & Nearby Devices permissions are required to find your band.'
                 : (!isBtEnabled
                     ? 'Bluetooth is turned OFF. Please turn ON Bluetooth.'
                     : (!isLocEnabled
@@ -128,19 +133,23 @@ class BandPermissionService {
       final connectStatus = statuses[ph.Permission.bluetoothConnect] ?? ph.PermissionStatus.denied;
       final locationStatus = statuses[ph.Permission.location] ?? ph.PermissionStatus.denied;
 
-      final isBtGranted = scanStatus.isGranted && connectStatus.isGranted;
       final isPermDenied = scanStatus.isPermanentlyDenied ||
           connectStatus.isPermanentlyDenied ||
           locationStatus.isPermanentlyDenied;
+
+      final isBtGranted = scanStatus.isGranted && connectStatus.isGranted;
+      final isLocGranted = locationStatus.isGranted;
 
       final btService = await ph.Permission.bluetooth.serviceStatus;
       final locService = await ph.Permission.location.serviceStatus;
 
       BandPermissionStatus permStatus;
-      if (isBtGranted || locationStatus.isGranted) {
-        permStatus = BandPermissionStatus.granted;
-      } else if (isPermDenied) {
+      if (isPermDenied) {
         permStatus = BandPermissionStatus.permanentlyDenied;
+      } else if (isBtGranted) {
+        permStatus = BandPermissionStatus.granted;
+      } else if (isLocGranted && (scanStatus.isLimited || !scanStatus.isDenied)) {
+        permStatus = BandPermissionStatus.granted;
       } else {
         permStatus = BandPermissionStatus.denied;
       }
@@ -150,6 +159,15 @@ class BandPermissionService {
         isBluetoothEnabled: btService != ph.ServiceStatus.disabled,
         isLocationEnabled: locService != ph.ServiceStatus.disabled,
         isPermanentlyDenied: isPermDenied,
+        message: isPermDenied
+            ? 'Bluetooth / Nearby Devices permission is permanently denied. Please allow it in App Settings.'
+            : (permStatus == BandPermissionStatus.denied
+                ? 'Bluetooth & Nearby Devices permissions are required to find your band.'
+                : (btService == ph.ServiceStatus.disabled
+                    ? 'Bluetooth is turned OFF. Please turn ON Bluetooth.'
+                    : (locService == ph.ServiceStatus.disabled
+                        ? 'Location services are turned OFF. Please enable Location.'
+                        : 'Ready'))),
       );
     }
 

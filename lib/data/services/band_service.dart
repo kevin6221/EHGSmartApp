@@ -91,6 +91,10 @@ abstract class BandService {
   /// stress, HRV, resting HR, and heart rate history.
   Future<BandSyncedVitals> syncFullHealthData();
 
+  /// Synchronizes complete health data for a specific historical day:
+  /// dayIndex: 0 = Today, 1 = Yesterday, 2 = 2 days ago, up to 6.
+  Future<BandSyncedVitals> syncHistoricalDay(int dayIndex);
+
   /// Starts an on-demand single measurement of the given type.
   Future<bool> startMeasuring(MeasurementType type);
 

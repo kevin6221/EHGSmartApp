@@ -233,6 +233,47 @@ class BandPermissionDialog extends StatelessWidget {
               ),
             ),
           ],
+          if (type == BandPermissionDialogType.permanentlyDenied) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.touch_app_rounded,
+                      size: 20,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      Platform.isAndroid
+                          ? 'Tap "Open Settings" > Permissions > allow "Nearby devices" & "Location".'
+                          : 'Tap "Open Settings" and toggle Bluetooth permission ON.',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.textPrimary,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (type == BandPermissionDialogType.pairingMismatch) ...[
             const SizedBox(height: 16),
             Container(

@@ -112,8 +112,9 @@ class BandBloc extends Bloc<BandEvent, BandState> {
     Emitter<BandState> emit,
   ) async {
     final details = await repository.checkPermissions();
-    final shouldClearError = details.isReady ||
-        (details.status == BandPermissionStatus.granted && details.isBluetoothEnabled);
+    final shouldClearError = details.isReady &&
+        details.status == BandPermissionStatus.granted &&
+        !details.isPermanentlyDenied;
     emit(state.copyWith(
       permissionDetails: details,
       bluetoothState: details.isBluetoothEnabled
@@ -148,7 +149,6 @@ class BandBloc extends Bloc<BandEvent, BandState> {
     Emitter<BandState> emit,
   ) async {
     await repository.requestEnableBluetooth();
-    await repository.openAppSettings();
   }
 
   Future<void> _onOpenLocationSettings(
@@ -208,23 +208,33 @@ class BandBloc extends Bloc<BandEvent, BandState> {
           : BandBluetoothState.poweredOff,
     ));
 
+    if (perm.isPermanentlyDenied || perm.status == BandPermissionStatus.permanentlyDenied) {
+      emit(state.copyWith(
+        status: BandConnectionStatus.disconnected,
+        errorMessage: 'Bluetooth / Nearby Devices permission is permanently denied. Please allow it in App Settings.',
+      ));
+      return;
+    }
+
     if (perm.status != BandPermissionStatus.granted) {
-      if (perm.isPermanentlyDenied) {
+      final requested = await repository.requestPermissions();
+      emit(state.copyWith(
+        permissionDetails: requested,
+        bluetoothState: requested.isBluetoothEnabled
+            ? BandBluetoothState.poweredOn
+            : BandBluetoothState.poweredOff,
+      ));
+      if (requested.isPermanentlyDenied || requested.status == BandPermissionStatus.permanentlyDenied) {
         emit(state.copyWith(
           status: BandConnectionStatus.disconnected,
-          errorMessage: 'Bluetooth / Nearby Devices permission was denied. Please allow it in Settings.',
+          errorMessage: 'Bluetooth / Nearby Devices permission is permanently denied. Please allow it in App Settings.',
         ));
         return;
       }
-
-      final requested = await repository.requestPermissions();
-      emit(state.copyWith(permissionDetails: requested));
       if (requested.status != BandPermissionStatus.granted) {
         emit(state.copyWith(
           status: BandConnectionStatus.disconnected,
-          errorMessage: requested.isPermanentlyDenied
-              ? 'Bluetooth / Nearby Devices permission was denied. Please allow it in Settings.'
-              : 'Bluetooth permission is required to find your band.',
+          errorMessage: 'Bluetooth permission is required to find your band.',
         ));
         return;
       }

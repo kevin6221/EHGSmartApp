@@ -235,22 +235,27 @@ class BandRepository {
     }
   }
 
-  Future<void> _persistVitals(BandSyncedVitals vitals) async {
+  String _lastRecordedDate = '';
+
+  Future<void> _persistVitals(BandSyncedVitals vitals, {String? targetDate}) async {
     try {
-      final today = DateTime.now().toIso8601String().substring(0, 10);
+      final now = DateTime.now();
+      final today = now.toIso8601String().substring(0, 10);
+      final effectiveDate = targetDate ?? (vitals.date.isNotEmpty ? vitals.date : today);
       final devId = _connectedDevice?.macAddress ?? _lastPairedDevice?.mac ?? 'default_band';
       final userId = await _secureStorage.getActiveUserId();
-      final now = DateTime.now();
 
-      // 0. Persist JSON to Secure Storage for instant hydration on restart
-      _secureStorage.write('cached_band_synced_vitals_v1', jsonEncode(vitals.toJson())).catchError((_) {});
+      // 0. Persist JSON to Secure Storage for instant hydration on restart (for today)
+      if (effectiveDate == today) {
+        _secureStorage.write('cached_band_synced_vitals_v1', jsonEncode(vitals.toJson())).catchError((_) {});
+      }
 
       // 1. Upsert daily summary to Drift DB
       await _db.healthDataDao.upsertDailySummary(
         DailyHealthSummariesTableCompanion(
           userId: drift.Value(userId),
           deviceId: drift.Value(devId),
-          date: drift.Value(today),
+          date: drift.Value(effectiveDate),
           steps: drift.Value(vitals.steps),
           caloriesBurned: drift.Value(vitals.calories.toDouble()),
           distanceMeters: drift.Value(vitals.distance.toDouble()),
@@ -349,7 +354,7 @@ class BandRepository {
           totalDurationMinutes: drift.Value(vitals.sleepMinutes),
           deepMinutes: drift.Value(vitals.deepSleepMinutes),
           lightMinutes: drift.Value((vitals.sleepMinutes - vitals.deepSleepMinutes).clamp(0, vitals.sleepMinutes)),
-          date: drift.Value(today),
+          date: drift.Value(effectiveDate),
           syncedAt: drift.Value(now),
         );
         final phasesList = vitals.sleepPhases.map((p) {
@@ -620,7 +625,9 @@ class BandRepository {
     _isSyncingVitals = true;
     _ongoingSyncFuture = () async {
       try {
+        checkMidnightRollover();
         final rawVitals = await _service.syncFullHealthData();
+        final today = DateTime.now().toIso8601String().substring(0, 10);
         // Non-destructive merge with previous vitals to preserve non-zero metrics
         final vitals = _lastSyncedVitals.copyWith(
           steps: rawVitals.steps > 0 ? rawVitals.steps : _lastSyncedVitals.steps,
@@ -645,9 +652,12 @@ class BandRepository {
           weeklyOxygen: rawVitals.weeklyOxygen.isNotEmpty ? rawVitals.weeklyOxygen : _lastSyncedVitals.weeklyOxygen,
           weeklyRestingHr: rawVitals.weeklyRestingHr.isNotEmpty ? rawVitals.weeklyRestingHr : _lastSyncedVitals.weeklyRestingHr,
           weeklyBreathing: rawVitals.weeklyBreathing.isNotEmpty ? rawVitals.weeklyBreathing : _lastSyncedVitals.weeklyBreathing,
+          hourlySteps: rawVitals.hourlySteps.isNotEmpty ? rawVitals.hourlySteps : _lastSyncedVitals.hourlySteps,
+          date: today,
+          dayIndex: 0,
         );
         _lastSyncedVitals = vitals;
-        _persistVitals(vitals);
+        _persistVitals(vitals, targetDate: today);
         _syncedVitalsController.add(vitals);
         return vitals;
       } finally {
@@ -656,6 +666,64 @@ class BandRepository {
       }
     }();
     return _ongoingSyncFuture!;
+  }
+
+  /// Synchronizes complete health data for a specific historical day (dayIndex 0 to 6).
+  /// Automatically stores it indexed by its exact date in Drift SQLite.
+  Future<BandSyncedVitals> syncHistoricalDay(int dayIndex) async {
+    final now = DateTime.now();
+    final targetDate = now.subtract(Duration(days: dayIndex));
+    final dateStr = "${targetDate.year.toString().padLeft(4, '0')}-${targetDate.month.toString().padLeft(2, '0')}-${targetDate.day.toString().padLeft(2, '0')}";
+
+    final raw = await _service.syncHistoricalDay(dayIndex);
+    final vitals = raw.copyWith(date: dateStr, dayIndex: dayIndex);
+    await _persistVitals(vitals, targetDate: dateStr);
+    if (dayIndex == 0) {
+      _lastSyncedVitals = vitals;
+      _syncedVitalsController.add(vitals);
+    }
+    return vitals;
+  }
+
+  /// Performs midnight rollover check:
+  /// Resets daily live accumulator metrics when a new day starts (00:00:00)
+  /// and automatically archives previous day's finalized counters.
+  void checkMidnightRollover() {
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    if (_lastRecordedDate.isNotEmpty && _lastRecordedDate != today) {
+      debugPrint('🌙 [MIDNIGHT ROLLOVER] Date changed from $_lastRecordedDate to $today. Resetting active counters & archiving previous day.');
+      // 1. In background, sync yesterday (dayIndex: 1) to ensure yesterday's finalized records are frozen
+      syncHistoricalDay(1).catchError((_) => const BandSyncedVitals());
+      // 2. Reset active memory counters for the new day
+      _lastSyncedVitals = _lastSyncedVitals.copyWith(
+        steps: 0,
+        calories: 0,
+        distance: 0,
+        hourlySteps: List.filled(24, 0),
+        date: today,
+        dayIndex: 0,
+      );
+      _syncedVitalsController.add(_lastSyncedVitals);
+    }
+    _lastRecordedDate = today;
+  }
+
+  /// Retrieves daily summary record for a specific date from Drift DB.
+  Future<DailyHealthSummary?> getDailySummaryForDate(String date) async {
+    final userId = await _secureStorage.getActiveUserId();
+    return _db.healthDataDao.getDailySummary(userId, date);
+  }
+
+  /// Retrieves sleep session and individual sleep phases for a specific date.
+  Future<({SleepSession session, List<SleepPhase> phases})?> getSleepDataForDate(String date) async {
+    final devId = _connectedDevice?.macAddress ?? _lastPairedDevice?.mac ?? 'default_band';
+    return _db.healthDataDao.getSleepSessionWithPhasesByDate(devId, date);
+  }
+
+  /// Retrieves vitals records (e.g. 'spo2') for a specific date.
+  Future<List<VitalsRecord>> getVitalsForDate(String vitalType, String date) async {
+    final devId = _connectedDevice?.macAddress ?? _lastPairedDevice?.mac ?? 'default_band';
+    return _db.healthDataDao.getVitalsHistoryForDate(devId, vitalType, date);
   }
 
   /// Starts an on-demand single measurement.

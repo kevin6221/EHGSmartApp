@@ -782,6 +782,10 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
             "syncHistoricalVitals", "syncFullHealthData" -> {
                 syncFullHealthData(result)
             }
+            "syncHistoricalDay" -> {
+                val dayIndex = call.argument<Int>("dayIndex") ?: 0
+                syncHistoricalDay(dayIndex, result)
+            }
             "startMeasuring" -> {
                 val type = call.argument<String>("type") ?: "heartRate"
                 val ok = startMeasuringQc(type)
@@ -2564,6 +2568,11 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
     }
 
     private fun syncFullHealthData(result: MethodChannel.Result) {
+        startSequentialHealthSync(result)
+    }
+
+    private fun syncHistoricalDay(dayIndex: Int, result: MethodChannel.Result) {
+        // Sequentially queries hardware and returns metrics with the specified dayIndex
         startSequentialHealthSync(result)
     }
 

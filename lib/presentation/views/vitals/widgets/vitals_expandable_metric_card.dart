@@ -27,6 +27,7 @@ class VitalsExpandableMetricCard extends StatefulWidget {
   final ValueNotifier<bool>? isExpandedNotifier;
   final VoidCallback? onExpandChanged;
   final VoidCallback? onTap;
+  final VoidCallback? onHeaderActionTap;
 
   const VitalsExpandableMetricCard({
     super.key,
@@ -45,6 +46,7 @@ class VitalsExpandableMetricCard extends StatefulWidget {
     this.isExpandedNotifier,
     this.onExpandChanged,
     this.onTap,
+    this.onHeaderActionTap,
   }) : assert(
           svgIcon != null || iconData != null,
           'Either svgIcon or iconData must be provided',
@@ -236,6 +238,32 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              if (widget.onHeaderActionTap != null)
+                                InkWell(
+                                  borderRadius: BorderRadius.circular(6.0),
+                                  onTap: widget.onHeaderActionTap,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Details',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 12.0,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                        const Icon(
+                                          Icons.chevron_right_rounded,
+                                          size: 16.0,
+                                          color: AppColors.primary,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                           SizedBox(height: dims.itemSpacing),

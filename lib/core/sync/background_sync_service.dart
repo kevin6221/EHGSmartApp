@@ -57,7 +57,7 @@ class BackgroundSyncService {
       final result = await _backgroundChannel.invokeMethod<bool>(
         'schedulePeriodicSync',
         {
-          'intervalMinutes': HealthSyncPolicy.backgroundSyncInterval.inMinutes,
+          'intervalMinutes': HealthSyncPolicy.coldStartSyncThreshold.inMinutes,
         },
       );
       debugPrint('📅 [BG SYNC] Native periodic sync scheduled: $result');
@@ -74,7 +74,7 @@ class BackgroundSyncService {
   /// Executes background synchronization if allowed by [HealthSyncPolicy].
   Future<bool> performBackgroundSync() async {
     final lastSync = syncManager.lastHealthSyncAt;
-    if (!HealthSyncPolicy.shouldBackgroundSync(lastSync)) {
+    if (!HealthSyncPolicy.shouldColdStartSync(lastSync)) {
       debugPrint('ℹ️ [BG SYNC] Background sync skipped by policy: data is fresh (last sync: $lastSync).');
       return true;
     }

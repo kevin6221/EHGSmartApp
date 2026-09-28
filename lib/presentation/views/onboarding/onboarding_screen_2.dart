@@ -49,6 +49,11 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
     _selectedDeviceIdNotifier = ValueNotifier<String?>(null);
     _listScrollController = ScrollController();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<BandBloc>().add(CheckBandPermissionsEvent());
+      }
+    });
   }
 
   @override
@@ -73,17 +78,8 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
   void _onFindBandPressed(BuildContext context) {
     final bloc = context.read<BandBloc>();
     final state = bloc.state;
-    if (!state.isBluetoothEnabled) {
-      _showPermissionModal(
-        context,
-        BandPermissionDialogType.bluetoothOff,
-        () {
-          bloc.add(EnableBluetoothEvent());
-          bloc.add(OpenAppSettingsEvent());
-        },
-      );
-      return;
-    }
+
+    // 1. Permanently denied permission is the ultimate blocker - must open App Settings
     if (state.isPermanentlyDenied) {
       _showPermissionModal(
         context,
@@ -92,6 +88,28 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
       );
       return;
     }
+
+    // 2. Permission denied (first time) - show permission rationale dialog
+    if (state.permissionDetails?.status == BandPermissionStatus.denied) {
+      _showPermissionModal(
+        context,
+        BandPermissionDialogType.denied,
+        () => bloc.add(RequestBandPermissionsEvent()),
+      );
+      return;
+    }
+
+    // 3. Hardware Bluetooth is powered off - prompt user to enable it
+    if (!state.isBluetoothEnabled) {
+      _showPermissionModal(
+        context,
+        BandPermissionDialogType.bluetoothOff,
+        () => bloc.add(EnableBluetoothEvent()),
+      );
+      return;
+    }
+
+    // 4. Location services (GPS) disabled on Android - prompt user to enable Location
     if (!state.isLocationEnabled) {
       _showPermissionModal(
         context,
@@ -100,6 +118,8 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
       );
       return;
     }
+
+    // 5. All hardware & permissions ready -> trigger BLE scanning
     bloc.add(const StartBandScanEvent());
   }
 
@@ -151,10 +171,14 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
               return BlocConsumer<BandBloc, BandState>(
                 listenWhen: (previous, current) {
                   final becameConnected = !previous.isConnected && current.isConnected;
-                  final newError = previous.errorMessage != current.errorMessage && current.errorMessage != null;
+                  final newError = current.errorMessage != null &&
+                      (previous.errorMessage != current.errorMessage ||
+                          current.status == BandConnectionStatus.disconnected);
+                  final permChanged = previous.isPermanentlyDenied != current.isPermanentlyDenied ||
+                      previous.permissionDetails?.status != current.permissionDetails?.status;
                   final devicesChanged = previous.discoveredDevices != current.discoveredDevices;
                   final btChanged = previous.bluetoothState != current.bluetoothState;
-                  return (becameConnected && !_hasNavigated) || newError || devicesChanged || btChanged;
+                  return (becameConnected && !_hasNavigated) || newError || permChanged || devicesChanged || btChanged;
                 },
                 listener: (context, state) {
                   if (state.bluetoothState == BandBluetoothState.poweredOn && _isDialogShowing) {
@@ -208,41 +232,26 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
                         Navigator.pushNamed(context, AppRoutes.onboarding3);
                       }
                     });
-                  } else if (state.errorMessage != null) {
+                  } else if (state.errorMessage != null || state.isPermanentlyDenied) {
                     ScaffoldMessenger.of(context).hideCurrentSnackBar();
                     final bloc = context.read<BandBloc>();
 
-                    if (state.errorMessage!.contains('Pairing info mismatch') ||
-                        state.errorMessage!.contains('Forget This Device') ||
-                        state.errorMessage!.toLowerCase().contains('pairing')) {
+                    if (state.errorMessage != null &&
+                        (state.errorMessage!.contains('Pairing info mismatch') ||
+                            state.errorMessage!.contains('Forget This Device') ||
+                            state.errorMessage!.toLowerCase().contains('pairing'))) {
                       _showPermissionModal(
                         context,
                         BandPermissionDialogType.pairingMismatch,
                         () => bloc.add(OpenAppSettingsEvent()),
                       );
                     } else if (state.isPermanentlyDenied ||
-                        (state.errorMessage?.contains('permanently') ?? false)) {
+                        (state.errorMessage?.contains('permanently') ?? false) ||
+                        (state.errorMessage?.contains('Settings') ?? false)) {
                       _showPermissionModal(
                         context,
                         BandPermissionDialogType.permanentlyDenied,
                         () => bloc.add(OpenAppSettingsEvent()),
-                      );
-                    } else if (!state.isBluetoothEnabled ||
-                        (state.errorMessage?.contains('turned OFF') ?? false)) {
-                      _showPermissionModal(
-                        context,
-                        BandPermissionDialogType.bluetoothOff,
-                        () {
-                          bloc.add(EnableBluetoothEvent());
-                          bloc.add(OpenAppSettingsEvent());
-                        },
-                      );
-                    } else if (!state.isLocationEnabled ||
-                        (state.errorMessage?.contains('Location') ?? false)) {
-                      _showPermissionModal(
-                        context,
-                        BandPermissionDialogType.locationOff,
-                        () => bloc.add(OpenLocationSettingsEvent()),
                       );
                     } else if (state.permissionDetails?.status == BandPermissionStatus.denied ||
                         (state.errorMessage?.contains('permission') ?? false)) {
@@ -251,7 +260,21 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
                         BandPermissionDialogType.denied,
                         () => bloc.add(RequestBandPermissionsEvent()),
                       );
-                    } else {
+                    } else if (!state.isBluetoothEnabled ||
+                        (state.errorMessage?.contains('turned OFF') ?? false)) {
+                      _showPermissionModal(
+                        context,
+                        BandPermissionDialogType.bluetoothOff,
+                        () => bloc.add(EnableBluetoothEvent()),
+                      );
+                    } else if (!state.isLocationEnabled ||
+                        (state.errorMessage?.contains('Location') ?? false)) {
+                      _showPermissionModal(
+                        context,
+                        BandPermissionDialogType.locationOff,
+                        () => bloc.add(OpenLocationSettingsEvent()),
+                      );
+                    } else if (state.errorMessage != null) {
                       // Generic network or timeout error
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -266,7 +289,7 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
                             state.errorMessage!,
                             style: GoogleFonts.plusJakartaSans(
                               color: AppColors.white,
-                              fontSize: 13,
+                              fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -573,18 +596,20 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
                                   // 4. Action Button (Find My band -> Connect)
                                   AppButton(
                                     text: !isFound
-                                        ? (!state.isBluetoothEnabled
-                                            ? 'Turn On Bluetooth'
-                                            : (state.isScanning
-                                                ? 'Searching for band...'
-                                                : 'Refresh & Find Band'))
+                                        ? (state.isPermanentlyDenied
+                                            ? 'Open App Settings'
+                                            : (!state.isBluetoothEnabled
+                                                ? 'Turn On Bluetooth'
+                                                : (state.isScanning
+                                                    ? 'Searching for band...'
+                                                    : 'Refresh & Find Band')))
                                         : (state.isConnecting
                                             ? 'Connecting...'
                                             : (state.isConnected
                                                 ? 'Connected'
                                                 : 'Connect')),
                                     isLoading: (!isFound && state.isScanning) || state.isConnecting,
-                                    trailingSvg: (!isFound && !state.isBluetoothEnabled)
+                                    trailingSvg: (!isFound && (!state.isBluetoothEnabled || state.isPermanentlyDenied))
                                         ? null
                                         : (((!isFound && state.isScanning) || state.isConnecting)
                                             ? null
@@ -601,11 +626,13 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
                                   // 5. Status / Privacy Footer
                                   Text(
                                     !isFound
-                                        ? (!state.isBluetoothEnabled
-                                            ? 'Bluetooth is turned OFF • Tap to enable'
-                                            : (state.isScanning
-                                                ? 'Bluetooth   •   Scanning nearby...'
-                                                : 'Bluetooth   •   Ready to search'))
+                                        ? (state.isPermanentlyDenied
+                                            ? 'Nearby Devices permission denied • Tap to open Settings'
+                                            : (!state.isBluetoothEnabled
+                                                ? 'Bluetooth is turned OFF • Tap to enable'
+                                                : (state.isScanning
+                                                    ? 'Bluetooth   •   Scanning nearby...'
+                                                    : 'Bluetooth   •   Ready to search')))
                                         : 'Your data stays on your phone',
                                     style: GoogleFonts.plusJakartaSans(
                                       fontSize: 12.0,

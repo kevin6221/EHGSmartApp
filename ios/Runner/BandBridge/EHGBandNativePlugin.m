@@ -663,6 +663,52 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     else if ([@"syncHistoricalVitals" isEqualToString:call.method] || [@"syncFullHealthData" isEqualToString:call.method]) {
         [self syncFullHealthDataWithResult:result];
     }
+    else if ([@"syncHistoricalDay" isEqualToString:call.method]) {
+        NSInteger dayIndex = [call.arguments[@"dayIndex"] integerValue];
+        [self syncHistoricalDay:dayIndex withResult:result];
+    }
+    else if ([@"setScheduledStressStatus" isEqualToString:call.method]) {
+        BOOL enable = [call.arguments[@"enable"] boolValue];
+        [self enqueueCommand:^(EHGBandDone done) {
+            [QCSDKCmdCreator setSchedualStressStatus:enable finshed:^(NSError * _Nullable error) {
+                result(@(error == nil));
+                done();
+            }];
+        }];
+    }
+    else if ([@"setScheduledHRVStatus" isEqualToString:call.method]) {
+        BOOL enable = [call.arguments[@"enable"] boolValue];
+        [self enqueueCommand:^(EHGBandDone done) {
+            [QCSDKCmdCreator setSchedualHRVStatus:enable finshed:^(NSError * _Nullable error) {
+                result(@(error == nil));
+                done();
+            }];
+        }];
+    }
+    else if ([@"setScheduledBPStatus" isEqualToString:call.method]) {
+        BOOL enable = [call.arguments[@"enable"] boolValue];
+        [self enqueueCommand:^(EHGBandDone done) {
+            [QCSDKCmdCreator setSchedualBPInfoOn:enable beginTime:@"00:00" endTime:@"23:59" minuteInterval:60 success:^(BOOL featureOn, NSString *beginTime, NSString *endTime, NSInteger minuteInterval) {
+                result(@(YES));
+                done();
+            } fail:^{
+                result(@(NO));
+                done();
+            }];
+        }];
+    }
+    else if ([@"setScheduledOxygenStatus" isEqualToString:call.method]) {
+        BOOL enable = [call.arguments[@"enable"] boolValue];
+        [self enqueueCommand:^(EHGBandDone done) {
+            [QCSDKCmdCreator setSchedualBOInfoOn:enable success:^(BOOL featureOn) {
+                result(@(YES));
+                done();
+            } fail:^{
+                result(@(NO));
+                done();
+            }];
+        }];
+    }
     else if ([@"startMeasuring" isEqualToString:call.method]) {
         [self startMeasuring:call.arguments[@"type"] result:result];
     }
@@ -972,8 +1018,10 @@ typedef void (^EHGBandWork)(EHGBandDone done);
                             [weakSelf syncTemperatureInto:syncData finish:^{
                                 [weakSelf syncStressInto:syncData finish:^{
                                     [weakSelf syncHrvInto:syncData finish:^{
-                                        result(syncData);
-                                        done();
+                                        [weakSelf syncSportDetailForDay:0 into:syncData finish:^{
+                                            result(syncData);
+                                            done();
+                                        }];
                                     }];
                                 }];
                             }];
@@ -985,6 +1033,206 @@ typedef void (^EHGBandWork)(EHGBandDone done);
             result([weakSelf buildCachedSyncMap]);
             done();
         }];
+    }];
+}
+
+- (void)syncHistoricalDay:(NSInteger)dayIndex withResult:(FlutterResult)result {
+    if ([QCCentralManager shared].deviceState != QCStateConnected) {
+        NSLog(@"[EHGBandNative] syncHistoricalDay: Band not connected. Returning empty set.");
+        result(@{@"dayIndex": @(dayIndex), @"steps": @0, @"calories": @0, @"distance": @0, @"sleepMinutes": @0, @"deepSleepMinutes": @0, @"sleepPhases": @[], @"hourlySteps": @[]});
+        return;
+    }
+
+    __weak typeof(self) weakSelf = self;
+    [self enqueueCommand:^(EHGBandDone done) {
+        NSMutableDictionary *syncData = [NSMutableDictionary dictionary];
+        syncData[@"dayIndex"] = @(dayIndex);
+        syncData[@"steps"] = @0;
+        syncData[@"calories"] = @0;
+        syncData[@"distance"] = @0;
+        syncData[@"sleepMinutes"] = @0;
+        syncData[@"deepSleepMinutes"] = @0;
+        syncData[@"bloodOxygen"] = @0;
+        syncData[@"sleepPhases"] = @[];
+        syncData[@"heartRateHistory"] = @[];
+        syncData[@"hourlySteps"] = @[];
+
+        void (^fetchSleepAndRest)(void) = ^{
+            [weakSelf syncSleepForDay:dayIndex into:syncData finish:^{
+                [weakSelf syncHeartRateForDay:dayIndex into:syncData finish:^{
+                    [weakSelf syncOxygenForDay:dayIndex into:syncData finish:^{
+                        [weakSelf syncStressForDay:dayIndex into:syncData finish:^{
+                            [weakSelf syncHrvForDay:dayIndex into:syncData finish:^{
+                                [weakSelf syncSportDetailForDay:dayIndex into:syncData finish:^{
+                                    result(syncData);
+                                    done();
+                                }];
+                            }];
+                        }];
+                    }];
+                }];
+            }];
+        };
+
+        if (dayIndex == 0) {
+            [QCSDKCmdCreator getCurrentSportSucess:^(QCSportModel *sport) {
+                if (sport) {
+                    syncData[@"steps"] = @(sport.totalStepCount);
+                    syncData[@"calories"] = @((int)sport.calories);
+                    syncData[@"distance"] = @(sport.distance);
+                }
+                fetchSleepAndRest();
+            } failed:^{
+                fetchSleepAndRest();
+            }];
+        } else {
+            [QCSDKCmdCreator getOneDaySportBy:dayIndex success:^(QCSportModel *sport) {
+                if (sport) {
+                    syncData[@"steps"] = @(sport.totalStepCount);
+                    syncData[@"calories"] = @((int)sport.calories);
+                    syncData[@"distance"] = @(sport.distance);
+                }
+                fetchSleepAndRest();
+            } fail:^{
+                fetchSleepAndRest();
+            }];
+        }
+    }];
+}
+
+- (void)syncSportDetailForDay:(NSInteger)dayIndex into:(NSMutableDictionary *)syncData finish:(void (^)(void))finish {
+    [QCSDKCmdCreator getSportDetailDataByDay:dayIndex sportDatas:^(NSArray<QCSportModel *> *sports) {
+        NSMutableArray *hourly = [NSMutableArray arrayWithCapacity:24];
+        for (NSInteger h = 0; h < 24; h++) {
+            [hourly addObject:@0];
+        }
+        for (QCSportModel *s in sports) {
+            if (s.happenDate && s.happenDate.length >= 13) {
+                NSString *hourStr = [s.happenDate substringWithRange:NSMakeRange(11, 2)];
+                NSInteger hour = [hourStr integerValue];
+                if (hour >= 0 && hour < 24) {
+                    NSInteger cur = [hourly[hour] integerValue];
+                    hourly[hour] = @(cur + s.totalStepCount);
+                }
+            }
+        }
+        syncData[@"hourlySteps"] = hourly;
+        finish();
+    } fail:^{
+        finish();
+    }];
+}
+
+- (void)syncSleepForDay:(NSInteger)dayIndex into:(NSMutableDictionary *)syncData finish:(void (^)(void))finish {
+    [QCSDKCmdCreator getFulldaySleepDetailDataByDay:dayIndex sleepDatas:^(NSArray<QCSleepModel *> *sleeps, NSArray<QCSleepModel *> *naps) {
+        NSInteger totalSleepMinutes = 0;
+        NSInteger deepSleepMinutes = 0;
+        NSMutableArray *phases = [NSMutableArray array];
+        for (QCSleepModel *s in sleeps) {
+            if (s.type == SLEEPTYPENONE || s.type == SLEEPTYPEUNWEARED) {
+                continue;
+            }
+            totalSleepMinutes += s.total;
+            if (s.type == SLEEPTYPEDEEP) {
+                deepSleepMinutes += s.total;
+            }
+            [phases addObject:@{
+                @"type": @(s.type),
+                @"startTime": s.happenDate ?: @"",
+                @"endTime": s.endTime ?: @"",
+                @"durationMinutes": @(s.total)
+            }];
+        }
+        syncData[@"sleepMinutes"] = @(totalSleepMinutes);
+        syncData[@"deepSleepMinutes"] = @(deepSleepMinutes);
+        syncData[@"sleepPhases"] = phases;
+        finish();
+    } fail:^{
+        finish();
+    }];
+}
+
+- (void)syncOxygenForDay:(NSInteger)dayIndex into:(NSMutableDictionary *)syncData finish:(void (^)(void))finish {
+    [QCSDKCmdCreator getBloodOxygenDataByDayIndex:dayIndex finished:^(NSArray *list, NSError *error) {
+        CGFloat latest = 0;
+        for (id item in list) {
+            if ([item isKindOfClass:[QCBloodOxygenModel class]]) {
+                QCBloodOxygenModel *model = (QCBloodOxygenModel *)item;
+                if (model.soa2 > 0) {
+                    latest = model.soa2;
+                }
+            } else if ([item isKindOfClass:[NSNumber class]]) {
+                CGFloat value = [(NSNumber *)item doubleValue];
+                if (value > 0) {
+                    latest = value;
+                }
+            }
+        }
+        if (latest > 0) {
+            syncData[@"bloodOxygen"] = @(latest);
+        }
+        finish();
+    }];
+}
+
+- (void)syncHeartRateForDay:(NSInteger)dayIndex into:(NSMutableDictionary *)syncData finish:(void (^)(void))finish {
+    [QCSDKCmdCreator getSchedualHeartRateDataWithDayIndexs:@[@(dayIndex)] success:^(NSArray<QCSchedualHeartRateModel *> *models) {
+        NSMutableArray *history = [NSMutableArray array];
+        for (QCSchedualHeartRateModel *model in models) {
+            NSInteger index = 0;
+            for (NSNumber *hr in model.heartRates) {
+                NSInteger bpm = hr.integerValue;
+                if (bpm > 0) {
+                    [history addObject:@{
+                        @"bpm": @(bpm),
+                        @"timestamp": [NSString stringWithFormat:@"%@#%ld", model.date ?: @"", (long)index]
+                    }];
+                }
+                index += 1;
+            }
+        }
+        syncData[@"heartRateHistory"] = history;
+        finish();
+    } fail:^{
+        finish();
+    }];
+}
+
+- (void)syncStressForDay:(NSInteger)dayIndex into:(NSMutableDictionary *)syncData finish:(void (^)(void))finish {
+    [QCSDKCmdCreator getSchedualStressDataWithDates:@[@(dayIndex)] finished:^(NSArray *list, NSError *error) {
+        NSInteger latest = 0;
+        for (id item in list) {
+            if ([item isKindOfClass:[QCStressModel class]]) {
+                for (NSNumber *value in ((QCStressModel *)item).stresses) {
+                    if (value.integerValue > 0) {
+                        latest = value.integerValue;
+                    }
+                }
+            }
+        }
+        if (latest > 0) {
+            syncData[@"stressLevel"] = @(latest);
+        }
+        finish();
+    }];
+}
+
+- (void)syncHrvForDay:(NSInteger)dayIndex into:(NSMutableDictionary *)syncData finish:(void (^)(void))finish {
+    [QCSDKCmdCreator getSchedualHRVDataWithDates:@[@(dayIndex)] finished:^(NSArray *list, NSError *error) {
+        NSInteger latest = 0;
+        for (id item in list) {
+            if ([item isKindOfClass:[QCHRVModel class]]) {
+                for (NSNumber *value in ((QCHRVModel *)item).hrv) {
+                    if (value.integerValue > 0) {
+                        latest = value.integerValue;
+                    }
+                }
+            }
+        }
+        if (latest > 0) {
+            syncData[@"hrvMs"] = @(latest);
+        }
+        finish();
     }];
 }
 

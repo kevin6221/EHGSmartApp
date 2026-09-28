@@ -23,6 +23,7 @@ import 'widgets/vitals_sleep_summary_card.dart';
 import 'widgets/vitals_stress_card.dart';
 import 'widgets/vitals_twin_trend_cards.dart';
 
+
 /// Vitals dashboard screen displaying sleep, heart metrics, stress, oxygen, and trend vitals.
 ///
 /// Features expandable/collapsible metric cards for HRV, Resting HR, Blood Oxygen, and Breathing Rate
@@ -41,19 +42,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
   void initState() {
     super.initState();
     _expandNotifiers = List.generate(4, (_) => ValueNotifier<bool>(false));
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      try {
-        final syncMgr = context.read<HealthSyncManager>();
-        final bandRepo = context.read<BandRepository>();
-        final wellnessRepo = context.read<WellnessRepository>();
-        syncMgr.syncHeartRateIfDue(bandRepo: bandRepo, wellnessRepo: wellnessRepo).then((_) {
-          if (mounted) {
-            context.read<VitalsBloc>().add(LoadVitalsEvent());
-          }
-        });
-      } catch (_) {}
-    });
+    // No automatic sync — data updates only via pull-to-refresh.
   }
 
   @override

@@ -220,6 +220,12 @@ class MockBandService implements BandService {
   }
 
   @override
+  Future<BandSyncedVitals> syncHistoricalDay(int dayIndex) async {
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    return const BandSyncedVitals();
+  }
+
+  @override
   Future<bool> startMeasuring(MeasurementType type) async {
     return false;
   }

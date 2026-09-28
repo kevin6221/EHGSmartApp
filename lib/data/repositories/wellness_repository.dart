@@ -547,7 +547,13 @@ class WellnessRepository {
       final first = vitals.sleepPhases.first.startTime;
       final last = vitals.sleepPhases.last.endTime;
       if (first.isNotEmpty && last.isNotEmpty) {
-        sleepWindow = '$first - $last';
+        final dtFirst = DateTime.tryParse(first);
+        final dtLast = DateTime.tryParse(last);
+        if (dtFirst != null && dtLast != null) {
+          final startFormatted = '${(dtFirst.hour % 12 == 0 ? 12 : dtFirst.hour % 12).toString().padLeft(2, '0')}:${dtFirst.minute.toString().padLeft(2, '0')} ${dtFirst.hour >= 12 ? 'pm' : 'am'}';
+          final endFormatted = '${(dtLast.hour % 12 == 0 ? 12 : dtLast.hour % 12).toString().padLeft(2, '0')}:${dtLast.minute.toString().padLeft(2, '0')} ${dtLast.hour >= 12 ? 'pm' : 'am'}';
+          sleepWindow = '$startFormatted - $endFormatted';
+        }
       }
     }
 
@@ -991,6 +997,78 @@ class WellnessRepository {
         updatedAt: drift.Value(DateTime.now()),
       ),
     );
+  }
+
+  /// Reloads 7-day historical arrays from Drift SQLite and populates day-wise metrics.
+  Future<void> reloadWeeklyDataFromDatabase() async {
+    try {
+      final now = DateTime.now();
+      final monday = now.subtract(Duration(days: now.weekday - 1));
+      final sunday = monday.add(const Duration(days: 6));
+      final mondayStr = monday.toIso8601String().substring(0, 10);
+      final sundayStr = sunday.toIso8601String().substring(0, 10);
+      final userId = await _secureStorage.getActiveUserId();
+      final weeklySummaries = await _db.healthDataDao.getWeeklySummaries(userId, mondayStr, sundayStr);
+
+      if (weeklySummaries.isNotEmpty) {
+        List<double> dbWeeklyHr = List<double>.from(_wellnessData.weeklyHeartRate);
+        List<double> dbWeeklyRestHr = List<double>.from(_vitalsData.weeklyRestingHr);
+        List<double> dbWeeklyOxygen = List<double>.from(_vitalsData.weeklyOxygen);
+        List<double> dbWeeklyEnergy = List<double>.from(_wellnessData.weeklyEnergy);
+        List<double> dbWeeklyStress = List<double>.from(_vitalsData.stressTimeline);
+        List<double> dbWeeklyHrv = List<double>.from(_vitalsData.weeklyHrv);
+        List<double> dbWeeklyBreathing = List<double>.from(_vitalsData.weeklyBreathing);
+
+        for (final item in weeklySummaries) {
+          final parsedDate = DateTime.tryParse(item.date);
+          if (parsedDate != null) {
+            final dayIdx = (parsedDate.weekday - 1).clamp(0, 6);
+            if (item.avgHeartRate != null && item.avgHeartRate! > 0) {
+              dbWeeklyHr[dayIdx] = item.avgHeartRate!.toDouble();
+            } else if (item.restingHeartRate != null && item.restingHeartRate! > 0) {
+              dbWeeklyHr[dayIdx] = item.restingHeartRate!.toDouble();
+            }
+            if (item.restingHeartRate != null && item.restingHeartRate! > 0) {
+              dbWeeklyRestHr[dayIdx] = item.restingHeartRate!.toDouble();
+            }
+            if (item.avgSpo2 != null && item.avgSpo2! > 0) {
+              dbWeeklyOxygen[dayIdx] = item.avgSpo2!;
+            }
+            if (item.caloriesBurned > 0) {
+              final double cal = item.caloriesBurned > 10000 
+                  ? (item.caloriesBurned / 1000.0) 
+                  : (item.caloriesBurned > 2000 ? item.caloriesBurned / 100.0 : item.caloriesBurned);
+              dbWeeklyEnergy[dayIdx] = (cal / 600.0).clamp(0.05, 1.0);
+            }
+          }
+        }
+
+        final devId = await _secureStorage.getBondedDeviceMac() ?? 'default_band';
+        final dayStress = await _db.healthDataDao.getLatestVital(devId, 'stress');
+        if (dayStress?.valueNumeric != null && dayStress!.valueNumeric! > 0) {
+          dbWeeklyStress[_todayIndex] = dayStress.valueNumeric!;
+        }
+        final dayHrv = await _db.healthDataDao.getLatestVital(devId, 'hrv');
+        if (dayHrv?.valueNumeric != null && dayHrv!.valueNumeric! > 0) {
+          dbWeeklyHrv[_todayIndex] = dayHrv.valueNumeric!;
+        }
+
+        _wellnessData = _wellnessData.copyWith(
+          weeklyHeartRate: dbWeeklyHr,
+          weeklyEnergy: dbWeeklyEnergy,
+        );
+        _vitalsData = _vitalsData.copyWith(
+          weeklyHeartRate: dbWeeklyHr,
+          weeklyRestingHr: dbWeeklyRestHr,
+          weeklyOxygen: dbWeeklyOxygen,
+          stressTimeline: dbWeeklyStress,
+          weeklyHrv: dbWeeklyHrv,
+          weeklyBreathing: dbWeeklyBreathing,
+        );
+      }
+    } catch (e) {
+      debugPrint('⚠️ [WELLNESS REPO] reloadWeeklyDataFromDatabase error: $e');
+    }
   }
 
   void resetData() {

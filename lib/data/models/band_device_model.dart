@@ -225,6 +225,9 @@ class BandSyncedVitals extends Equatable {
   final List<double> weeklyOxygen;
   final List<double> weeklyRestingHr;
   final List<double> weeklyBreathing;
+  final List<int> hourlySteps;
+  final String date;
+  final int dayIndex;
 
   const BandSyncedVitals({
     this.steps = 0,
@@ -249,6 +252,9 @@ class BandSyncedVitals extends Equatable {
     this.weeklyOxygen = const [],
     this.weeklyRestingHr = const [],
     this.weeklyBreathing = const [],
+    this.hourlySteps = const [],
+    this.date = '',
+    this.dayIndex = 0,
   });
 
   factory BandSyncedVitals.fromMap(Map<dynamic, dynamic> map) {
@@ -262,9 +268,25 @@ class BandSyncedVitals extends Equatable {
       return const [];
     }
 
+    List<int> parseIntList(dynamic val) {
+      if (val is List) {
+        return val.map((e) => (e as num).toInt()).toList();
+      }
+      return const [];
+    }
+
+    int rawCal = (map['calories'] as num?)?.toInt() ?? 0;
+    // QC SDK hardware units return small calories (e.g. 78687 for 2257 steps ~ 79 kcal).
+    int normalizedCal = rawCal;
+    if (rawCal > 10000) {
+      normalizedCal = (rawCal / 1000).round();
+    } else if (rawCal > 2000 && rawCal <= 10000) {
+      normalizedCal = (rawCal / 100).round();
+    }
+
     return BandSyncedVitals(
       steps: (map['steps'] as num?)?.toInt() ?? 0,
-      calories: (map['calories'] as num?)?.toInt() ?? 0,
+      calories: normalizedCal,
       distance: (map['distance'] as num?)?.toInt() ?? 0,
       sleepMinutes: (map['sleepMinutes'] as num?)?.toInt() ?? 0,
       deepSleepMinutes: (map['deepSleepMinutes'] as num?)?.toInt() ?? 0,
@@ -291,6 +313,9 @@ class BandSyncedVitals extends Equatable {
       weeklyOxygen: parseDoubleList(map['weeklyOxygen']),
       weeklyRestingHr: parseDoubleList(map['weeklyRestingHr']),
       weeklyBreathing: parseDoubleList(map['weeklyBreathing']),
+      hourlySteps: parseIntList(map['hourlySteps']),
+      date: map['date']?.toString() ?? '',
+      dayIndex: (map['dayIndex'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -318,6 +343,9 @@ class BandSyncedVitals extends Equatable {
       'weeklyOxygen': weeklyOxygen,
       'weeklyRestingHr': weeklyRestingHr,
       'weeklyBreathing': weeklyBreathing,
+      'hourlySteps': hourlySteps,
+      'date': date,
+      'dayIndex': dayIndex,
     };
   }
 
@@ -348,6 +376,9 @@ class BandSyncedVitals extends Equatable {
     List<double>? weeklyOxygen,
     List<double>? weeklyRestingHr,
     List<double>? weeklyBreathing,
+    List<int>? hourlySteps,
+    String? date,
+    int? dayIndex,
   }) {
     return BandSyncedVitals(
       steps: steps ?? this.steps,
@@ -372,6 +403,9 @@ class BandSyncedVitals extends Equatable {
       weeklyOxygen: weeklyOxygen ?? this.weeklyOxygen,
       weeklyRestingHr: weeklyRestingHr ?? this.weeklyRestingHr,
       weeklyBreathing: weeklyBreathing ?? this.weeklyBreathing,
+      hourlySteps: hourlySteps ?? this.hourlySteps,
+      date: date ?? this.date,
+      dayIndex: dayIndex ?? this.dayIndex,
     );
   }
 
@@ -396,12 +430,24 @@ class BandSyncedVitals extends Equatable {
     'weeklyOxygen': weeklyOxygen,
     'weeklyRestingHr': weeklyRestingHr,
     'weeklyBreathing': weeklyBreathing,
+    'hourlySteps': hourlySteps,
+    'date': date,
+    'dayIndex': dayIndex,
   };
 
-  factory BandSyncedVitals.fromJson(Map<String, dynamic> json) => BandSyncedVitals(
-    steps: (json['steps'] as num?)?.toInt() ?? 0,
-    calories: (json['calories'] as num?)?.toInt() ?? 0,
-    distance: (json['distance'] as num?)?.toInt() ?? 0,
+  factory BandSyncedVitals.fromJson(Map<String, dynamic> json) {
+    int rawCal = (json['calories'] as num?)?.toInt() ?? 0;
+    int normalizedCal = rawCal;
+    if (rawCal > 10000) {
+      normalizedCal = (rawCal / 1000).round();
+    } else if (rawCal > 2000 && rawCal <= 10000) {
+      normalizedCal = (rawCal / 100).round();
+    }
+
+    return BandSyncedVitals(
+      steps: (json['steps'] as num?)?.toInt() ?? 0,
+      calories: normalizedCal,
+      distance: (json['distance'] as num?)?.toInt() ?? 0,
     sleepMinutes: (json['sleepMinutes'] as num?)?.toInt() ?? 0,
     deepSleepMinutes: (json['deepSleepMinutes'] as num?)?.toInt() ?? 0,
     bloodOxygen: (json['bloodOxygen'] as num?)?.toDouble() ?? 0.0,
@@ -440,7 +486,14 @@ class BandSyncedVitals extends Equatable {
             ?.map((e) => (e as num).toDouble())
             .toList() ??
         const [],
+    hourlySteps: (json['hourlySteps'] as List<dynamic>?)
+            ?.map((e) => (e as num).toInt())
+            .toList() ??
+        const [],
+    date: json['date']?.toString() ?? '',
+    dayIndex: (json['dayIndex'] as num?)?.toInt() ?? 0,
   );
+}
 
   @override
   List<Object?> get props => [
@@ -466,6 +519,9 @@ class BandSyncedVitals extends Equatable {
         weeklyOxygen,
         weeklyRestingHr,
         weeklyBreathing,
+        hourlySteps,
+        date,
+        dayIndex,
       ];
 }
 

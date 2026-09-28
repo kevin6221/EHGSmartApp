@@ -129,7 +129,23 @@ class HealthDataDao extends DatabaseAccessor<AppDatabase> with _$HealthDataDaoMi
     List<SleepPhasesTableCompanion> phases,
   ) {
     return transaction(() async {
-      final sessionId = await into(sleepSessionsTable).insert(session);
+      final existing = await (select(sleepSessionsTable)
+            ..where((tbl) =>
+                tbl.deviceId.equals(session.deviceId.value) &
+                tbl.date.equals(session.date.value)))
+          .getSingleOrNull();
+
+      final int sessionId;
+      if (existing != null) {
+        sessionId = existing.id;
+        await (update(sleepSessionsTable)..where((tbl) => tbl.id.equals(sessionId)))
+            .write(session);
+        await (delete(sleepPhasesTable)..where((tbl) => tbl.sessionId.equals(sessionId)))
+            .go();
+      } else {
+        sessionId = await into(sleepSessionsTable).insert(session);
+      }
+
       for (final phase in phases) {
         await into(sleepPhasesTable).insert(
           phase.copyWith(sessionId: Value(sessionId)),
@@ -152,6 +168,34 @@ class HealthDataDao extends DatabaseAccessor<AppDatabase> with _$HealthDataDaoMi
           ..where((tbl) => tbl.sessionId.equals(sessionId))
           ..orderBy([(t) => OrderingTerm.asc(t.startTime)]))
         .get();
+  }
+
+  Future<({SleepSession session, List<SleepPhase> phases})?> getSleepSessionWithPhasesByDate(
+    String deviceId,
+    String date,
+  ) async {
+    final session = await (select(sleepSessionsTable)
+          ..where((tbl) =>
+              (tbl.deviceId.equals(deviceId) | tbl.deviceId.equals('default_band')) &
+              tbl.date.equals(date))
+          ..orderBy([(t) => OrderingTerm.desc(t.startTime)])
+          ..limit(1))
+        .getSingleOrNull();
+    if (session == null) return null;
+    final phases = await getPhasesForSession(session.id);
+    return (session: session, phases: phases);
+  }
+
+  Future<List<VitalsRecord>> getVitalsHistoryForDate(
+    String deviceId,
+    String vitalType,
+    String date,
+  ) {
+    final parsed = DateTime.tryParse(date);
+    if (parsed == null) return Future.value([]);
+    final start = DateTime(parsed.year, parsed.month, parsed.day, 0, 0, 0);
+    final end = DateTime(parsed.year, parsed.month, parsed.day, 23, 59, 59);
+    return getVitalsHistory(deviceId, vitalType, start, end);
   }
 
   // Vitals Records

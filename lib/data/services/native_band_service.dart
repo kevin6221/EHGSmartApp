@@ -134,7 +134,8 @@ class NativeBandService implements BandService {
 
       case 'step_update':
         final steps = (event['steps'] as num?)?.toInt() ?? 0;
-        final cal = (event['calories'] as num?)?.toInt() ?? 0;
+        final rawCal = (event['calories'] as num?)?.toInt() ?? 0;
+        final cal = rawCal > 10000 ? (rawCal / 1000).round() : (rawCal > 2000 ? (rawCal / 100).round() : rawCal);
         final dist = (event['distance'] as num?)?.toInt() ?? 0;
         debugPrint('👟 [BAND DATA - LIVE PEDOMETER] Steps: $steps | Calories: $cal kcal | Distance: $dist m');
         _pedometerController.add(BandPedometerInfo(
@@ -486,6 +487,24 @@ class NativeBandService implements BandService {
     }
     // Fall back to basic sync if full sync is not available
     return syncHistoricalVitals();
+  }
+
+  @override
+  Future<BandSyncedVitals> syncHistoricalDay(int dayIndex) async {
+    try {
+      final res = await _methodChannel.invokeMethod<Map<dynamic, dynamic>>(
+        'syncHistoricalDay',
+        {'dayIndex': dayIndex},
+      );
+      if (res != null) {
+        final vitals = BandSyncedVitals.fromMap(res);
+        debugPrint('📊 [BAND HISTORICAL DAY $dayIndex SYNC] Steps=${vitals.steps}, Sleep=${vitals.sleepMinutes}m');
+        return vitals;
+      }
+    } catch (e) {
+      debugPrint('⚠️ [BAND HISTORICAL DAY SYNC ERROR] Day $dayIndex: $e');
+    }
+    return const BandSyncedVitals();
   }
 
   @override
