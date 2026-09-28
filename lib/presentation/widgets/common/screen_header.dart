@@ -5,6 +5,7 @@ import '../../../core/constants/app_constants.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
+import 'app_back_button.dart';
 
 /// Decorative sky header gradient background used across all major tabs.
 class SkyHeaderBackground extends StatelessWidget {
@@ -88,16 +89,11 @@ class ScreenHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (showBackButton)
-          GestureDetector(
-            onTap: onBackTap ?? () => Navigator.of(context).pop(),
-            behavior: HitTestBehavior.opaque,
-            child: const Padding(
-              padding: EdgeInsets.only(right: 12.0),
-              child: Icon(
-                Icons.arrow_back_ios_new_outlined,
-                color: AppColors.white,
-                size: 20.0,
-              ),
+          Padding(
+            padding: const EdgeInsets.only(right: 12.0),
+            child: AppBackButton(
+              onTap: onBackTap,
+              isLightHeader: true,
             ),
           ),
         Expanded(

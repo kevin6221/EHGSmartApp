@@ -149,7 +149,7 @@ class HealthSyncManager {
         _logStaleness();
 
         final vitals = await bandRepo.syncFullHealthData();
-        wellnessRepo.updateFromBandVitals(vitals);
+        wellnessRepo.updateFromBandVitals(vitals, updateMode: true);
         await wellnessRepo.reloadWeeklyDataFromDatabase();
         await _recordFullSyncSuccess();
 

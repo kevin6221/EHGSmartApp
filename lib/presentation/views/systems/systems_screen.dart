@@ -6,7 +6,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/constants/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
+import '../../../data/models/wellness_data_model.dart';
+import '../../../data/models/workout_model.dart';
 import '../../../data/repositories/wellness_repository.dart';
+import '../../blocs/wellness/wellness_bloc.dart';
 import '../../widgets/common/screen_header.dart';
 import 'widgets/systems_build_routine_section.dart';
 import 'widgets/systems_journeys_section.dart';
@@ -16,7 +19,14 @@ import 'widgets/systems_system_card.dart';
 /// Systems screen matching Figma Node 143:2187 ("Four systems, one wardrobe").
 /// Strictly adheres to zero setState() policy using ValueNotifiers for reactive local state.
 class SystemsScreen extends StatefulWidget {
-  const SystemsScreen({super.key});
+  final WellnessMode? initialMode;
+  final String? initialExpandedSection;
+
+  const SystemsScreen({
+    super.key,
+    this.initialMode,
+    this.initialExpandedSection,
+  });
 
   @override
   State<SystemsScreen> createState() => _SystemsScreenState();
@@ -37,7 +47,15 @@ class _SystemsScreenState extends State<SystemsScreen> {
     _selectedDurationNotifier = ValueNotifier<int>(14);
     _selectedMovementsNotifier = ValueNotifier<Set<String>>({'Yga'});
     _selectedWellnessNotifier = ValueNotifier<Set<String>>({'Mobile Flow'});
-    _expandedSystemNotifier = ValueNotifier<String?>('recover');
+
+    final String initialSection = widget.initialExpandedSection ??
+        switch (widget.initialMode) {
+          WellnessMode.recover => 'recover',
+          WellnessMode.steady => 'move',
+          WellnessMode.push => 'move',
+          null => 'recover',
+        };
+    _expandedSystemNotifier = ValueNotifier<String?>(initialSection);
     _activeRoutineNotifier = ValueNotifier<List<Map<String, String>>>([
       {
         'key': 'Mobile Flow',
@@ -163,25 +181,93 @@ class _SystemsScreenState extends State<SystemsScreen> {
                   const SizedBox(height: 27.0),
 
                   // 3. Four Systems Cards
-                  SystemsCardTemplate(
-                    icon: AppIcons.runningManIcon,
-                    title: 'Move',
-                    subtitle: 'Strength, running, movement goals',
-                    sectionKey: 'move',
-                    expandedSystemNotifier: _expandedSystemNotifier,
-                    details: const [
-                      'Strength session · 45 min',
-                      'Run intervals · 30 min',
-                      'Movement goal · 8,000 steps',
-                    ],
-                    r: r,
-                  ),
-                  const SizedBox(height: 16.0),
+                  () {
+                    final activeMode = widget.initialMode ??
+                        context.watch<WellnessBloc>().state.data?.activeMode ??
+                        WellnessMode.recover;
 
-                  SystemsRecoverCard(
-                    expandedSystemNotifier: _expandedSystemNotifier,
-                    r: r,
-                  ),
+                    final bool isMoveLeading = activeMode == WellnessMode.steady ||
+                        activeMode == WellnessMode.push;
+                    final bool isRecoverLeading =
+                        activeMode == WellnessMode.recover;
+
+                    final List<SystemExerciseItem> moveExercises =
+                        switch (activeMode) {
+                      WellnessMode.steady => const [
+                          SystemExerciseItem(
+                            title: 'Brisk outdoor walk · 30 min',
+                            workoutType: WorkoutType.walk,
+                          ),
+                          SystemExerciseItem(
+                            title: 'Steady Zone 2 aerobic walk · 45 min',
+                            workoutType: WorkoutType.walk,
+                          ),
+                          SystemExerciseItem(
+                            title: 'Movement goal · 8,000 steps',
+                            workoutType: WorkoutType.walk,
+                          ),
+                        ],
+                      WellnessMode.push => const [
+                          SystemExerciseItem(
+                            title: 'Full body strength session · 45 min',
+                            workoutType: WorkoutType.strength,
+                          ),
+                          SystemExerciseItem(
+                            title: 'HIIT intervals & sprint · 30 min',
+                            workoutType: WorkoutType.hit,
+                          ),
+                          SystemExerciseItem(
+                            title: 'Tempo run intervals · 35 min',
+                            workoutType: WorkoutType.run,
+                          ),
+                        ],
+                      WellnessMode.recover => const [
+                          SystemExerciseItem(
+                            title: 'Active recovery walk · 25 min',
+                            workoutType: WorkoutType.walk,
+                          ),
+                          SystemExerciseItem(
+                            title: 'Light movement goal · 5,000 steps',
+                            workoutType: WorkoutType.walk,
+                          ),
+                          SystemExerciseItem(
+                            title: 'Low-intensity mobility pace · 20 min',
+                            workoutType: WorkoutType.walk,
+                          ),
+                        ],
+                    };
+
+                    final String moveSubtitle = switch (activeMode) {
+                      WellnessMode.steady =>
+                        'Aerobic walks, steady pacing, movement goals',
+                      WellnessMode.push =>
+                        'High intensity, strength, power burn',
+                      WellnessMode.recover =>
+                        'Light recovery, foundational movement',
+                    };
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SystemsCardTemplate(
+                          icon: AppIcons.runningManIcon,
+                          title: 'Move',
+                          subtitle: moveSubtitle,
+                          sectionKey: 'move',
+                          expandedSystemNotifier: _expandedSystemNotifier,
+                          leadsToday: isMoveLeading,
+                          exercises: moveExercises,
+                          r: r,
+                        ),
+                        const SizedBox(height: 16.0),
+                        SystemsRecoverCard(
+                          expandedSystemNotifier: _expandedSystemNotifier,
+                          leadsToday: isRecoverLeading,
+                          r: r,
+                        ),
+                      ],
+                    );
+                  }(),
                   const SizedBox(height: 16.0),
 
                   SystemsCardTemplate(

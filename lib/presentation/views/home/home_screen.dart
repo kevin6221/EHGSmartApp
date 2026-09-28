@@ -3,8 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/constants/app_animations.dart';
 import '../../../core/sync/health_sync_manager.dart';
+import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
+import '../../../data/models/wellness_data_model.dart';
 import '../../../data/repositories/band_repository.dart';
 import '../../../data/repositories/wellness_repository.dart';
 import '../../blocs/band/band_bloc.dart';
@@ -18,6 +20,10 @@ import '../../blocs/wellness/wellness_bloc.dart';
 import '../../blocs/wellness/wellness_event.dart';
 import '../../blocs/wellness/wellness_state.dart';
 import '../../widgets/common/screen_header.dart';
+import '../details/heart_rate_detail_screen.dart';
+import '../details/hydration_detail_screen.dart';
+import '../details/sleep_detail_screen.dart';
+import '../systems/systems_screen.dart';
 import 'widgets/home_day_wave_section.dart';
 import 'widgets/home_energy_card.dart';
 import 'widgets/home_header_greeting.dart';
@@ -167,11 +173,42 @@ class _HomeScreenState extends State<HomeScreen>
                         heartRate: data.currentHeartRate,
                         weeklyHeartRate: data.weeklyHeartRate,
                         sleepHours: data.sleepHours,
+                        weeklySleep: data.weeklySleep,
+                        onHeartRateTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const HeartRateDetailScreen(),
+                            ),
+                          );
+                        },
+                        onSleepTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const SleepDetailScreen(),
+                            ),
+                          );
+                        },
                       ),
                       SizedBox(height: itemSpacing),
 
                       // Readiness Detail Section Card
-                      HomeReadinessCard(data: data),
+                      HomeReadinessCard(
+                        data: data,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => SystemsScreen(
+                                initialMode: data.activeMode,
+                                initialExpandedSection: switch (data.activeMode) {
+                                  WellnessMode.recover => 'recover',
+                                  WellnessMode.steady => 'move',
+                                  WellnessMode.push => 'move',
+                                },
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                       SizedBox(height: itemSpacing),
 
                       // Hydration Card
@@ -179,6 +216,13 @@ class _HomeScreenState extends State<HomeScreen>
                         currentMl: data.hydrationCurrent,
                         goalMl: data.hydrationGoal,
                         weeklyHydration: data.weeklyHydration,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const HydrationDetailScreen(),
+                            ),
+                          );
+                        },
                         onAddMl: () {
                           context.read<WellnessBloc>().add(
                             const AddHydrationEvent(250),
@@ -189,16 +233,22 @@ class _HomeScreenState extends State<HomeScreen>
 
                       // Energy Burned Card
                       BlocBuilder<BandBloc, BandState>(
-                        buildWhen: (prev, curr) =>
-                            prev.lastSyncedVitals?.calories != curr.lastSyncedVitals?.calories ||
-                            prev.lastSyncedVitals?.steps != curr.lastSyncedVitals?.steps,
                         builder: (context, bandState) {
+                          final bandCalories = bandState.lastSyncedVitals?.calories ?? 0;
+                          final int effectiveEnergy;
+                          if (bandCalories > 0) {
+                            effectiveEnergy = switch (data.activeMode) {
+                              WellnessMode.recover => (bandCalories * 0.70).round().clamp(250, 450),
+                              WellnessMode.steady => bandCalories,
+                              WellnessMode.push => (bandCalories * 1.45).round().clamp(750, 1100),
+                            };
+                          } else {
+                            effectiveEnergy = data.energyBurned;
+                          }
+
                           final steps = (bandState.lastSyncedVitals?.steps ?? 0) > 0
                               ? bandState.lastSyncedVitals!.steps
                               : data.steps;
-                          final energy = (bandState.lastSyncedVitals?.calories ?? 0) > 0
-                              ? bandState.lastSyncedVitals!.calories
-                              : data.energyBurned;
 
                           final int todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
                           List<double> chartValues = List<double>.from(
@@ -206,16 +256,19 @@ class _HomeScreenState extends State<HomeScreen>
                                 ? data.weeklyEnergy
                                 : const [0.45, 0.62, 0.55, 0.70, 0.80, 0.60, 0.50],
                           );
-                          if (energy > 0 && chartValues.length == 7) {
-                            chartValues[todayIdx] = (energy / 600.0).clamp(0.05, 1.0);
+                          if (effectiveEnergy > 0 && chartValues.length == 7) {
+                            chartValues[todayIdx] = (effectiveEnergy / 600.0).clamp(0.05, 1.0);
                           }
 
                           return HomeEnergyCard(
-                            energyBurned: energy,
+                            energyBurned: effectiveEnergy,
                             steps: steps,
                             activeMins: data.activeMins,
                             goalMins: data.goalMins,
                             weeklyEnergy: chartValues,
+                            onStartSession: () {
+                              Navigator.of(context).pushNamed(AppRoutes.train);
+                            },
                           );
                         },
                       ),

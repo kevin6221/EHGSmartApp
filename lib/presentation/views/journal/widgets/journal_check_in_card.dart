@@ -113,7 +113,7 @@ class JournalCheckInCard extends StatelessWidget {
           ValueListenableBuilder<String>(
             valueListenable: wordNotifier,
             builder: (context, selectedWord, _) {
-              const words = ['Clear', 'Clam', 'Flat', 'Wired', 'Heavy'];
+              const words = ['Clear', 'Calm', 'Flat', 'Wired', 'Heavy'];
               return Wrap(
                 spacing: 8.0,
                 runSpacing: 10.0,
@@ -182,7 +182,7 @@ class JournalCheckInCard extends StatelessWidget {
           ),
           const SizedBox(height: 16.0),
           AppButton(
-            text: 'Save entry · +120',
+            text: 'Save entry',
             showArrow: false,
             onPressed: onSave ?? () {},
             padding: const EdgeInsets.symmetric(

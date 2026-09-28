@@ -11,6 +11,7 @@ import '../models/user_profile_model.dart';
 import '../models/vitals_model.dart';
 import '../models/wellness_data_model.dart';
 import '../models/workout_model.dart';
+import '../../core/engine/personalized_baseline_engine.dart';
 
 class WellnessRepository {
   final AppDatabase _db;
@@ -18,8 +19,10 @@ class WellnessRepository {
   final Completer<void> _initCompleter = Completer<void>();
   int _yesterdayWellnessScore = 0;
   List<JournalEntryModel> _journalEntries = [];
+  PersonalizedBaselineData _baselineData = const PersonalizedBaselineData();
 
   List<JournalEntryModel> get journalEntries => List.unmodifiable(_journalEntries);
+  PersonalizedBaselineData get baselineData => _baselineData;
 
   WellnessRepository({
     AppDatabase? database,
@@ -72,6 +75,14 @@ class WellnessRepository {
         try {
           final decoded = jsonDecode(cachedVitalsJson) as Map<String, dynamic>;
           _vitalsData = VitalsModel.fromJson(decoded);
+        } catch (_) {}
+      }
+
+      final cachedBaselineJson = await _secureStorage.read('cached_personalized_baseline_v1');
+      if (cachedBaselineJson != null && cachedBaselineJson.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(cachedBaselineJson) as Map<String, dynamic>;
+          _baselineData = PersonalizedBaselineData.fromJson(decoded);
         } catch (_) {}
       }
 
@@ -212,6 +223,7 @@ class WellnessRepository {
     currentHeartRate: 0,
     weeklyHeartRate: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     sleepHours: 0.0,
+    weeklySleep: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     readinessScore: 0,
     readinessTag: 'No data',
     sleepDetail: '--',
@@ -223,7 +235,7 @@ class WellnessRepository {
     weeklyHydration: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     energyBurned: 0,
     activeMins: 0,
-    goalMins: 600,
+    goalMins: 60,
     weeklyEnergy: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     moveScore: 0,
     recoverScore: 0,
@@ -433,17 +445,20 @@ class WellnessRepository {
   }
 
   void updateStepsAndCalories({required int steps, required int calories}) {
+    // Sanitize raw SDK calories before storing
+    final int safeCal = BandSyncedVitals.sanitizeCalories(calories);
+
     List<double> updatedWeeklyEnergy = List<double>.from(
       _wellnessData.weeklyEnergy.length == 7
           ? _wellnessData.weeklyEnergy
           : [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     );
-    if (calories > 0 && updatedWeeklyEnergy.length == 7) {
-      updatedWeeklyEnergy[_todayIndex] = (calories / 600.0).clamp(0.05, 1.0);
+    if (safeCal > 0 && updatedWeeklyEnergy.length == 7) {
+      updatedWeeklyEnergy[_todayIndex] = (safeCal / 600.0).clamp(0.05, 1.0);
     }
     _wellnessData = _wellnessData.copyWith(
       steps: steps > 0 ? steps : _wellnessData.steps,
-      energyBurned: calories > 0 ? calories : _wellnessData.energyBurned,
+      energyBurned: safeCal > 0 ? safeCal : _wellnessData.energyBurned,
       weeklyEnergy: updatedWeeklyEnergy,
     );
     _secureStorage.write('cached_wellness_data_v1', jsonEncode(_wellnessData.toJson())).catchError((_) {});
@@ -456,6 +471,7 @@ class WellnessRepository {
     int? savedReadinessScore,
     int? savedMoveScore,
     int? savedRecoverScore,
+    bool updateMode = false,
   }) {
     final double hours = vitals.sleepMinutes > 0
         ? (vitals.sleepMinutes / 60.0)
@@ -472,6 +488,17 @@ class WellnessRepository {
     );
     if (energy > 0 && updatedWeeklyEnergy.length == 7) {
       updatedWeeklyEnergy[_todayIndex] = (energy / 600.0).clamp(0.05, 1.0);
+    }
+
+    List<double> updatedWeeklySleep = List<double>.from(
+      vitals.weeklySleep.length == 7
+          ? vitals.weeklySleep
+          : (_wellnessData.weeklySleep.length == 7
+              ? _wellnessData.weeklySleep
+              : [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+    );
+    if (hours > 0 && updatedWeeklySleep.length == 7) {
+      updatedWeeklySleep[_todayIndex] = double.parse(hours.toStringAsFixed(1));
     }
 
     // 1. Dynamic Sleep Intervals Calculation from SDK Sleep Phases
@@ -557,12 +584,17 @@ class WellnessRepository {
       }
     }
 
-    // 3. Dynamic Pillar & Wellness Scores Calculation
+    // 3. Dynamic Pillar & Wellness Scores Calculation with Personalized Baselines
     final int effectiveRestHr = vitals.restingHeartRate > 0
         ? vitals.restingHeartRate
         : _wellnessData.restHr;
+
+    // Evaluate Resting HR against individual baseline
     final int restHrScore = effectiveRestHr > 0
-        ? (120 - effectiveRestHr).clamp(20, 100).round()
+        ? PersonalizedBaselineEngine.calculatePersonalizedRestHrScore(
+            currentRestHr: effectiveRestHr,
+            baselineRestHr: _baselineData.restingHrBaseline,
+          )
         : 0;
 
     final int effectiveHr = (heartRate != null && heartRate > 0)
@@ -594,8 +626,39 @@ class WellnessRepository {
         ? savedMoveScore
         : computedMoveScore;
 
+    // Seed baseline from initial live hardware readings if uncalibrated
+    if (effectiveHrv > 0 && (_baselineData.calibrationDays == 0 || _baselineData.hrvBaseline == 40.0)) {
+      _baselineData = _baselineData.copyWith(
+        hrvBaseline: effectiveHrv.toDouble(),
+        restingHrBaseline: effectiveRestHr > 0 ? effectiveRestHr.toDouble() : _baselineData.restingHrBaseline,
+        calibrationDays: 1,
+      );
+    }
+
+    // 4. Personalized HRV Score relative to individual homeostasis
+    final int hrvScore = effectiveHrv > 0
+        ? PersonalizedBaselineEngine.calculatePersonalizedHrvScore(
+            currentHrv: effectiveHrv,
+            baselineHrv: _baselineData.hrvBaseline,
+            isCalibrated: _baselineData.isCalibrated,
+          )
+        : (_wellnessData.hrvMs > 0
+            ? PersonalizedBaselineEngine.calculatePersonalizedHrvScore(
+                currentHrv: _wellnessData.hrvMs,
+                baselineHrv: _baselineData.hrvBaseline,
+                isCalibrated: _baselineData.isCalibrated,
+              )
+            : (hasData ? 75 : 0));
+
+    // 5. Personalized Recovery Score based on individual sleep target, deep sleep, and autonomic reserve
     final int computedRecoverScore = (vitals.sleepMinutes > 0
-        ? (vitals.sleepMinutes / 480 * 100).clamp(15, 98).round()
+        ? PersonalizedBaselineEngine.calculatePersonalizedRecoverScore(
+            sleepMinutes: vitals.sleepMinutes,
+            deepSleepMinutes: vitals.deepSleepMinutes,
+            personalizedSleepTargetMinutes: _baselineData.sleepTargetMinutes,
+            personalizedHrvScore: hrvScore,
+            personalizedRestHrScore: restHrScore,
+          )
         : (restHrScore > 0 ? restHrScore : (hasData ? _wellnessData.recoverScore : 0)));
     final int recoverScore = (savedRecoverScore != null && savedRecoverScore > 0)
         ? savedRecoverScore
@@ -632,15 +695,11 @@ class WellnessRepository {
       }
     }
 
-    // 4. Dynamic Readiness Score & Mode
-    final int hrvScore = effectiveHrv > 0
-        ? (effectiveHrv * 1.5).clamp(20, 100).round()
-        : (_wellnessData.hrvMs > 0 ? (_wellnessData.hrvMs * 1.5).clamp(20, 100).round() : (hasData ? 50 : 0));
-
+    // 4. Dynamic Readiness Score & Mode with Personalized Autonomous Weighting
     final int calculatedReadinessScore = hasData
-        ? (0.4 * (recoverScore > 0 ? recoverScore : 50) +
-           0.3 * (hrvScore > 0 ? hrvScore : 50) +
-           0.3 * (restHrScore > 0 ? restHrScore : 50))
+        ? (0.40 * (recoverScore > 0 ? recoverScore : 75) +
+           0.35 * (hrvScore > 0 ? hrvScore : 75) +
+           0.25 * (restHrScore > 0 ? restHrScore : 75))
             .clamp(20, 99)
             .round()
         : 0;
@@ -648,20 +707,42 @@ class WellnessRepository {
         ? savedReadinessScore
         : calculatedReadinessScore;
 
-    final WellnessMode activeMode;
+    final WellnessMode recommendedMode;
+    if (!hasData || readinessScore == 0) {
+      recommendedMode = WellnessMode.steady;
+    } else if (readinessScore >= 75) {
+      recommendedMode = WellnessMode.push;
+    } else if (readinessScore >= 55) {
+      recommendedMode = WellnessMode.steady;
+    } else {
+      recommendedMode = WellnessMode.recover;
+    }
+
+    // Preserve user-selected active mode unless this is an explicit screen/pull-to-refresh
+    final WellnessMode activeMode = updateMode ? recommendedMode : _wellnessData.activeMode;
+
     final String readinessTag;
     if (!hasData || readinessScore == 0) {
-      activeMode = WellnessMode.steady;
       readinessTag = 'No data';
-    } else if (readinessScore >= 75) {
-      activeMode = WellnessMode.push;
-      readinessTag = 'Push day';
-    } else if (readinessScore >= 55) {
-      activeMode = WellnessMode.steady;
-      readinessTag = 'Steady day';
     } else {
-      activeMode = WellnessMode.recover;
-      readinessTag = 'Recover day';
+      readinessTag = switch (activeMode) {
+        WellnessMode.recover => 'Recover day',
+        WellnessMode.steady => 'Steady day',
+        WellnessMode.push => 'Push day',
+      };
+    }
+
+    final int effectiveReadinessScore;
+    if (!hasData || readinessScore == 0) {
+      effectiveReadinessScore = 0;
+    } else if (activeMode == recommendedMode) {
+      effectiveReadinessScore = readinessScore;
+    } else {
+      effectiveReadinessScore = switch (activeMode) {
+        WellnessMode.recover => (readinessScore * 0.85).round().clamp(55, 68),
+        WellnessMode.steady => readinessScore.clamp(68, 80),
+        WellnessMode.push => (readinessScore * 1.35).round().clamp(84, 94),
+      };
     }
 
     // 5. Dynamic 24h day chart points
@@ -758,7 +839,8 @@ class WellnessRepository {
       weeklyHeartRate: updatedWeeklyHr,
       weeklyEnergy: updatedWeeklyEnergy,
       sleepHours: double.parse(hours.toStringAsFixed(1)),
-      readinessScore: readinessScore,
+      weeklySleep: updatedWeeklySleep,
+      readinessScore: effectiveReadinessScore,
       readinessTag: readinessTag,
       sleepDetail: vitals.sleepMinutes > 0 ? '${vitals.sleepMinutes ~/ 60}hr ${vitals.sleepMinutes % 60} min' : '--',
       hrvMs: vitals.hrvMs > 0 ? vitals.hrvMs : _wellnessData.hrvMs,
@@ -923,6 +1005,104 @@ class WellnessRepository {
     ).catchError((_) {});
   }
 
+  /// Updates active wellness mode (Recover / Steady / Push) and recalculates
+  /// mode-adapted energy burned target, active minutes, and weekly strain.
+  Future<void> changeWellnessMode(WellnessMode mode) async {
+    // Mode-adapted energy burn and targets:
+    // Recover: Rest & active recovery target (320-380 kcal, 25-30 active mins, 30 min goal)
+    // Steady: Baseline maintenance workout (520-580 kcal, 45-50 active mins, 60 min goal)
+    // Push: High strain / peak exertion (800-880 kcal, 75-85 active mins, 90 min goal)
+    final int baseEnergy = _wellnessData.energyBurned > 0
+        ? _wellnessData.energyBurned
+        : 560;
+
+    final int modeEnergy = switch (mode) {
+      WellnessMode.recover => (baseEnergy * 0.62).round().clamp(280, 420),
+      WellnessMode.steady => baseEnergy.clamp(480, 650),
+      WellnessMode.push => (baseEnergy * 1.50).round().clamp(780, 1050),
+    };
+
+    final int modeActiveMins = switch (mode) {
+      WellnessMode.recover => 25,
+      WellnessMode.steady => 48,
+      WellnessMode.push => 82,
+    };
+
+    final int modeGoalMins = switch (mode) {
+      WellnessMode.recover => 30,
+      WellnessMode.steady => 60,
+      WellnessMode.push => 90,
+    };
+
+    final updatedWeeklyEnergy = List<double>.from(
+      _wellnessData.weeklyEnergy.length == 7
+          ? _wellnessData.weeklyEnergy
+          : const [0.45, 0.62, 0.55, 0.70, 0.80, 0.60, 0.50],
+    );
+    if (updatedWeeklyEnergy.length == 7) {
+      updatedWeeklyEnergy[_todayIndex] = switch (mode) {
+        WellnessMode.recover => 0.40,
+        WellnessMode.steady => 0.68,
+        WellnessMode.push => 0.95,
+      };
+    }
+
+    final String modeTag = switch (mode) {
+      WellnessMode.recover => 'Recover day',
+      WellnessMode.steady => 'Steady day',
+      WellnessMode.push => 'Push day',
+    };
+
+    // Mode-adapted Readiness Score:
+    // Recover: Rest & active recovery (55-68)
+    // Steady: Balanced homeostasis (68-80)
+    // Push: Peak exertion capacity (84-94)
+    final int baseReadiness = _wellnessData.readinessScore > 0
+        ? _wellnessData.readinessScore
+        : 72;
+
+    final int modeReadiness = switch (mode) {
+      WellnessMode.recover => (baseReadiness * 0.85).round().clamp(55, 68),
+      WellnessMode.steady => baseReadiness.clamp(68, 80),
+      WellnessMode.push => (baseReadiness * 1.35).round().clamp(84, 94),
+    };
+
+    // Mode-adapted Move and Recover pillar scores for the 4-pillar Wellness Score
+    final int baseMove = _wellnessData.moveScore > 0 ? _wellnessData.moveScore : 65;
+    final int modeMove = switch (mode) {
+      WellnessMode.recover => (baseMove * 0.70).round().clamp(30, 60),
+      WellnessMode.steady => baseMove.clamp(60, 78),
+      WellnessMode.push => (baseMove * 1.35).round().clamp(80, 96),
+    };
+
+    final int baseRecover = _wellnessData.recoverScore > 0 ? _wellnessData.recoverScore : 70;
+    final int modeRecover = switch (mode) {
+      WellnessMode.recover => (baseRecover * 0.85).round().clamp(55, 70),
+      WellnessMode.steady => baseRecover.clamp(70, 84),
+      WellnessMode.push => (baseRecover * 1.25).round().clamp(85, 96),
+    };
+
+    final int modeWellnessScore = ((modeMove + modeRecover + _wellnessData.mindScore + _wellnessData.fuelScore) / 4).round().clamp(1, 100);
+
+    _wellnessData = _wellnessData.copyWith(
+      activeMode: mode,
+      energyBurned: modeEnergy,
+      activeMins: modeActiveMins,
+      goalMins: modeGoalMins,
+      weeklyEnergy: updatedWeeklyEnergy,
+      readinessScore: modeReadiness,
+      readinessTag: modeTag,
+      moveScore: modeMove,
+      recoverScore: modeRecover,
+      wellnessScore: modeWellnessScore,
+    );
+
+    await _secureStorage.write(
+      'cached_wellness_data_v1',
+      jsonEncode(_wellnessData.toJson()),
+    ).catchError((_) {});
+  }
+
   Future<void> _loadJournalEntries() async {
     try {
       final raw = await _secureStorage.read('cached_journal_entries_v1');
@@ -1015,6 +1195,7 @@ class WellnessRepository {
         List<double> dbWeeklyRestHr = List<double>.from(_vitalsData.weeklyRestingHr);
         List<double> dbWeeklyOxygen = List<double>.from(_vitalsData.weeklyOxygen);
         List<double> dbWeeklyEnergy = List<double>.from(_wellnessData.weeklyEnergy);
+        List<double> dbWeeklySleep = List<double>.from(_wellnessData.weeklySleep);
         List<double> dbWeeklyStress = List<double>.from(_vitalsData.stressTimeline);
         List<double> dbWeeklyHrv = List<double>.from(_vitalsData.weeklyHrv);
         List<double> dbWeeklyBreathing = List<double>.from(_vitalsData.weeklyBreathing);
@@ -1033,6 +1214,9 @@ class WellnessRepository {
             }
             if (item.avgSpo2 != null && item.avgSpo2! > 0) {
               dbWeeklyOxygen[dayIdx] = item.avgSpo2!;
+            }
+            if (item.sleepDurationMinutes > 0) {
+              dbWeeklySleep[dayIdx] = double.parse((item.sleepDurationMinutes / 60.0).toStringAsFixed(1));
             }
             if (item.caloriesBurned > 0) {
               final double cal = item.caloriesBurned > 10000 
@@ -1056,6 +1240,7 @@ class WellnessRepository {
         _wellnessData = _wellnessData.copyWith(
           weeklyHeartRate: dbWeeklyHr,
           weeklyEnergy: dbWeeklyEnergy,
+          weeklySleep: dbWeeklySleep,
         );
         _vitalsData = _vitalsData.copyWith(
           weeklyHeartRate: dbWeeklyHr,
@@ -1065,6 +1250,16 @@ class WellnessRepository {
           weeklyHrv: dbWeeklyHrv,
           weeklyBreathing: dbWeeklyBreathing,
         );
+
+        // Recalibrate rolling personalized baseline from historical database records
+        _baselineData = PersonalizedBaselineEngine.computeBaselineFromHistoricalRecords(
+          historicalHrv: dbWeeklyHrv,
+          historicalRestingHr: dbWeeklyRestHr,
+          historicalSleepMinutes: weeklySummaries.map((s) => s.sleepDurationMinutes).toList(),
+          profile: _userProfile,
+          currentBaseline: _baselineData,
+        );
+        _secureStorage.write('cached_personalized_baseline_v1', jsonEncode(_baselineData.toJson())).catchError((_) {});
       }
     } catch (e) {
       debugPrint('⚠️ [WELLNESS REPO] reloadWeeklyDataFromDatabase error: $e');

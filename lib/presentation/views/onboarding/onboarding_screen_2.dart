@@ -534,7 +534,7 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
                                                                 bottom: index < state.discoveredDevices.length - 1 ? 8.0 : 0,
                                                               ),
                                                               child: OnboardingDeviceCard(
-                                                                deviceName: device.name.isNotEmpty ? device.name : 'EHG Smart Band',
+                                                                deviceName: DiscoveredBandDevice.normalizeBandName(device.name),
                                                                 deviceId: device.mac.isNotEmpty ? device.mac : device.id,
                                                                 rssi: device.rssi != 0 ? device.rssi : null,
                                                                 isSelected: isSelected,
@@ -552,7 +552,7 @@ class _OnboardingScreen2State extends State<OnboardingScreen2>
                                                 ),
                                               ] else ...[
                                                 OnboardingDeviceCard(
-                                                  deviceName: targetDevice?.name ?? 'EHG Smart Band',
+                                                  deviceName: DiscoveredBandDevice.normalizeBandName(targetDevice?.name ?? 'EHG Band'),
                                                   deviceId: (targetDevice != null && targetDevice.mac.isNotEmpty)
                                                       ? targetDevice.mac
                                                       : (targetDevice?.id ?? 'Connected'),

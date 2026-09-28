@@ -1640,15 +1640,48 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     [self sendEvent:@{@"type": @"bluetooth_state", @"state": stateStr}];
 }
 
+- (NSString *)formatBandDisplayName:(NSString *)rawName {
+    NSString *trimmed = [rawName stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    if (trimmed.length == 0) return @"EHG Band";
+
+    NSError *error = nil;
+    NSRegularExpression *suffixRegex = [NSRegularExpression regularExpressionWithPattern:@"^(?:h59|h60|h66|h0\\d|q|qc|o|r0|r|ehg)[_\\-\\s]?([0-9a-fA-F]{4})$"
+                                                                                 options:NSRegularExpressionCaseInsensitive
+                                                                                   error:&error];
+    NSTextCheckingResult *match = [suffixRegex firstMatchInString:trimmed options:0 range:NSMakeRange(0, trimmed.length)];
+    if (match && match.numberOfRanges > 1) {
+        NSRange suffixRange = [match rangeAtIndex:1];
+        if (suffixRange.location != NSNotFound) {
+            NSString *suffix = [[trimmed substringWithRange:suffixRange] uppercaseString];
+            return [NSString stringWithFormat:@"EHG Band (%@)", suffix];
+        }
+    }
+
+    if ([trimmed.lowercaseString hasPrefix:@"ehg"]) {
+        return @"EHG Band";
+    }
+
+    NSRegularExpression *modelRegex = [NSRegularExpression regularExpressionWithPattern:@"^(?:h59|h60|h66|h0\\d|qwatch|qring|qc)"
+                                                                                options:NSRegularExpressionCaseInsensitive
+                                                                                  error:nil];
+    if ([modelRegex numberOfMatchesInString:trimmed options:0 range:NSMakeRange(0, trimmed.length)] > 0) {
+        return @"EHG Band";
+    }
+
+    return trimmed.length > 0 ? trimmed : @"EHG Band";
+}
+
 - (void)didScanPeripherals:(NSArray<QCBlePeripheral *> *)peripheralArr {
     [self.discoveredPeripherals removeAllObjects];
     [self.discoveredPeripherals addObjectsFromArray:peripheralArr];
 
     NSMutableArray *deviceList = [NSMutableArray array];
     for (QCBlePeripheral *blePer in peripheralArr) {
+        NSString *rawName = blePer.peripheral.name ?: @"";
+        NSString *displayName = [self formatBandDisplayName:rawName];
         [deviceList addObject:@{
             @"id": blePer.peripheral.identifier.UUIDString ?: @"",
-            @"name": blePer.peripheral.name ?: @"EHG Smart Band",
+            @"name": displayName,
             @"mac": blePer.mac ?: @"",
             @"rssi": blePer.RSSI ?: @(-70),
         }];

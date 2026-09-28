@@ -132,4 +132,126 @@ class WellnessCardCalculator {
       ),
     ];
   }
+
+  /// Generates dynamic, contextual insights for each pillar by comparing all four scores
+  /// and applying score-range thresholds.
+  static String computePillarInsight({
+    required String pillar,
+    required int score,
+    required int moveScore,
+    required int recoverScore,
+    required int mindScore,
+    required int fuelScore,
+  }) {
+    if (score <= 0) {
+      return switch (pillar.toLowerCase()) {
+        'move' => 'No movement recorded yet today. Take a walk to start tracking.',
+        'recover' => 'Wear your band during sleep to calculate your recovery score.',
+        'mind' => 'No stress readings yet. Band vitals will populate your mind score.',
+        'fuel' => 'Log water intake or meals to start tracking your fuel score.',
+        _ => 'No data recorded yet today.',
+      };
+    }
+
+    final entries = [
+      MapEntry('move', moveScore),
+      MapEntry('recover', recoverScore),
+      MapEntry('mind', mindScore),
+      MapEntry('fuel', fuelScore),
+    ];
+
+    final minScore = entries.map((e) => e.value).reduce((a, b) => a < b ? a : b);
+    final maxScore = entries.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+
+    // Designate EXACTLY one pillar as the weakest today (lowest score below 75, strictly less than max)
+    final String? weakestPillar = (minScore < maxScore && minScore < 75)
+        ? entries.firstWhere((e) => e.value == minScore).key
+        : null;
+
+    // Designate EXACTLY one pillar as the strongest today (highest score above 75, strictly greater than min)
+    final String? strongestPillar = (maxScore > minScore && maxScore >= 75)
+        ? entries.firstWhere((e) => e.value == maxScore).key
+        : null;
+
+    final String key = pillar.toLowerCase();
+    final bool isWeakest = key == weakestPillar;
+    final bool isStrongest = key == strongestPillar;
+
+    switch (key) {
+      case 'move':
+        if (isWeakest) {
+          return 'Movement is your weakest pillar today. A brisk 20-min walk will lift your score.';
+        }
+        if (isStrongest) {
+          return 'Movement is your strongest pillar today. Outstanding active output!';
+        }
+        if (score >= 90) {
+          return 'Peak movement today. Outstanding activity level and energy expenditure.';
+        }
+        if (score >= 75) {
+          return 'Strong active output today. On track to exceed your movement goal.';
+        }
+        if (score >= 50) {
+          return 'Moderate activity. A brisk 20-minute walk will boost your score.';
+        }
+        return 'Activity is low so far today. Take a quick movement break to get moving.';
+
+      case 'recover':
+        if (isWeakest) {
+          return 'Recovery is your weakest pillar today. Short sleep is holding this down.';
+        }
+        if (isStrongest) {
+          return 'Recovery is your strongest pillar today. Deep rest and optimal readiness.';
+        }
+        if (score >= 90) {
+          return 'Fully recovered. Restorative sleep and excellent physiological readiness.';
+        }
+        if (score >= 75) {
+          return 'Good recovery. Rested vitals and quality restorative sleep.';
+        }
+        if (score >= 50) {
+          return 'Fair recovery. Short or fragmented sleep is holding this down.';
+        }
+        return 'Recovery is depleted today. Prioritize an early bedtime and relaxation.';
+
+      case 'mind':
+        if (isWeakest) {
+          return 'Mind is your weakest pillar today. Five minutes of breathing moves this.';
+        }
+        if (isStrongest) {
+          return 'Mind is your strongest pillar today. Deep calm and high resilience.';
+        }
+        if (score >= 90) {
+          return 'Calm and centered. Excellent autonomic nervous system balance.';
+        }
+        if (score >= 75) {
+          return 'Balanced stress response. Good cognitive resilience today.';
+        }
+        if (score >= 50) {
+          return 'Stress load is elevated. Five minutes of breathing moves this.';
+        }
+        return 'High stress load detected. Take five minutes of guided breathwork to reset.';
+
+      case 'fuel':
+        if (isWeakest) {
+          return 'Fuel is your weakest pillar today. Hydration is the quickest win available to you.';
+        }
+        if (isStrongest) {
+          return 'Fuel is your strongest pillar today. Perfectly hydrated and fueled.';
+        }
+        if (score >= 90) {
+          return 'Optimal fueling. Fully hydrated with balanced daily energy.';
+        }
+        if (score >= 75) {
+          return 'Well hydrated. Maintaining steady hydration and energy balance.';
+        }
+        if (score >= 50) {
+          return 'Hydration is moderate. A fresh glass of water is your fastest win.';
+        }
+        return 'Fuel is lagging today. Drinking a glass of water is your fastest win.';
+
+      default:
+        return 'Keep up your daily health habits to balance your wellness score.';
+    }
+  }
 }

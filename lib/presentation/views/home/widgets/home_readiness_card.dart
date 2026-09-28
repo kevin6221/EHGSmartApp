@@ -136,7 +136,13 @@ class HomeReadinessCard extends StatelessWidget {
                   ),
                   SizedBox(width: dims.headerGap),
                   Text(
-                    data.readinessScore > 0 ? data.readinessTag : 'No data',
+                    data.readinessScore > 0
+                        ? switch (data.activeMode) {
+                            WellnessMode.recover => 'Recover day',
+                            WellnessMode.steady => 'Steady day',
+                            WellnessMode.push => 'Push day',
+                          }
+                        : 'No data',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: r.font(14.0),
                       fontWeight: FontWeight.w500,
@@ -145,40 +151,44 @@ class HomeReadinessCard extends StatelessWidget {
                   ),
                 ],
               ),
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10.0,
-                      vertical: 5.0,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.readinessBadgeBg,
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                    child: Text(
-                      'READINESS',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w500,
-                        fontSize: r.font(12.0),
-                        letterSpacing: 1,
+              GestureDetector(
+                onTap: onTap,
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10.0,
+                        vertical: 5.0,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.readinessBadgeBg,
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      child: Text(
+                        'READINESS',
+                        style: GoogleFonts.plusJakartaSans(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w500,
+                          fontSize: r.font(12.0),
+                          letterSpacing: 1,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 4.0),
-                  ShaderMask(
-                    shaderCallback: (Rect bounds) {
-                      return AppGradients.primary.createShader(bounds);
-                    },
-                    blendMode: BlendMode.srcIn,
-                    child: const Icon(
-                      Icons.arrow_forward_ios_outlined,
-                      size: 18.0,
-                      color: Colors.white,
+                    const SizedBox(width: 4.0),
+                    ShaderMask(
+                      shaderCallback: (Rect bounds) {
+                        return AppGradients.primary.createShader(bounds);
+                      },
+                      blendMode: BlendMode.srcIn,
+                      child: const Icon(
+                        Icons.arrow_forward_ios_outlined,
+                        size: 18.0,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),

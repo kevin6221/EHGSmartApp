@@ -15,6 +15,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
   final int heartRate;
   final List<double> weeklyHeartRate;
   final double sleepHours;
+  final List<double> weeklySleep;
   final VoidCallback? onHeartRateTap;
   final VoidCallback? onSleepTap;
 
@@ -23,6 +24,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
     required this.heartRate,
     required this.weeklyHeartRate,
     required this.sleepHours,
+    this.weeklySleep = const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     this.onHeartRateTap,
     this.onSleepTap,
   });
@@ -78,6 +80,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
     double cardHeight,
   ) {
     final sparklineHeight = (cardHeight * 0.22).clamp(20.0, 28.0);
+    final int todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
 
     return AppCard(
       width: cardWidth,
@@ -174,18 +177,19 @@ class HomeVitalsSummaryRow extends StatelessWidget {
                     const SizedBox(height: 3.0),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: _weekdays
-                          .map(
-                            (d) => Text(
-                              d,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: r.font(9.0),
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.textMuted,
-                              ),
-                            ),
-                          )
-                          .toList(),
+                      children: _weekdays.asMap().entries.map((entry) {
+                        final i = entry.key;
+                        final d = entry.value;
+                        final isToday = i == todayIdx;
+                        return Text(
+                          d,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: r.font(9.0),
+                            fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+                            color: isToday ? context.textPrimary : AppColors.textMuted,
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ],
                 ),
@@ -205,8 +209,20 @@ class HomeVitalsSummaryRow extends StatelessWidget {
     double cardWidth,
     double cardHeight,
   ) {
-    final baseHeights = [18.0, 22.0, 16.0, 24.0, 20.0, 26.0, 22.0];
+    final int todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
     final scaleFactor = cardHeight / 112.0;
+    final maxChartHeight = (28.0 * scaleFactor).clamp(20.0, 32.0);
+
+    final String sleepQuality;
+    if (sleepHours >= 7.5) {
+      sleepQuality = 'Well-rested';
+    } else if (sleepHours >= 6.0) {
+      sleepQuality = 'Normal sleep';
+    } else if (sleepHours > 0) {
+      sleepQuality = 'Short sleep';
+    } else {
+      sleepQuality = 'No sleep recorded';
+    }
 
     return AppCard(
       width: cardWidth,
@@ -272,7 +288,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
                     ),
                     const SizedBox(height: 2.0),
                     Text(
-                      'Well-rested',
+                      sleepQuality,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: r.font(11.0),
                         fontWeight: FontWeight.w500,
@@ -286,16 +302,61 @@ class HomeVitalsSummaryRow extends StatelessWidget {
               ),
               const SizedBox(width: 8.0),
 
-              // Right: 7-day mini bars matching Figma
+              // Right: 7-day mini bars matching hardware data dynamically
               SizedBox(
                 width: chartWidth,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: List.generate(7, (i) {
-                    final barHeight =
-                        (baseHeights[i % baseHeights.length] * scaleFactor)
-                            .clamp(12.0, 32.0);
+                    final bool isToday = i == todayIdx;
+                    final bool isPast = i < todayIdx;
+                    final bool isFuture = i > todayIdx;
+
+                    final double dayHours;
+                    if (isToday) {
+                      dayHours = sleepHours > 0
+                          ? sleepHours
+                          : (i < weeklySleep.length ? weeklySleep[i] : 0.0);
+                    } else if (i < weeklySleep.length && weeklySleep[i] > 0) {
+                      dayHours = weeklySleep[i];
+                    } else {
+                      dayHours = 0.0;
+                    }
+
+                    final double barHeight;
+                    if (dayHours > 0) {
+                      final double ratio = (dayHours / 8.0).clamp(0.20, 1.25);
+                      barHeight = (ratio * maxChartHeight).clamp(8.0, maxChartHeight);
+                    } else if (isToday) {
+                      barHeight = sleepHours > 0
+                          ? ((sleepHours / 8.0).clamp(0.20, 1.25) * maxChartHeight).clamp(8.0, maxChartHeight)
+                          : 10.0;
+                    } else if (isPast) {
+                      barHeight = 10.0;
+                    } else {
+                      barHeight = 6.0;
+                    }
+
+                    final Color barColor;
+                    if (isToday) {
+                      barColor = AppColors.purpleMetric;
+                    } else if (isPast) {
+                      barColor = dayHours > 0
+                          ? AppColors.purpleMetric.withValues(alpha: 0.55)
+                          : AppColors.purpleMetric.withValues(alpha: 0.22);
+                    } else {
+                      barColor = AppColors.purpleMetric.withValues(alpha: 0.12);
+                    }
+
+                    final Color textColor = isToday
+                        ? context.textPrimary
+                        : (isFuture
+                            ? AppColors.textMuted.withValues(alpha: 0.4)
+                            : AppColors.textMuted);
+                    final FontWeight textWeight =
+                        isToday ? FontWeight.w700 : FontWeight.w500;
+
                     return Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -303,9 +364,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
                           width: sleepBarWidth,
                           height: barHeight,
                           decoration: BoxDecoration(
-                            color: AppColors.purpleMetric.withValues(
-                              alpha: i == 5 ? 0.9 : 0.45,
-                            ),
+                            color: barColor,
                             borderRadius: BorderRadius.circular(4.0),
                           ),
                         ),
@@ -314,8 +373,8 @@ class HomeVitalsSummaryRow extends StatelessWidget {
                           _weekdays[i],
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: r.font(9.0),
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.textMuted,
+                            fontWeight: textWeight,
+                            color: textColor,
                           ),
                         ),
                       ],

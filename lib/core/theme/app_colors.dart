@@ -296,6 +296,8 @@ class AppColors {
   static const Color orangeMetric = Color(0xFFF97316);
   static const Color greenMetric = Color(0xFF22C55E);
   static const Color purpleMetric = Color(0xFF8B5CF6);
+  static const Color tealMetric = Color(0xFF14B8A6);
+  static const Color lavenderMetric = Color(0xFFA08CE0);
 
   // ===========================================================================
   // 9. Input & Component Backgrounds

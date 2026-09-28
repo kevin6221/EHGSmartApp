@@ -299,6 +299,21 @@ class BandBloc extends Bloc<BandEvent, BandState> {
       'linkbuds',
       'pixel',
       'galaxy',
+      'apple',
+      'amazfit',
+      'fitbit',
+      'huawei',
+      'garmin',
+      'noise',
+      'boat',
+      'fireboltt',
+      'pebble',
+      'dizo',
+      'zebronics',
+      'tile',
+      'tag',
+      'airtag',
+      'beacon',
     ];
 
     final filtered = event.devices.where((d) {
@@ -307,7 +322,26 @@ class BandBloc extends Bloc<BandEvent, BandState> {
       if (excludedKeywords.any((kw) => nameLower.contains(kw))) {
         return false;
       }
-      return true;
+      final isBand = nameLower.contains('ehg') ||
+          nameLower.startsWith('h59') ||
+          nameLower.startsWith('h60') ||
+          nameLower.startsWith('h66') ||
+          nameLower.startsWith('h0') ||
+          nameLower.startsWith('o_') ||
+          nameLower.startsWith('q_') ||
+          nameLower.startsWith('qc') ||
+          nameLower.startsWith('qwatch') ||
+          nameLower.startsWith('qring') ||
+          nameLower.startsWith('r0') ||
+          nameLower.startsWith('r_');
+      return isBand;
+    }).map((d) {
+      return DiscoveredBandDevice(
+        id: d.id,
+        name: DiscoveredBandDevice.normalizeBandName(d.name),
+        mac: d.mac,
+        rssi: d.rssi,
+      );
     }).toList();
 
     emit(state.copyWith(discoveredDevices: filtered));

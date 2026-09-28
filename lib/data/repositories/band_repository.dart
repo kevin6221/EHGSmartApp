@@ -462,12 +462,18 @@ class BandRepository {
     _autoReconnectTimer = null;
     final success = await _service.connect(device.id);
     if (success) {
-      _lastPairedDevice = device;
-      _persistDevice(device);
-      _connectedDevice = BandDeviceInfo(
-        name: device.name,
+      final normalizedDevice = DiscoveredBandDevice(
         id: device.id,
-        macAddress: device.mac,
+        name: DiscoveredBandDevice.normalizeBandName(device.name),
+        mac: device.mac,
+        rssi: device.rssi,
+      );
+      _lastPairedDevice = normalizedDevice;
+      _persistDevice(normalizedDevice);
+      _connectedDevice = BandDeviceInfo(
+        name: normalizedDevice.name,
+        id: normalizedDevice.id,
+        macAddress: normalizedDevice.mac,
       );
       // Run background post-connect handshake (time sync, vibration, battery, version)
       // without blocking connection resolution.

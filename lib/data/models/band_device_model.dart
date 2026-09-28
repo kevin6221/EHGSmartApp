@@ -119,12 +119,46 @@ class DiscoveredBandDevice extends Equatable {
     required this.rssi,
   });
 
+  /// Formats raw BLE broadcast names (such as H59_4F04, Q_4F04, etc.)
+  /// into clean, customer-facing EHG brand names.
+  static String normalizeBandName(String rawName) {
+    final trimmed = rawName.trim();
+    if (trimmed.isEmpty) return 'EHG Band';
+
+    // Matches vendor model names with 4-character hex suffix (e.g. H59_4F04, H59-4F04, Q_4F04, EHG_4F04)
+    final match = RegExp(
+      r'^(?:h59|h60|h66|h0\d|q|qc|o|r0|r|ehg)[_\-\s]?([0-9a-fA-F]{4})$',
+      caseSensitive: false,
+    ).firstMatch(trimmed);
+
+    if (match != null) {
+      final suffix = match.group(1)?.toUpperCase();
+      if (suffix != null && suffix.isNotEmpty) {
+        return 'EHG Band ($suffix)';
+      }
+    }
+
+    if (trimmed.toLowerCase().startsWith('ehg')) {
+      return 'EHG Band';
+    }
+
+    final isQcModel = RegExp(
+      r'^(?:h59|h60|h66|h0\d|qwatch|qring|qc)',
+      caseSensitive: false,
+    ).hasMatch(trimmed);
+
+    if (isQcModel) {
+      return 'EHG Band';
+    }
+
+    return trimmed;
+  }
+
   factory DiscoveredBandDevice.fromMap(Map<dynamic, dynamic> map) {
+    final rawName = map['name']?.toString() ?? '';
     return DiscoveredBandDevice(
       id: map['id']?.toString() ?? '',
-      name: (map['name'] != null && map['name'].toString().isNotEmpty)
-          ? map['name'].toString()
-          : 'EHG Smart Band',
+      name: normalizeBandName(rawName),
       mac: map['mac']?.toString() ?? '',
       rssi: (map['rssi'] as num?)?.toInt() ?? -70,
     );
@@ -143,7 +177,7 @@ class BandDeviceInfo extends Equatable {
   final String hardwareVersion;
 
   const BandDeviceInfo({
-    this.name = 'EHG Smart Band',
+    this.name = 'EHG Band',
     this.id = 'EH-9F2C',
     this.macAddress = '',
     this.firmwareVersion = '1.0.4',
@@ -151,8 +185,11 @@ class BandDeviceInfo extends Equatable {
   });
 
   factory BandDeviceInfo.fromMap(Map<dynamic, dynamic> map, {String? deviceId, String? name}) {
+    final resolvedName = (name != null && name.isNotEmpty)
+        ? DiscoveredBandDevice.normalizeBandName(name)
+        : 'EHG Band';
     return BandDeviceInfo(
-      name: name ?? 'EHG Smart Band',
+      name: resolvedName,
       id: deviceId ?? 'EH-9F2C',
       macAddress: map['macAddress']?.toString() ?? '',
       firmwareVersion: map['softVersion']?.toString() ?? '1.0.4',
@@ -257,6 +294,39 @@ class BandSyncedVitals extends Equatable {
     this.dayIndex = 0,
   });
 
+  /// Normalizes raw calories from QC hardware firmware to daily kcal.
+  ///
+  /// The QC SDK reports calories inconsistently across firmware versions:
+  /// - Some report in small calories (cal), yielding values like 44,695
+  /// - Some report in kcal directly (200–600 range for a normal day)
+  /// - Some report in cal×10 (2,000–5,000 range)
+  ///
+  /// This normalizer converts all variants to kcal and clamps the result
+  /// to a physiologically realistic daily maximum (elite athletes peak
+  /// around 8,000–10,000 kcal/day; a normal user is 1,500–3,500 kcal/day).
+  static int sanitizeCalories(int rawCal) {
+    if (rawCal <= 0) return 0;
+
+    int kcal;
+    if (rawCal > 50000) {
+      // Extremely high — raw small calories (cal). 50,000 cal = 50 kcal.
+      kcal = (rawCal / 1000).round();
+    } else if (rawCal > 5000) {
+      // Likely small calories or intermediate firmware unit.
+      // 5,000–50,000 range: divide by 100 gives 50–500 kcal.
+      kcal = (rawCal / 100).round();
+    } else if (rawCal > 3500) {
+      // 3,500–5,000: likely cal×10 from certain firmware.
+      kcal = (rawCal / 10).round();
+    } else {
+      // 1–3,500: already in kcal (reasonable daily range).
+      kcal = rawCal;
+    }
+
+    // Final safety clamp: no human burns more than 10,000 kcal/day.
+    return kcal.clamp(0, 10000);
+  }
+
   factory BandSyncedVitals.fromMap(Map<dynamic, dynamic> map) {
     final rawPhases = map['sleepPhases'] as List<dynamic>?;
     final rawHr = map['heartRateHistory'] as List<dynamic>?;
@@ -276,13 +346,7 @@ class BandSyncedVitals extends Equatable {
     }
 
     int rawCal = (map['calories'] as num?)?.toInt() ?? 0;
-    // QC SDK hardware units return small calories (e.g. 78687 for 2257 steps ~ 79 kcal).
-    int normalizedCal = rawCal;
-    if (rawCal > 10000) {
-      normalizedCal = (rawCal / 1000).round();
-    } else if (rawCal > 2000 && rawCal <= 10000) {
-      normalizedCal = (rawCal / 100).round();
-    }
+    int normalizedCal = sanitizeCalories(rawCal);
 
     return BandSyncedVitals(
       steps: (map['steps'] as num?)?.toInt() ?? 0,
@@ -382,7 +446,7 @@ class BandSyncedVitals extends Equatable {
   }) {
     return BandSyncedVitals(
       steps: steps ?? this.steps,
-      calories: calories ?? this.calories,
+      calories: calories != null ? sanitizeCalories(calories) : this.calories,
       distance: distance ?? this.distance,
       sleepMinutes: sleepMinutes ?? this.sleepMinutes,
       deepSleepMinutes: deepSleepMinutes ?? this.deepSleepMinutes,
@@ -437,12 +501,7 @@ class BandSyncedVitals extends Equatable {
 
   factory BandSyncedVitals.fromJson(Map<String, dynamic> json) {
     int rawCal = (json['calories'] as num?)?.toInt() ?? 0;
-    int normalizedCal = rawCal;
-    if (rawCal > 10000) {
-      normalizedCal = (rawCal / 1000).round();
-    } else if (rawCal > 2000 && rawCal <= 10000) {
-      normalizedCal = (rawCal / 100).round();
-    }
+    int normalizedCal = sanitizeCalories(rawCal);
 
     return BandSyncedVitals(
       steps: (json['steps'] as num?)?.toInt() ?? 0,
@@ -642,6 +701,20 @@ class BandMeasurementResult extends Equatable {
     this.data = const {},
     this.error,
   });
+
+  /// Convenience getter for heart rate value in BPM if present.
+  int? get heartRate =>
+      (data['hr'] as num?)?.toInt() ??
+      (data['heartRate'] as num?)?.toInt() ??
+      (data['value'] as num?)?.toInt();
+
+  /// Primary numeric value of the measurement result if present.
+  num? get value =>
+      (data['value'] as num?) ??
+      (data['hr'] as num?) ??
+      (data['heartRate'] as num?) ??
+      (data['spo2'] as num?) ??
+      (data['systolic'] as num?);
 
   @override
   List<Object?> get props => [type, success, data, error];

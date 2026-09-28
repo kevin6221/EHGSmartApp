@@ -14,6 +14,7 @@ import '../../blocs/band/band_state.dart';
 import '../../blocs/training/training_bloc.dart';
 import '../../blocs/training/training_event.dart';
 import '../../blocs/training/training_state.dart';
+import '../../widgets/common/app_back_button.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/custom_bottom_nav_bar.dart';
 import 'widgets/training_metric_card.dart';
@@ -95,17 +96,26 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                         r.horizontalPadding,
                         0,
                       ),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Recording · ${state.data?.title ?? "Workout"}',
-                          style: GoogleFonts.plusJakartaSans(
-                            color: AppColors.white,
-                            fontSize: r.font(24),
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.5,
+                      child: Row(
+                        children: [
+                          AppBackButton(
+                            onTap: () => Navigator.of(context).maybePop(),
+                            isLightHeader: true,
                           ),
-                        ),
+                          const SizedBox(width: 12.0),
+                          Expanded(
+                            child: Text(
+                              'Recording · ${state.data?.title ?? "Workout"}',
+                              style: GoogleFonts.plusJakartaSans(
+                                color: AppColors.white,
+                                fontSize: r.font(22),
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.5,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     Expanded(

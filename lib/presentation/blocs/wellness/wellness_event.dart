@@ -47,11 +47,11 @@ class SyncBandVitalsEvent extends WellnessEvent {
   final int restingHeartRate;
 
   const SyncBandVitalsEvent({
-    required this.steps,
-    required this.calories,
-    required this.distance,
-    required this.sleepMinutes,
-    required this.deepSleepMinutes,
+    this.steps = 0,
+    this.calories = 0,
+    this.distance = 0,
+    this.sleepMinutes = 0,
+    this.deepSleepMinutes = 0,
     this.liveHeartRate,
     this.bloodOxygen = 0,
     this.systolicBP = 0,
@@ -82,9 +82,10 @@ class SyncBandVitalsEvent extends WellnessEvent {
 
 class SyncBandFullVitalsEvent extends WellnessEvent {
   final dynamic vitals; // BandSyncedVitals
-  const SyncBandFullVitalsEvent(this.vitals);
+  final bool isManualRefresh;
+  const SyncBandFullVitalsEvent(this.vitals, {this.isManualRefresh = false});
 
   @override
-  List<Object?> get props => [vitals];
+  List<Object?> get props => [vitals, isManualRefresh];
 }
 

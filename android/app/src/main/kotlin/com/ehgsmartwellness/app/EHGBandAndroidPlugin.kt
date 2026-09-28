@@ -883,12 +883,15 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                 val rawName = if (!advertisedName.isNullOrEmpty()) advertisedName else if (!cachedName.isNullOrEmpty()) cachedName else ""
                 val nameLower = rawName.lowercase()
 
-                // Exclude earbuds, headphones, speakers, TVs, laptops, phones
+                // Exclude earbuds, headphones, speakers, TVs, laptops, phones, other smart watches/trackers
                 val excludedKeywords = listOf(
                     "buds", "airpod", "earphone", "headphone", "headset",
                     "speaker", "audio", "sound", "tv", "macbook", "phone",
                     "ipad", "laptop", "car", "echo", "beats", "sony", "jbl",
-                    "freebuds", "linkbuds", "pixel", "galaxy"
+                    "freebuds", "linkbuds", "pixel", "galaxy", "apple",
+                    "amazfit", "fitbit", "huawei", "garmin", "noise", "boat",
+                    "fireboltt", "pebble", "dizo", "zebronics", "tile", "tag",
+                    "airtag", "beacon"
                 )
                 if (nameLower.isNotEmpty() && excludedKeywords.any { kw -> nameLower.contains(kw) }) {
                     return
@@ -916,25 +919,30 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                     }
                 }
 
-                // 3. Strict EHG / QC / QRing device naming (aligned with QWatch Pro / QC SDK)
-                val isEhgOrQcDevice = nameLower.startsWith("ehg") ||
+                // 3. Strict EHG / QC model prefix verification
+                // Strict check: only EHG branded or official QC Band hardware model prefixes (H59, H60, etc.)
+                // DO NOT match generic words like "smart", "band", "watch", or "ring" which match unrelated devices!
+                val hasEhgPrefix = nameLower.startsWith("ehg") || nameLower.contains("ehg")
+                val hasQcModelPrefix = nameLower.startsWith("h59") ||
+                        nameLower.startsWith("h60") ||
+                        nameLower.startsWith("h66") ||
+                        nameLower.startsWith("h0") ||
                         nameLower.startsWith("o_") ||
                         nameLower.startsWith("q_") ||
                         nameLower.startsWith("qc") ||
                         nameLower.startsWith("qwatch") ||
                         nameLower.startsWith("qring") ||
                         nameLower.startsWith("r0") ||
-                        nameLower.startsWith("r_") ||
-                        nameLower.startsWith("ring") ||
-                        nameLower.contains("ehg") ||
-                        nameLower.contains("smart") ||
-                        nameLower.contains("band") ||
-                        nameLower.contains("ring") ||
-                        nameLower.contains("watch")
+                        nameLower.startsWith("r_")
 
-                // Must be verified QC service, verified QC manufacturer signature, or official EHG/QC device name
-                if (!hasQcService && !hasQcMfgSignature && !isEhgOrQcDevice) {
+                // Device MUST be verified EHG or QC band (EHG name, QC service UUID, QC MAC signature, or QC model prefix)
+                if (!hasEhgPrefix && !hasQcService && !hasQcMfgSignature && !hasQcModelPrefix) {
                     Log.v(TAG, "Filtered non-EHG device: '$rawName' ($address)")
+                    return
+                }
+
+                // If device has no verified EHG prefix or QC model prefix, require verified QC service or verified MAC signature
+                if (!hasEhgPrefix && !hasQcModelPrefix && !hasQcService && !hasQcMfgSignature) {
                     return
                 }
 
@@ -943,10 +951,11 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                     return
                 }
 
-                val finalName = if (rawName.isNotBlank()) rawName else "EHG Smart Band"
+                // Format advertised name (e.g. H59_4F04 -> EHG Band (4F04) or EHG Band)
+                val finalName = formatBandDisplayName(rawName)
                 val rssi = it.rssi
 
-                Log.i(TAG, "EHG Band found: '$finalName' ($address), rssi=$rssi, qcService=$hasQcService, qcMfg=$hasQcMfgSignature")
+                Log.i(TAG, "EHG Band found: '$finalName' [raw='$rawName'] ($address), rssi=$rssi, qcService=$hasQcService, qcMfg=$hasQcMfgSignature")
 
                 val devMap = mapOf(
                     "id" to address,
@@ -973,6 +982,30 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
             Log.e(TAG, "BLE Scan Failed: errorCode=$errorCode")
             sendEvent(mapOf("type" to "scan_finished"))
         }
+    }
+
+    private fun formatBandDisplayName(rawName: String): String {
+        val trimmed = rawName.trim()
+        if (trimmed.isEmpty()) return "EHG Band"
+
+        // Pattern matching: H59_4F04, H59-4F04, Q_4F04, etc. -> "EHG Band (4F04)"
+        val suffixRegex = Regex("^(?:h59|h60|h66|h0\\d|q|qc|o|r0|r|ehg)[_\\-\\s]?([0-9a-fA-F]{4})$", RegexOption.IGNORE_CASE)
+        val match = suffixRegex.find(trimmed)
+        if (match != null) {
+            val suffix = match.groupValues[1].uppercase()
+            return "EHG Band ($suffix)"
+        }
+
+        if (trimmed.startsWith("ehg", ignoreCase = true)) {
+            return "EHG Band"
+        }
+
+        val modelRegex = Regex("^(?:h59|h60|h66|h0\\d|qwatch|qring|qc)", RegexOption.IGNORE_CASE)
+        if (modelRegex.containsMatchIn(trimmed)) {
+            return "EHG Band"
+        }
+
+        return if (trimmed.isNotBlank()) trimmed else "EHG Band"
     }
 
     private fun extractMacFromMfg(data: ByteArray): String? {

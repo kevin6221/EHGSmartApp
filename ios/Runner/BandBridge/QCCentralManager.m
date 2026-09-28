@@ -309,12 +309,15 @@ static NSInteger const QCBleDefaultConnectTimeout = 6;
     if (peripheral.name.length == 0) return;
     
     NSString *nameLower = peripheral.name.lowercaseString;
-    // 1. Filter out audio accessories, TVs, computers, phones, beacons
+    // 1. Filter out audio accessories, TVs, computers, phones, third-party wearables
     NSArray *excludedKeywords = @[
         @"buds", @"airpod", @"earphone", @"headphone", @"headset",
         @"speaker", @"audio", @"sound", @"tv", @"macbook", @"iphone",
         @"ipad", @"laptop", @"car", @"echo", @"beats", @"sony", @"jbl",
-        @"freebuds", @"linkbuds", @"pixel", @"galaxy"
+        @"freebuds", @"linkbuds", @"pixel", @"galaxy", @"apple",
+        @"amazfit", @"fitbit", @"huawei", @"garmin", @"honor", @"oppo",
+        @"oneplus", @"realme", @"noise", @"boat", @"fireboltt", @"pebble",
+        @"dizo", @"zebronics", @"tile", @"tag", @"airtag", @"beacon"
     ];
     for (NSString *keyword in excludedKeywords) {
         if ([nameLower containsString:keyword]) {
@@ -337,16 +340,21 @@ static NSInteger const QCBleDefaultConnectTimeout = 6;
         }
     }
     
-    BOOL hasBandPrefix = [nameLower hasPrefix:@"o_"] ||
-                         [nameLower hasPrefix:@"q_"] ||
-                         [nameLower hasPrefix:@"qc"] ||
-                         [nameLower hasPrefix:@"ehg"] ||
-                         [nameLower containsString:@"band"] ||
-                         [nameLower containsString:@"ring"] ||
-                         [nameLower containsString:@"watch"];
+    BOOL hasEhgPrefix = [nameLower hasPrefix:@"ehg"] || [nameLower containsString:@"ehg"];
+    BOOL hasQcPrefix = [nameLower hasPrefix:@"h59"] ||
+                       [nameLower hasPrefix:@"h60"] ||
+                       [nameLower hasPrefix:@"h66"] ||
+                       [nameLower hasPrefix:@"h0"] ||
+                       [nameLower hasPrefix:@"o_"] ||
+                       [nameLower hasPrefix:@"q_"] ||
+                       [nameLower hasPrefix:@"qc"] ||
+                       [nameLower hasPrefix:@"qwatch"] ||
+                       [nameLower hasPrefix:@"qring"] ||
+                       [nameLower hasPrefix:@"r0"] ||
+                       [nameLower hasPrefix:@"r_"];
                          
-    // Require genuine QC band attributes
-    if (mac.length == 0 && !hasQcService && !hasBandPrefix) {
+    // Require genuine EHG or QC band attributes (Must have EHG branding, QC service UUID, or official QC model prefix)
+    if (!hasEhgPrefix && !hasQcService && !hasQcPrefix) {
         return;
     }
 

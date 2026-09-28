@@ -18,7 +18,7 @@ class OnboardingDeviceCard extends StatelessWidget {
 
   const OnboardingDeviceCard({
     super.key,
-    this.deviceName = 'EHG Smart Band',
+    this.deviceName = 'EHG Band',
     this.deviceId = 'EH-9F2C',
     this.batteryDays,
     this.onTap,

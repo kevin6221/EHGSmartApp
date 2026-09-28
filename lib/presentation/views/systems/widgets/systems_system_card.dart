@@ -1,10 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/constants/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/responsive.dart';
+import '../../../../data/models/workout_model.dart';
+import '../../../blocs/training/training_bloc.dart';
+import '../../../blocs/training/training_event.dart';
 import '../../../widgets/common/dotted_divider.dart';
+import '../../train/training_session_screen.dart';
+
+/// Model representing an actionable exercise item inside a system card.
+class SystemExerciseItem {
+  final String title;
+  final WorkoutType workoutType;
+  final String? subtitle;
+
+  const SystemExerciseItem({
+    required this.title,
+    required this.workoutType,
+    this.subtitle,
+  });
+}
 
 /// Single responsibility card component for the four systems (Move, Recover, Mind, Fuel).
 class SystemsCardTemplate extends StatelessWidget {
@@ -14,6 +32,8 @@ class SystemsCardTemplate extends StatelessWidget {
   final String sectionKey;
   final ValueNotifier<String?> expandedSystemNotifier;
   final List<String> details;
+  final List<SystemExerciseItem>? exercises;
+  final bool leadsToday;
   final Responsive r;
 
   const SystemsCardTemplate({
@@ -23,7 +43,9 @@ class SystemsCardTemplate extends StatelessWidget {
     required this.subtitle,
     required this.sectionKey,
     required this.expandedSystemNotifier,
-    required this.details,
+    this.details = const [],
+    this.exercises,
+    this.leadsToday = false,
     required this.r,
   });
 
@@ -100,7 +122,34 @@ class SystemsCardTemplate extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(title, style: _titleStyle(context)),
+                        Row(
+                          children: [
+                            Text(title, style: _titleStyle(context)),
+                            if (leadsToday) ...[
+                              const SizedBox(width: 8.0),
+                              Container(
+                                alignment: Alignment.center,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8.0,
+                                  vertical: 3.0,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.cyanLight,
+                                  borderRadius: BorderRadius.circular(4.0),
+                                ),
+                                child: Text(
+                                  'Leads today',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: r.font(10.0),
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.white,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                         const SizedBox(height: 4.0),
                         Text(subtitle, style: _subtitleStyle(context)),
                       ],
@@ -128,15 +177,35 @@ class SystemsCardTemplate extends StatelessWidget {
                 thickness: 0.5,
               ),
             ),
-            ...details.map(
-              (detail) => Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14.0,
-                  vertical: 8.0,
+            if (exercises != null && exercises!.isNotEmpty)
+              ...exercises!.map(
+                (exercise) => _buildExerciseActionRow(
+                  context: context,
+                  title: exercise.title,
+                  r: r,
+                  onStart: () {
+                    context.read<TrainingBloc>().add(
+                          SelectWorkoutCategoryEvent(exercise.workoutType),
+                        );
+                    context.read<TrainingBloc>().add(const StartWorkoutEvent());
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const TrainingSessionScreen(),
+                      ),
+                    );
+                  },
                 ),
-                child: Text(detail, style: _detailStyle(context)),
+              )
+            else
+              ...details.map(
+                (detail) => Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14.0,
+                    vertical: 8.0,
+                  ),
+                  child: Text(detail, style: _detailStyle(context)),
+                ),
               ),
-            ),
             const SizedBox(height: 4.0),
           ],
         ],
@@ -146,6 +215,54 @@ class SystemsCardTemplate extends StatelessWidget {
 
   void _toggleExpansion() {
     expandedSystemNotifier.value = sectionKey;
+  }
+
+  static Widget _buildExerciseActionRow({
+    required BuildContext context,
+    required String title,
+    required Responsive r,
+    required VoidCallback onStart,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: r.font(12.0),
+                fontWeight: FontWeight.w400,
+                color: context.textPrimary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          GestureDetector(
+            onTap: onStart,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(6.0),
+              ),
+              child: Text(
+                'START',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: r.font(11.0),
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   TextStyle _titleStyle(BuildContext context) => GoogleFonts.plusJakartaSans(
@@ -170,11 +287,13 @@ class SystemsCardTemplate extends StatelessWidget {
 /// Expandable Recover system card with interactive lead status and sub-action items.
 class SystemsRecoverCard extends StatelessWidget {
   final ValueNotifier<String?> expandedSystemNotifier;
+  final bool leadsToday;
   final Responsive r;
 
   const SystemsRecoverCard({
     super.key,
     required this.expandedSystemNotifier,
+    this.leadsToday = true,
     required this.r,
   });
 
@@ -246,27 +365,29 @@ class SystemsRecoverCard extends StatelessWidget {
                                     color: context.textPrimary,
                                   ),
                                 ),
-                                const SizedBox(width: 8.0),
-                                Container(
-                                  alignment: Alignment.center,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8.0,
-                                    vertical: 3.0,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.cyanLight,
-                                    borderRadius: BorderRadius.circular(4.0),
-                                  ),
-                                  child: Text(
-                                    'Leads today',
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: r.font(10.0),
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.white,
+                                if (leadsToday) ...[
+                                  const SizedBox(width: 8.0),
+                                  Container(
+                                    alignment: Alignment.center,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8.0,
+                                      vertical: 3.0,
                                     ),
-                                    textAlign: TextAlign.center,
+                                    decoration: BoxDecoration(
+                                      color: AppColors.cyanLight,
+                                      borderRadius: BorderRadius.circular(4.0),
+                                    ),
+                                    child: Text(
+                                      'Leads today',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: r.font(10.0),
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.white,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
                                   ),
-                                ),
+                                ],
                               ],
                             ),
                             const SizedBox(height: 4.0),
@@ -308,16 +429,19 @@ class SystemsRecoverCard extends StatelessWidget {
                   context: context,
                   title: 'Full mobility flow · 20 min',
                   r: r,
+                  onStart: () => _startSession(context, WorkoutType.walk),
                 ),
                 _buildActionItemRow(
                   context: context,
                   title: 'Foam roll: calves & hamstrings · 8 min',
                   r: r,
+                  onStart: () => _startSession(context, WorkoutType.walk),
                 ),
                 _buildActionItemRow(
                   context: context,
                   title: 'Sleep wind-down · 12 min',
                   r: r,
+                  onStart: () => _startSession(context, WorkoutType.walk),
                 ),
                 const SizedBox(height: 4.0),
                 Padding(
@@ -348,10 +472,21 @@ class SystemsRecoverCard extends StatelessWidget {
     );
   }
 
+  static void _startSession(BuildContext context, WorkoutType type) {
+    context.read<TrainingBloc>().add(SelectWorkoutCategoryEvent(type));
+    context.read<TrainingBloc>().add(const StartWorkoutEvent());
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const TrainingSessionScreen(),
+      ),
+    );
+  }
+
   static Widget _buildActionItemRow({
     required BuildContext context,
     required String title,
     required Responsive r,
+    required VoidCallback onStart,
   }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
@@ -362,7 +497,7 @@ class SystemsRecoverCard extends StatelessWidget {
             child: Text(
               title,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: r.font(10.0),
+                fontSize: r.font(12.0),
                 fontWeight: FontWeight.w400,
                 color: context.textPrimary,
               ),
@@ -371,15 +506,22 @@ class SystemsRecoverCard extends StatelessWidget {
             ),
           ),
           GestureDetector(
-            onTap: () {},
+            onTap: onStart,
             behavior: HitTestBehavior.opaque,
-            child: Text(
-              'START',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: r.font(12.0),
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
-                letterSpacing: 0.4,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(6.0),
+              ),
+              child: Text(
+                'START',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: r.font(11.0),
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                  letterSpacing: 0.5,
+                ),
               ),
             ),
           ),

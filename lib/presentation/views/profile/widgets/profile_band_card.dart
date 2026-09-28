@@ -6,6 +6,7 @@ import '../../../../core/constants/app_icons.dart';
 import '../../../../core/routes/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/responsive.dart';
+import '../../../../data/models/band_device_model.dart';
 import '../../../../data/models/user_profile_model.dart';
 import '../../../../data/repositories/band_repository.dart';
 import '../../../blocs/band/band_bloc.dart';
@@ -162,9 +163,10 @@ class ProfileBandCard extends StatelessWidget {
           );
         }
 
-        final deviceName = bandState.connectedDevice?.name ??
+        final rawDeviceName = bandState.connectedDevice?.name ??
             bandState.boundDevice?.name ??
-            'EHG Smart Band';
+            'EHG Band';
+        final deviceName = DiscoveredBandDevice.normalizeBandName(rawDeviceName);
         final deviceId = bandState.connectedDevice != null
             ? (bandState.connectedDevice!.macAddress.isNotEmpty
                 ? bandState.connectedDevice!.macAddress

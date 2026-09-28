@@ -13,7 +13,11 @@ class WellnessBloc extends Bloc<WellnessEvent, WellnessState> {
       try {
         await repository.ensureInitialized();
         final data = repository.getWellnessData();
-        emit(state.copyWith(status: WellnessStatus.loaded, data: data));
+        emit(state.copyWith(
+          status: WellnessStatus.loaded,
+          data: data,
+          baseline: repository.baselineData,
+        ));
       } catch (e) {
         emit(
           state.copyWith(
@@ -24,17 +28,22 @@ class WellnessBloc extends Bloc<WellnessEvent, WellnessState> {
       }
     });
 
-    on<ChangeWellnessModeEvent>((event, emit) {
-      if (state.data != null) {
-        final updated = state.data!.copyWith(activeMode: event.mode);
-        emit(state.copyWith(data: updated));
-      }
+    on<ChangeWellnessModeEvent>((event, emit) async {
+      await repository.changeWellnessMode(event.mode);
+      final data = repository.getWellnessData();
+      emit(state.copyWith(
+        data: data,
+        baseline: repository.baselineData,
+      ));
     });
 
     on<AddHydrationEvent>((event, emit) async {
       await repository.addHydration(event.amountMl);
       final data = repository.getWellnessData();
-      emit(state.copyWith(data: data));
+      emit(state.copyWith(
+        data: data,
+        baseline: repository.baselineData,
+      ));
     });
 
     on<SyncBandVitalsEvent>((event, emit) {
@@ -52,7 +61,10 @@ class WellnessBloc extends Bloc<WellnessEvent, WellnessState> {
           );
         }
         final data = repository.getWellnessData();
-        emit(state.copyWith(data: data));
+        emit(state.copyWith(
+          data: data,
+          baseline: repository.baselineData,
+        ));
       }
     });
 
@@ -64,10 +76,17 @@ class WellnessBloc extends Bloc<WellnessEvent, WellnessState> {
             event.vitals.sleepMinutes == 0) {
           repository.resetData();
         } else {
-          repository.updateFromBandVitals(event.vitals);
+          repository.updateFromBandVitals(
+            event.vitals,
+            updateMode: event.isManualRefresh,
+          );
         }
         final data = repository.getWellnessData();
-        emit(state.copyWith(status: WellnessStatus.loaded, data: data));
+        emit(state.copyWith(
+          status: WellnessStatus.loaded,
+          data: data,
+          baseline: repository.baselineData,
+        ));
       }
     });
   }
