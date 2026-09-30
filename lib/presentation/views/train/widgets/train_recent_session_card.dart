@@ -29,6 +29,16 @@ class TrainRecentSessionCard extends StatelessWidget {
     final r = context.responsive;
     final runnerBoxDim = (r.width * 0.10).clamp(36.0, 42.0);
 
+    final hasValidSession = (peakHr > 0 || avgHr > 0) &&
+        duration != '--' &&
+        duration != '00hr 00min 00sec' &&
+        duration != '00hr 00min 01sec';
+
+    final displayTitle = hasValidSession ? sessionTitle : 'No recent sessions';
+    final displayDuration = hasValidSession ? duration : '--';
+    final displayPeak = hasValidSession ? '$peakHr' : '--';
+    final displayAvg = hasValidSession ? '${avgHr}bpm' : '--';
+
     return AppCard(
       padding: EdgeInsets.all(r.isSmall ? 12.0 : 16.0),
       borderRadius: BorderRadius.circular(12.0),
@@ -58,16 +68,12 @@ class TrainRecentSessionCard extends StatelessWidget {
                     width: 0.3,
                   ),
                 ),
-                child: const AppSvgIcon(
-                  AppIcons.runningManIcon,
-                  color: AppColors.primary,
-                  size: 24.0,
-                ),
+                child: _buildSessionIcon(),
               ),
               const SizedBox(width: 10.0),
               Expanded(
                 child: Text(
-                  sessionTitle,
+                  displayTitle,
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(14.0),
                     fontWeight: FontWeight.w600,
@@ -101,7 +107,7 @@ class TrainRecentSessionCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        duration,
+                        displayDuration,
                         style: GoogleFonts.poppins(
                           fontSize: r.font(10.0),
                           fontWeight: FontWeight.w700,
@@ -145,7 +151,7 @@ class TrainRecentSessionCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '$peakHr',
+                        displayPeak,
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(10.0),
                           fontWeight: FontWeight.w700,
@@ -190,7 +196,7 @@ class TrainRecentSessionCard extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        '${avgHr}bpm',
+                        displayAvg,
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(10.0),
                           fontWeight: FontWeight.w700,
@@ -216,6 +222,40 @@ class TrainRecentSessionCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildSessionIcon() {
+    final lower = sessionTitle.toLowerCase();
+    if (lower.contains('walk')) {
+      return const Icon(
+        Icons.directions_walk_rounded,
+        color: AppColors.primary,
+        size: 24.0,
+      );
+    } else if (lower.contains('bik') || lower.contains('cycl')) {
+      return const Icon(
+        Icons.directions_bike_rounded,
+        color: AppColors.primary,
+        size: 24.0,
+      );
+    } else if (lower.contains('strength')) {
+      return const Icon(
+        Icons.fitness_center_rounded,
+        color: AppColors.primary,
+        size: 22.0,
+      );
+    } else if (lower.contains('hiit') || lower.contains('hit')) {
+      return const AppSvgIcon(
+        AppIcons.trainFlame,
+        color: AppColors.primary,
+        size: 22.0,
+      );
+    }
+    return const AppSvgIcon(
+      AppIcons.runningManIcon,
+      color: AppColors.primary,
+      size: 24.0,
     );
   }
 }

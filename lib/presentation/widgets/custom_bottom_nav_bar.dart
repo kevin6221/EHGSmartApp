@@ -143,6 +143,8 @@ class CustomBottomNavBar extends StatefulWidget {
   static const List<_NavTabData> _tabs = [
     _NavTabData(label: 'Activity', svgPath: AppIcons.activity),
     _NavTabData(label: 'Vitals', svgPath: AppIcons.heartGrey),
+    _NavTabData(label: 'Train', svgPath: AppIcons.trainFlame),
+    _NavTabData(label: 'Systems', svgPath: AppIcons.systems),
     _NavTabData(label: 'Unlock', svgPath: AppIcons.tagScanner),
     _NavTabData(label: 'Journal', svgPath: AppIcons.journal),
   ];
@@ -355,7 +357,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
                                     onTap: () {
                                       if (!_hasSelection ||
                                           widget.activeIndex != index ||
-                                          index == 2) {
+                                          tab.label == 'Unlock') {
                                         HapticFeedback.lightImpact();
                                         widget.onTabSelected(index);
                                       }
@@ -388,7 +390,7 @@ class _CustomBottomNavBarState extends State<CustomBottomNavBar>
                                                     tab.label,
                                                     style: GoogleFonts
                                                         .plusJakartaSans(
-                                                      fontSize: r.font(9.5),
+                                                      fontSize: (r.font(9.0)).clamp(7.5, 9.5),
                                                       fontWeight:
                                                           FontWeight.w500,
                                                       color:

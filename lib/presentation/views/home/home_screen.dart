@@ -6,6 +6,7 @@ import '../../../core/sync/health_sync_manager.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
+import '../../../data/models/band_device_model.dart';
 import '../../../data/models/wellness_data_model.dart';
 import '../../../data/repositories/band_repository.dart';
 import '../../../data/repositories/wellness_repository.dart';
@@ -28,6 +29,7 @@ import 'widgets/home_day_wave_section.dart';
 import 'widgets/home_energy_card.dart';
 import 'widgets/home_header_greeting.dart';
 import 'widgets/home_hydration_card.dart';
+import 'widgets/home_live_check_card.dart';
 import 'widgets/home_mode_selector.dart';
 import 'widgets/home_readiness_card.dart';
 import 'widgets/home_vitals_summary_row.dart';
@@ -169,23 +171,66 @@ class _HomeScreenState extends State<HomeScreen>
                       // SizedBox(height: itemSpacing),
 
                       // Quick-Glance Vitals Carousel (Heart Rate & Sleep)
-                      HomeVitalsSummaryRow(
-                        heartRate: data.currentHeartRate,
-                        weeklyHeartRate: data.weeklyHeartRate,
-                        sleepHours: data.sleepHours,
-                        weeklySleep: data.weeklySleep,
-                        onHeartRateTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const HeartRateDetailScreen(),
-                            ),
-                          );
-                        },
-                        onSleepTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const SleepDetailScreen(),
-                            ),
+                      BlocBuilder<BandBloc, BandState>(
+                        builder: (context, bandState) {
+                          final int liveHr = bandState.liveHeartRate;
+                          final bool isLive = bandState.isConnected && liveHr > 0;
+
+                          // Prioritize the latest recorded reading:
+                          // 1. Actively streaming real-time heart rate (if measuring)
+                          // 2. BandState latestHeartRate (recorded from spot checks or stream)
+                          // 3. Synced vitals latestHeartRate
+                          // 4. Most recent non-zero sample in heartRateHistory
+                          // 5. WellnessBloc currentHeartRate
+                          int latestHr = 0;
+                          if (isLive) {
+                            latestHr = liveHr;
+                          } else if (bandState.latestHeartRate > 0) {
+                            latestHr = bandState.latestHeartRate;
+                          } else if (bandState.lastSyncedVitals != null && bandState.lastSyncedVitals!.latestHeartRate > 0) {
+                            latestHr = bandState.lastSyncedVitals!.latestHeartRate;
+                          } else {
+                            final hrList = bandState.lastSyncedVitals?.heartRateHistory;
+                            if (hrList != null && hrList.isNotEmpty) {
+                              for (int i = hrList.length - 1; i >= 0; i--) {
+                                if (hrList[i].bpm > 0) {
+                                  latestHr = hrList[i].bpm;
+                                  break;
+                                }
+                              }
+                            }
+                          }
+
+                          if (latestHr <= 0 && data.currentHeartRate > 0) {
+                            latestHr = data.currentHeartRate;
+                          }
+
+                          final effectiveWeeklyHr = (bandState.lastSyncedVitals?.weeklyHeartRate.isNotEmpty == true &&
+                                  bandState.lastSyncedVitals!.weeklyHeartRate.any((v) => v > 0))
+                              ? bandState.lastSyncedVitals!.weeklyHeartRate
+                              : data.weeklyHeartRate;
+
+                          return HomeVitalsSummaryRow(
+                            heartRate: latestHr,
+                            isLive: isLive,
+                            restingRate: data.restHr,
+                            weeklyHeartRate: effectiveWeeklyHr,
+                            sleepHours: data.sleepHours,
+                            weeklySleep: data.weeklySleep,
+                            onHeartRateTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const HeartRateDetailScreen(),
+                                ),
+                              );
+                            },
+                            onSleepTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const SleepDetailScreen(),
+                                ),
+                              );
+                            },
                           );
                         },
                       ),
@@ -211,6 +256,10 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       SizedBox(height: itemSpacing),
 
+                      // On-Demand Live Check Tab/Button (Heart Rate, Blood Pressure Est, SpO2)
+                      const HomeLiveCheckCard(),
+                      SizedBox(height: itemSpacing),
+
                       // Hydration Card
                       HomeHydrationCard(
                         currentMl: data.hydrationCurrent,
@@ -234,7 +283,8 @@ class _HomeScreenState extends State<HomeScreen>
                       // Energy Burned Card
                       BlocBuilder<BandBloc, BandState>(
                         builder: (context, bandState) {
-                          final bandCalories = bandState.lastSyncedVitals?.calories ?? 0;
+                          final rawBandCal = bandState.lastSyncedVitals?.calories ?? 0;
+                          final bandCalories = BandSyncedVitals.sanitizeCalories(rawBandCal);
                           final int effectiveEnergy;
                           if (bandCalories > 0) {
                             effectiveEnergy = switch (data.activeMode) {
@@ -243,7 +293,7 @@ class _HomeScreenState extends State<HomeScreen>
                               WellnessMode.push => (bandCalories * 1.45).round().clamp(750, 1100),
                             };
                           } else {
-                            effectiveEnergy = data.energyBurned;
+                            effectiveEnergy = BandSyncedVitals.sanitizeCalories(data.energyBurned);
                           }
 
                           final steps = (bandState.lastSyncedVitals?.steps ?? 0) > 0

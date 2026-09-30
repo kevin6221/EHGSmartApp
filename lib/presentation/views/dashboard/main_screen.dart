@@ -14,6 +14,8 @@ import '../../widgets/band/band_permission_dialog.dart';
 import '../../widgets/custom_bottom_nav_bar.dart';
 import '../home/home_screen.dart';
 import '../journal/journal_screen.dart';
+import '../systems/systems_screen.dart';
+import '../train/train_screen.dart';
 import '../vitals/vitals_screen.dart';
 import '../wardrobe/unlock_wardrobe_screen.dart';
 
@@ -24,6 +26,8 @@ class MainScreen extends StatelessWidget {
   static const List<Widget> _screens = [
     HomeScreen(),
     VitalsScreen(),
+    TrainScreen(isTab: true),
+    SystemsScreen(isTab: true),
     UnlockWardrobeScreen(),
     JournalScreen(),
   ];

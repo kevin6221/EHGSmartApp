@@ -32,18 +32,6 @@ class ProfileMenuListingCard extends StatelessWidget {
 
   static const List<_ProfileMenuItem> _menuItems = [
     _ProfileMenuItem(
-      title: 'Train',
-      subtitle: 'Workouts, training sessions & performance',
-      svgPath: AppIcons.burnGrey,
-      route: AppRoutes.train,
-    ),
-    _ProfileMenuItem(
-      title: 'Systems',
-      subtitle: 'Four systems, routines & journeys',
-      svgPath: AppIcons.systems,
-      route: AppRoutes.systems,
-    ),
-    _ProfileMenuItem(
       title: 'Rewards',
       subtitle: 'Unlocked pieces, badges & milestones',
       svgPath: AppIcons.rewards,

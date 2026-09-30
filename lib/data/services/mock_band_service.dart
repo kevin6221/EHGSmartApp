@@ -225,14 +225,35 @@ class MockBandService implements BandService {
     return const BandSyncedVitals();
   }
 
+  Timer? _mockMeasureTimer;
+
   @override
   Future<bool> startMeasuring(MeasurementType type) async {
-    return false;
+    _mockMeasureTimer?.cancel();
+    _mockMeasureTimer = Timer(const Duration(seconds: 3), () {
+      if (!_measurementResultController.isClosed) {
+        _measurementResultController.add(BandMeasurementResult(
+          type: type,
+          success: true,
+          data: const {
+            'hr': 74,
+            'sbp': 118,
+            'dbp': 76,
+            'spo2': 98.0,
+            'temperature': 36.6,
+            'stress': 26,
+            'hrv': 68,
+          },
+        ));
+      }
+    });
+    return true;
   }
 
   @override
   Future<bool> stopMeasuring(MeasurementType type) async {
-    return false;
+    _mockMeasureTimer?.cancel();
+    return true;
   }
 
   @override

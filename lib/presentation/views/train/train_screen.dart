@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../data/models/user_profile_model.dart';
+import '../../blocs/band/band_bloc.dart';
 import '../../blocs/profile/profile_bloc.dart';
 import '../../blocs/training/training_bloc.dart';
 import '../../blocs/training/training_event.dart';
@@ -17,7 +18,8 @@ import 'widgets/train_recent_session_card.dart';
 
 /// Training and workout dashboard screen matching Figma Node 75:2261.
 class TrainScreen extends StatelessWidget {
-  const TrainScreen({super.key});
+  final bool isTab;
+  const TrainScreen({super.key, this.isTab = false});
 
   @override
   Widget build(BuildContext context) {
@@ -27,6 +29,7 @@ class TrainScreen extends StatelessWidget {
     final unitSystem =
         context.watch<ProfileBloc>().state.data?.unitSystem ??
             UnitSystem.metric;
+    final bandState = context.watch<BandBloc>().state;
 
     return BlocBuilder<TrainingBloc, TrainingState>(
       builder: (context, state) {
@@ -34,6 +37,12 @@ class TrainScreen extends StatelessWidget {
         if (data == null) {
           return const Center(child: CircularProgressIndicator());
         }
+
+        final liveHr = state.liveHeartRate > 0
+            ? state.liveHeartRate
+            : (bandState.liveHeartRate > 0
+                ? bandState.liveHeartRate
+                : bandState.latestHeartRate);
 
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -59,11 +68,11 @@ class TrainScreen extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // 1. Header Row with Online Avatar Indicator (Figma Node 75:2268-2271)
-                      const ScreenHeader(
+                      ScreenHeader(
                         title: 'Train',
                         showAvatar: true,
-                        showBackButton: true,
-                        showOnlineIndicator: true,
+                        showBackButton: !isTab,
+                        showOnlineIndicator: false,
                       ),
                       SizedBox(
                         height: (screenHeight * 0.020).clamp(16.0, 20.0),
@@ -86,12 +95,16 @@ class TrainScreen extends StatelessWidget {
                       TrainActiveWorkoutCard(
                         data: data,
                         unitSystem: unitSystem,
-                        onStartWorkout: () {
+                        liveHeartRate: liveHr > 0 ? liveHr : null,
+                        onStartWorkout: () async {
                           context.read<TrainingBloc>().add(
                             const StartWorkoutEvent(),
                           );
-                          Navigator.of(context)
+                          await Navigator.of(context)
                               .pushNamed(AppRoutes.trainingSession);
+                          if (context.mounted) {
+                            context.read<TrainingBloc>().add(const LoadTrainingDataEvent());
+                          }
                         },
                         onWeightSelected: (weight) {
                           context.read<TrainingBloc>().add(

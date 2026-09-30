@@ -62,7 +62,7 @@ class _MembershipScreenState extends State<MembershipScreen> {
                     title: 'EHG Membership',
                     titleFontSize: 20.0,
                     showAvatar: true,
-                    showOnlineIndicator: true,
+                    showOnlineIndicator: false,
                   ),
                   Padding(
                     padding: const EdgeInsets.only(top: 14.0, bottom: 20.0),

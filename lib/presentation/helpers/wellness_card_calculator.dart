@@ -160,22 +160,21 @@ class WellnessCardCalculator {
       MapEntry('fuel', fuelScore),
     ];
 
-    final minScore = entries.map((e) => e.value).reduce((a, b) => a < b ? a : b);
-    final maxScore = entries.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+    // Filter to pillars with actual recorded data (> 0) to avoid comparing against unrecorded 0s
+    final recordedEntries = entries.where((e) => e.value > 0).toList();
+    final effectiveEntries = recordedEntries.length >= 2 ? recordedEntries : entries;
 
-    // Designate EXACTLY one pillar as the weakest today (lowest score below 75, strictly less than max)
-    final String? weakestPillar = (minScore < maxScore && minScore < 75)
-        ? entries.firstWhere((e) => e.value == minScore).key
-        : null;
+    final minScore = effectiveEntries.map((e) => e.value).reduce((a, b) => a < b ? a : b);
+    final maxScore = effectiveEntries.map((e) => e.value).reduce((a, b) => a > b ? a : b);
 
-    // Designate EXACTLY one pillar as the strongest today (highest score above 75, strictly greater than min)
-    final String? strongestPillar = (maxScore > minScore && maxScore >= 75)
-        ? entries.firstWhere((e) => e.value == maxScore).key
-        : null;
+    // Identify the single distinct lowest and highest pillar
+    final lowestEntry = effectiveEntries.reduce((a, b) => a.value <= b.value ? a : b);
+    final highestEntry = effectiveEntries.reduce((a, b) => a.value >= b.value ? a : b);
 
     final String key = pillar.toLowerCase();
-    final bool isWeakest = key == weakestPillar;
-    final bool isStrongest = key == strongestPillar;
+    // Strictly matches the real numerical minimum and maximum and ensures exactly one unique designation
+    final bool isWeakest = (minScore < maxScore) && (lowestEntry.key == key) && (score == minScore);
+    final bool isStrongest = (maxScore > minScore) && (highestEntry.key == key) && (score == maxScore);
 
     switch (key) {
       case 'move':

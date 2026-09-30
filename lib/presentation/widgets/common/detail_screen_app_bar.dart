@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
 import 'app_back_button.dart';
 
@@ -42,8 +40,6 @@ class DetailScreenAppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = context.responsive;
-    final status = statusText;
-    final color = statusColor ?? AppColors.primary;
 
     return Padding(
       padding: EdgeInsets.symmetric(
@@ -62,50 +58,50 @@ class DetailScreenAppBar extends StatelessWidget {
           ),
 
           // Trailing: Status pill and/or custom trailing widget
-          if (status != null || trailing != null)
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (status != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12.0,
-                      vertical: 6.0,
-                    ),
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(20.0),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 7.0,
-                          height: 7.0,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: color,
-                          ),
-                        ),
-                        const SizedBox(width: 6.0),
-                        Text(
-                          status,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: r.font(11.0),
-                            fontWeight: FontWeight.w600,
-                            color: color,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                if (trailing != null) ...[
-                  const SizedBox(width: 8.0),
-                  trailing!,
-                ],
-              ],
-            ),
+          // if (status != null || trailing != null)
+          //   Row(
+          //     mainAxisSize: MainAxisSize.min,
+          //     children: [
+          //       if (status != null)
+          //         Container(
+          //           padding: const EdgeInsets.symmetric(
+          //             horizontal: 12.0,
+          //             vertical: 6.0,
+          //           ),
+          //           decoration: BoxDecoration(
+          //             color: color.withValues(alpha: 0.15),
+          //             borderRadius: BorderRadius.circular(20.0),
+          //           ),
+          //           child: Row(
+          //             mainAxisSize: MainAxisSize.min,
+          //             children: [
+          //               Container(
+          //                 width: 7.0,
+          //                 height: 7.0,
+          //                 decoration: BoxDecoration(
+          //                   shape: BoxShape.circle,
+          //                   color: color,
+          //                 ),
+          //               ),
+          //               const SizedBox(width: 6.0),
+          //               Text(
+          //                 status,
+          //                 style: GoogleFonts.plusJakartaSans(
+          //                   fontSize: r.font(11.0),
+          //                   fontWeight: FontWeight.w600,
+          //                   color: color,
+          //                   letterSpacing: 0.5,
+          //                 ),
+          //               ),
+          //             ],
+          //           ),
+          //         ),
+          //       if (trailing != null) ...[
+          //         const SizedBox(width: 8.0),
+          //         trailing!,
+          //       ],
+          //     ],
+          //   ),
         ],
       ),
     );

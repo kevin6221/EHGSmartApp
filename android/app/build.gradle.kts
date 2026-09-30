@@ -6,6 +6,13 @@ plugins {
     id("com.google.firebase.crashlytics")
 }
 
+// Build Performance Optimization:
+// By default, disable mapping & symbol file uploads for lightning-fast local & CI builds.
+// Avoids 5-minute socket timeouts (java.net.SocketException) on release builds.
+// To enable on a production release pipeline, pass: -PuploadCrashlytics=true
+val isCrashlyticsUploadEnabled = project.hasProperty("uploadCrashlytics") &&
+    project.property("uploadCrashlytics").toString().toBoolean()
+
 android {
     namespace = "com.ehgsmartwellness.app"
     compileSdk = flutter.compileSdkVersion
@@ -36,7 +43,27 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+                mappingFileUploadEnabled = isCrashlyticsUploadEnabled
+                nativeSymbolUploadEnabled = isCrashlyticsUploadEnabled
+            }
         }
+        debug {
+            configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+                mappingFileUploadEnabled = false
+                nativeSymbolUploadEnabled = false
+            }
+        }
+    }
+}
+
+// Defensive task disabling: prevent upload tasks from executing and hanging the build
+if (!isCrashlyticsUploadEnabled) {
+    tasks.matching {
+        it.name.startsWith("uploadCrashlyticsMappingFile") ||
+        it.name.startsWith("uploadCrashlyticsSymbolFile")
+    }.configureEach {
+        enabled = false
     }
 }
 

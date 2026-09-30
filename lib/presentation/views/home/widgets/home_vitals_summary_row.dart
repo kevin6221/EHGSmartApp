@@ -13,6 +13,8 @@ import '../../../widgets/common/card_section_header.dart';
 /// Dynamically sized according to screen width and viewport constraints.
 class HomeVitalsSummaryRow extends StatelessWidget {
   final int heartRate;
+  final bool isLive;
+  final int restingRate;
   final List<double> weeklyHeartRate;
   final double sleepHours;
   final List<double> weeklySleep;
@@ -22,6 +24,8 @@ class HomeVitalsSummaryRow extends StatelessWidget {
   const HomeVitalsSummaryRow({
     super.key,
     required this.heartRate,
+    this.isLive = false,
+    this.restingRate = 0,
     required this.weeklyHeartRate,
     required this.sleepHours,
     this.weeklySleep = const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
@@ -82,6 +86,40 @@ class HomeVitalsSummaryRow extends StatelessWidget {
     final sparklineHeight = (cardHeight * 0.22).clamp(20.0, 28.0);
     final int todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
 
+    final String statusText;
+    final Color statusColor;
+    final bool showLiveDot;
+
+    if (isLive && heartRate > 0) {
+      statusText = 'Live';
+      statusColor = AppColors.qwatchNormalGreen;
+      showLiveDot = true;
+    } else if (heartRate > 0) {
+      if (heartRate > 100) {
+        statusText = 'Elevated';
+        statusColor = AppColors.orangeMetric;
+      } else if (heartRate < 55) {
+        statusText = 'Low';
+        statusColor = AppColors.primary;
+      } else {
+        statusText = 'Normal';
+        statusColor = AppColors.qwatchNormalGreen;
+      }
+      showLiveDot = false;
+    } else if (restingRate > 0) {
+      statusText = 'Resting Rate';
+      statusColor = context.textSecondary;
+      showLiveDot = false;
+    } else {
+      statusText = 'No reading';
+      statusColor = context.textSecondary;
+      showLiveDot = false;
+    }
+
+    final int displayBpm = heartRate > 0
+        ? heartRate
+        : (restingRate > 0 ? restingRate : 0);
+
     return AppCard(
       width: cardWidth,
       height: cardHeight,
@@ -126,7 +164,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
                       textBaseline: TextBaseline.alphabetic,
                       children: [
                         Text(
-                          heartRate > 0 ? '$heartRate' : '--',
+                          displayBpm > 0 ? '$displayBpm' : '--',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: r.font(20.0),
                             fontWeight: FontWeight.w700,
@@ -145,15 +183,33 @@ class HomeVitalsSummaryRow extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 2.0),
-                    Text(
-                      'Resting Rate',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: r.font(11.0),
-                        fontWeight: FontWeight.w500,
-                        color: context.textSecondary,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (showLiveDot) ...[
+                          Container(
+                            width: 6.0,
+                            height: 6.0,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: AppColors.qwatchNormalGreen,
+                            ),
+                          ),
+                          const SizedBox(width: 4.0),
+                        ],
+                        Flexible(
+                          child: Text(
+                            statusText,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: r.font(11.0),
+                              fontWeight: FontWeight.w500,
+                              color: statusColor,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

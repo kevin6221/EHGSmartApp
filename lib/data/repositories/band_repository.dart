@@ -29,6 +29,7 @@ class BandRepository {
   StreamSubscription<BandConnectionStatus>? _statusSubscription;
   StreamSubscription<BandPedometerInfo>? _pedometerSubscription;
   StreamSubscription<BandMeasurementResult>? _measurementSubscription;
+  StreamSubscription<int>? _liveHeartRateSubscription;
   StreamSubscription<BandBatteryInfo>? _batterySubscription;
   StreamSubscription<String>? _errorSubscription;
 
@@ -94,7 +95,10 @@ class BandRepository {
     });
 
     _pedometerSubscription = _service.pedometerStream.listen((info) {
-      if (info.steps > 0 || info.calories > 0) {
+      if ((info.steps > 0 || info.calories > 0) &&
+          (info.steps != _lastSyncedVitals.steps ||
+           info.calories != _lastSyncedVitals.calories ||
+           info.distance != _lastSyncedVitals.distance)) {
         _lastSyncedVitals = _lastSyncedVitals.copyWith(
           steps: info.steps,
           calories: info.calories,
@@ -108,6 +112,21 @@ class BandRepository {
     _measurementSubscription = _service.measurementResultStream.listen((result) {
       if (result.success && result.data.isNotEmpty) {
         final d = result.data;
+        final int? hr = (d['hr'] as num?)?.toInt();
+        List<BandHeartRateEntry> updatedHrHistory = List.from(_lastSyncedVitals.heartRateHistory);
+        List<double> updatedWeeklyHr = List.from(
+          _lastSyncedVitals.weeklyHeartRate.length == 7
+              ? _lastSyncedVitals.weeklyHeartRate
+              : [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        );
+        if (hr != null && hr > 0) {
+          final nowIso = DateTime.now().toIso8601String();
+          updatedHrHistory.add(BandHeartRateEntry(bpm: hr, timestamp: nowIso));
+          final todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
+          if (updatedWeeklyHr.length == 7) {
+            updatedWeeklyHr[todayIdx] = hr.toDouble();
+          }
+        }
         _lastSyncedVitals = _lastSyncedVitals.copyWith(
           bloodOxygen: (d['spo2'] as num?)?.toDouble(),
           systolicBP: (d['sbp'] as num?)?.toInt(),
@@ -115,7 +134,33 @@ class BandRepository {
           skinTemperature: (d['temperature'] as num?)?.toDouble(),
           stressLevel: (d['stress'] as num?)?.toInt(),
           hrvMs: (d['hrv'] as num?)?.toInt(),
-          restingHeartRate: (d['hr'] as num?)?.toInt(),
+          latestHeartRate: (hr != null && hr > 0) ? hr : _lastSyncedVitals.latestHeartRate,
+          restingHeartRate: (hr != null && hr > 0) ? hr : _lastSyncedVitals.restingHeartRate,
+          heartRateHistory: updatedHrHistory,
+          weeklyHeartRate: updatedWeeklyHr,
+        );
+        _persistVitals(_lastSyncedVitals);
+        _syncedVitalsController.add(_lastSyncedVitals);
+      }
+    });
+
+    _liveHeartRateSubscription = _service.liveHeartRateStream.listen((bpm) {
+      if (bpm > 0 && bpm != _lastSyncedVitals.latestHeartRate) {
+        final nowIso = DateTime.now().toIso8601String();
+        final updatedHrHistory = List<BandHeartRateEntry>.from(_lastSyncedVitals.heartRateHistory)
+          ..add(BandHeartRateEntry(bpm: bpm, timestamp: nowIso));
+        final todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
+        final updatedWeekly = List<double>.from(
+          _lastSyncedVitals.weeklyHeartRate.length == 7
+              ? _lastSyncedVitals.weeklyHeartRate
+              : [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        );
+        updatedWeekly[todayIdx] = bpm.toDouble();
+
+        _lastSyncedVitals = _lastSyncedVitals.copyWith(
+          latestHeartRate: bpm,
+          heartRateHistory: updatedHrHistory,
+          weeklyHeartRate: updatedWeekly,
         );
         _persistVitals(_lastSyncedVitals);
         _syncedVitalsController.add(_lastSyncedVitals);
@@ -212,8 +257,10 @@ class BandRepository {
       final latestHrv = await _db.healthDataDao.getLatestVital(devId, 'hrv');
       final latestBp = await _db.healthDataDao.getLatestVital(devId, 'blood_pressure');
       final latestTemp = await _db.healthDataDao.getLatestVital(devId, 'temperature');
+      final latestHr = await _db.healthDataDao.getLatestVital(devId, 'heart_rate');
+      final int dbLatestHr = latestHr?.valueNumeric?.round() ?? 0;
 
-      if (summary != null || latestStress != null || latestHrv != null) {
+      if (summary != null || latestStress != null || latestHrv != null || dbLatestHr > 0) {
         _lastSyncedVitals = BandSyncedVitals(
           steps: summary?.steps ?? 0,
           calories: summary?.caloriesBurned.round() ?? 0,
@@ -222,6 +269,7 @@ class BandRepository {
           deepSleepMinutes: summary?.deepSleepMinutes ?? 0,
           bloodOxygen: summary?.avgSpo2 ?? 0.0,
           restingHeartRate: summary?.restingHeartRate ?? 0,
+          latestHeartRate: dbLatestHr > 0 ? dbLatestHr : _lastSyncedVitals.latestHeartRate,
           stressLevel: latestStress?.valueNumeric?.round() ?? 0,
           hrvMs: latestHrv?.valueNumeric?.round() ?? 0,
           systolicBP: latestBp?.valueNumeric?.round() ?? 0,
@@ -257,7 +305,7 @@ class BandRepository {
           deviceId: drift.Value(devId),
           date: drift.Value(effectiveDate),
           steps: drift.Value(vitals.steps),
-          caloriesBurned: drift.Value(vitals.calories.toDouble()),
+          caloriesBurned: drift.Value(BandSyncedVitals.sanitizeCalories(vitals.calories).toDouble()),
           distanceMeters: drift.Value(vitals.distance.toDouble()),
           restingHeartRate: drift.Value(vitals.restingHeartRate > 0 ? vitals.restingHeartRate : null),
           avgHeartRate: drift.Value(vitals.restingHeartRate > 0 ? vitals.restingHeartRate : null),
@@ -293,17 +341,18 @@ class BandRepository {
           ),
         );
       }
-      if (vitals.skinTemperature > 0) {
-        vitalsBatch.add(
-          VitalsRecordsTableCompanion(
-            deviceId: drift.Value(devId),
-            vitalType: const drift.Value('temperature'),
-            valueNumeric: drift.Value(vitals.skinTemperature),
-            unit: const drift.Value('°C'),
-            timestamp: drift.Value(now),
-          ),
-        );
-      }
+      // Skin temperature not supported by hardware - commented out
+      // if (vitals.skinTemperature > 0) {
+      //   vitalsBatch.add(
+      //     VitalsRecordsTableCompanion(
+      //       deviceId: drift.Value(devId),
+      //       vitalType: const drift.Value('temperature'),
+      //       valueNumeric: drift.Value(vitals.skinTemperature),
+      //       unit: const drift.Value('°C'),
+      //       timestamp: drift.Value(now),
+      //     ),
+      //   );
+      // }
       if (vitals.stressLevel > 0) {
         vitalsBatch.add(
           VitalsRecordsTableCompanion(
@@ -322,6 +371,17 @@ class BandRepository {
             vitalType: const drift.Value('hrv'),
             valueNumeric: drift.Value(vitals.hrvMs.toDouble()),
             unit: const drift.Value('ms'),
+            timestamp: drift.Value(now),
+          ),
+        );
+      }
+      if (vitals.latestHeartRate > 0) {
+        vitalsBatch.add(
+          VitalsRecordsTableCompanion(
+            deviceId: drift.Value(devId),
+            vitalType: const drift.Value('heart_rate'),
+            valueNumeric: drift.Value(vitals.latestHeartRate.toDouble()),
+            unit: const drift.Value('bpm'),
             timestamp: drift.Value(now),
           ),
         );
@@ -592,11 +652,44 @@ class BandRepository {
     return _service.stopRealtimeHeartRate();
   }
 
+  /// Records an on-demand spot or live heart rate measurement immediately.
+  /// Updates local memory cache, persists to Drift SQLite and secure storage,
+  /// updates weekly trend for today, and notifies all UI listeners.
+  Future<void> recordHeartRateMeasurement(int bpm) async {
+    if (bpm <= 0) return;
+    final nowIso = DateTime.now().toIso8601String();
+    final updatedHistory = List<BandHeartRateEntry>.from(_lastSyncedVitals.heartRateHistory)
+      ..add(BandHeartRateEntry(bpm: bpm, timestamp: nowIso));
+
+    final todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
+    final updatedWeekly = List<double>.from(
+      _lastSyncedVitals.weeklyHeartRate.length == 7
+          ? _lastSyncedVitals.weeklyHeartRate
+          : [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    );
+    updatedWeekly[todayIdx] = bpm.toDouble();
+
+    _lastSyncedVitals = _lastSyncedVitals.copyWith(
+      latestHeartRate: bpm,
+      heartRateHistory: updatedHistory,
+      weeklyHeartRate: updatedWeekly,
+    );
+    await _persistVitals(_lastSyncedVitals);
+    _syncedVitalsController.add(_lastSyncedVitals);
+  }
+
   /// Returns the latest recorded heart rate sample from memory or Drift SQLite
   /// without activating the band's optical PPG real-time sensor.
   Future<int?> fetchLatestHeartRateSample() async {
-    if (_lastSyncedVitals.restingHeartRate > 0) {
-      return _lastSyncedVitals.restingHeartRate;
+    if (_lastSyncedVitals.latestHeartRate > 0) {
+      return _lastSyncedVitals.latestHeartRate;
+    }
+    if (_lastSyncedVitals.heartRateHistory.isNotEmpty) {
+      for (int i = _lastSyncedVitals.heartRateHistory.length - 1; i >= 0; i--) {
+        if (_lastSyncedVitals.heartRateHistory[i].bpm > 0) {
+          return _lastSyncedVitals.heartRateHistory[i].bpm;
+        }
+      }
     }
     try {
       final devId = _connectedDevice?.macAddress ?? _lastPairedDevice?.mac ?? 'default_band';
@@ -607,7 +700,7 @@ class BandRepository {
     } catch (e) {
       debugPrint('⚠️ [BAND REPO] fetchLatestHeartRateSample error: $e');
     }
-    return null;
+    return _lastSyncedVitals.restingHeartRate > 0 ? _lastSyncedVitals.restingHeartRate : null;
   }
 
   /// Synchronizes daily steps, calories, and sleep records.
@@ -634,6 +727,16 @@ class BandRepository {
         checkMidnightRollover();
         final rawVitals = await _service.syncFullHealthData();
         final today = DateTime.now().toIso8601String().substring(0, 10);
+        int rawLatest = rawVitals.latestHeartRate;
+        if (rawLatest <= 0 && rawVitals.heartRateHistory.isNotEmpty) {
+          for (int i = rawVitals.heartRateHistory.length - 1; i >= 0; i--) {
+            if (rawVitals.heartRateHistory[i].bpm > 0) {
+              rawLatest = rawVitals.heartRateHistory[i].bpm;
+              break;
+            }
+          }
+        }
+
         // Non-destructive merge with previous vitals to preserve non-zero metrics
         final vitals = _lastSyncedVitals.copyWith(
           steps: rawVitals.steps > 0 ? rawVitals.steps : _lastSyncedVitals.steps,
@@ -648,6 +751,7 @@ class BandRepository {
           stressLevel: rawVitals.stressLevel > 0 ? rawVitals.stressLevel : _lastSyncedVitals.stressLevel,
           hrvMs: rawVitals.hrvMs > 0 ? rawVitals.hrvMs : _lastSyncedVitals.hrvMs,
           restingHeartRate: rawVitals.restingHeartRate > 0 ? rawVitals.restingHeartRate : _lastSyncedVitals.restingHeartRate,
+          latestHeartRate: rawLatest > 0 ? rawLatest : _lastSyncedVitals.latestHeartRate,
           breathingRate: rawVitals.breathingRate > 0 ? rawVitals.breathingRate : _lastSyncedVitals.breathingRate,
           sleepPhases: rawVitals.sleepPhases.isNotEmpty ? rawVitals.sleepPhases : _lastSyncedVitals.sleepPhases,
           heartRateHistory: rawVitals.heartRateHistory.isNotEmpty ? rawVitals.heartRateHistory : _lastSyncedVitals.heartRateHistory,
@@ -682,7 +786,20 @@ class BandRepository {
     final dateStr = "${targetDate.year.toString().padLeft(4, '0')}-${targetDate.month.toString().padLeft(2, '0')}-${targetDate.day.toString().padLeft(2, '0')}";
 
     final raw = await _service.syncHistoricalDay(dayIndex);
-    final vitals = raw.copyWith(date: dateStr, dayIndex: dayIndex);
+    int dayLatest = raw.latestHeartRate;
+    if (dayLatest <= 0 && raw.heartRateHistory.isNotEmpty) {
+      for (int i = raw.heartRateHistory.length - 1; i >= 0; i--) {
+        if (raw.heartRateHistory[i].bpm > 0) {
+          dayLatest = raw.heartRateHistory[i].bpm;
+          break;
+        }
+      }
+    }
+    final vitals = raw.copyWith(
+      date: dateStr,
+      dayIndex: dayIndex,
+      latestHeartRate: dayLatest > 0 ? dayLatest : (dayIndex == 0 ? _lastSyncedVitals.latestHeartRate : null),
+    );
     await _persistVitals(vitals, targetDate: dateStr);
     if (dayIndex == 0) {
       _lastSyncedVitals = vitals;
@@ -803,6 +920,7 @@ class BandRepository {
     _statusSubscription?.cancel();
     _pedometerSubscription?.cancel();
     _measurementSubscription?.cancel();
+    _liveHeartRateSubscription?.cancel();
     _batterySubscription?.cancel();
     _errorSubscription?.cancel();
     _syncedVitalsController.close();

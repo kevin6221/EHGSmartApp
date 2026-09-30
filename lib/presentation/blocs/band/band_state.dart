@@ -8,6 +8,7 @@ class BandState extends Equatable {
   final DiscoveredBandDevice? boundDevice;
   final BandBatteryInfo battery;
   final int liveHeartRate;
+  final int latestHeartRate;
   final bool isSyncingVitals;
   final BandSyncedVitals? lastSyncedVitals;
   final String? errorMessage;
@@ -21,6 +22,7 @@ class BandState extends Equatable {
     this.boundDevice,
     this.battery = const BandBatteryInfo(percentage: 0),
     this.liveHeartRate = 0,
+    this.latestHeartRate = 0,
     this.isSyncingVitals = false,
     this.lastSyncedVitals,
     this.errorMessage,
@@ -63,6 +65,7 @@ class BandState extends Equatable {
     bool clearBoundDevice = false,
     BandBatteryInfo? battery,
     int? liveHeartRate,
+    int? latestHeartRate,
     bool? isSyncingVitals,
     BandSyncedVitals? lastSyncedVitals,
     bool clearLastSyncedVitals = false,
@@ -78,6 +81,7 @@ class BandState extends Equatable {
       boundDevice: clearBoundDevice ? null : (boundDevice ?? this.boundDevice),
       battery: battery ?? this.battery,
       liveHeartRate: liveHeartRate ?? this.liveHeartRate,
+      latestHeartRate: latestHeartRate ?? this.latestHeartRate,
       isSyncingVitals: isSyncingVitals ?? this.isSyncingVitals,
       lastSyncedVitals: clearLastSyncedVitals ? null : (lastSyncedVitals ?? this.lastSyncedVitals),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
@@ -94,6 +98,7 @@ class BandState extends Equatable {
         boundDevice,
         battery,
         liveHeartRate,
+        latestHeartRate,
         isSyncingVitals,
         lastSyncedVitals,
         errorMessage,

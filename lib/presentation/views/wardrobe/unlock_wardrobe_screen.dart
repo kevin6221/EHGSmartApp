@@ -69,7 +69,7 @@ class _UnlockWardrobeScreenState extends State<UnlockWardrobeScreen> {
                     title: 'Unlock your wardrobe',
                     titleFontSize: 20.0,
                     showAvatar: true,
-                    showOnlineIndicator: true,
+                    showOnlineIndicator: false,
                   ),
 
                   // Subtle divider under top bar matching Figma

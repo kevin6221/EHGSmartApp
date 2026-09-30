@@ -67,8 +67,8 @@ class RewardsHistorySection extends StatelessWidget {
                 _buildLogItem(
                   context: context,
                   r: r,
-                  title: 'Journal saved',
-                  amount: '+120',
+                  title: 'Weekly streak milestone',
+                  amount: '+100',
                   isPositive: true,
                 ),
               ],

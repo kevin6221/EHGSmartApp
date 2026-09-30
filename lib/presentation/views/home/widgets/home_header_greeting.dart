@@ -31,7 +31,7 @@ class HomeHeaderGreeting extends StatelessWidget {
       subtitle: effectiveDate,
       avatarAsset: avatarPath,
       showAvatar: true,
-      showOnlineIndicator: isOnline,
+      showOnlineIndicator: false,
       onAvatarTap: onAvatarTap,
     );
   }

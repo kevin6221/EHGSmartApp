@@ -63,6 +63,7 @@ class AppIcons {
   static const String mindBreath = 'assets/icons/mind_breath.svg';
   static const String singleDrop = 'assets/icons/single_drop.svg';
   static const String redCross = 'assets/icons/red_cross.svg';
+  static const String settings = 'assets/icons/settings.svg';
 }
 
 class AppSvgIcon extends StatelessWidget {

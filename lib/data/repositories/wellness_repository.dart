@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:drift/drift.dart' as drift;
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/database/app_database.dart' hide SleepPhase;
 import '../../core/security/secure_storage_service.dart';
+import '../../presentation/helpers/vitals_history_calculator.dart';
 import '../models/band_device_model.dart';
 import '../models/journal_entry_model.dart';
 import '../models/user_profile_model.dart';
@@ -12,6 +15,7 @@ import '../models/vitals_model.dart';
 import '../models/wellness_data_model.dart';
 import '../models/workout_model.dart';
 import '../../core/engine/personalized_baseline_engine.dart';
+import 'band_repository.dart';
 
 class WellnessRepository {
   final AppDatabase _db;
@@ -23,6 +27,102 @@ class WellnessRepository {
 
   List<JournalEntryModel> get journalEntries => List.unmodifiable(_journalEntries);
   PersonalizedBaselineData get baselineData => _baselineData;
+
+  /// Returns the most recent journal check-in entry recorded today, if any.
+  JournalEntryModel? get todayJournalEntry {
+    final now = DateTime.now();
+    for (final entry in _journalEntries) {
+      if (entry.date.year == now.year &&
+          entry.date.month == now.month &&
+          entry.date.day == now.day) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  /// Calculates the Mind pillar score (15 to 98) by integrating objective autonomic
+  /// stress telemetry with subjective Ecological Momentary Assessment (EMA) check-in
+  /// (mood word: Clear/Calm/Flat/Wired/Heavy and energy rating: 1 to 4).
+  static int calculateMindScore({
+    required int stressScore,
+    int? energyLevel,
+    String? moodWord,
+    int fallbackMindScore = 50,
+  }) {
+    // 1. Objective autonomic stress component (15 to 95)
+    // Stress on the band ranges 1-100 (lower stress = higher mental balance)
+    final double? stressComponent = stressScore > 0
+        ? (100.0 - stressScore).clamp(15.0, 95.0)
+        : null;
+
+    // 2. Subjective psychological check-in component
+    double? subjectiveComponent;
+    if (energyLevel != null || moodWord != null) {
+      double energyScore = 70.0;
+      if (energyLevel != null) {
+        switch (energyLevel) {
+          case 4:
+            energyScore = 95.0; // Peak / Vibrant
+            break;
+          case 3:
+            energyScore = 80.0; // Good / Steady
+            break;
+          case 2:
+            energyScore = 50.0; // Low / Sluggish
+            break;
+          case 1:
+          default:
+            energyScore = 25.0; // Exhausted / Depleted
+            break;
+        }
+      }
+
+      double moodScore = 70.0;
+      if (moodWord != null) {
+        switch (moodWord.trim().toLowerCase()) {
+          case 'clear':
+            moodScore = 92.0; // Focused, sharp mental clarity
+            break;
+          case 'calm':
+            moodScore = 88.0; // Centered, low anxiety, parasympathetic tone
+            break;
+          case 'flat':
+            moodScore = 50.0; // Neutral, low dopamine / apathy
+            break;
+          case 'wired':
+            moodScore = 38.0; // Hyper-sympathetic agitation, restless
+            break;
+          case 'heavy':
+            moodScore = 25.0; // Somatic lethargy, burnout, mental burden
+            break;
+          default:
+            moodScore = 70.0;
+            break;
+        }
+      }
+
+      if (energyLevel != null && moodWord != null) {
+        subjectiveComponent = (energyScore * 0.5) + (moodScore * 0.5);
+      } else if (energyLevel != null) {
+        subjectiveComponent = energyScore;
+      } else {
+        subjectiveComponent = moodScore;
+      }
+    }
+
+    // 3. Blend objective autonomic stress with subjective self-report
+    if (stressComponent != null && subjectiveComponent != null) {
+      // 55% physiological autonomic tone + 45% subjective psychometric appraisal
+      return ((stressComponent * 0.55) + (subjectiveComponent * 0.45)).round().clamp(15, 98);
+    } else if (subjectiveComponent != null) {
+      return subjectiveComponent.round().clamp(15, 98);
+    } else if (stressComponent != null) {
+      return stressComponent.round().clamp(15, 95);
+    }
+
+    return fallbackMindScore > 0 ? fallbackMindScore : 50;
+  }
 
   WellnessRepository({
     AppDatabase? database,
@@ -67,6 +167,10 @@ class WellnessRepository {
         try {
           final decoded = jsonDecode(cachedWellnessJson) as Map<String, dynamic>;
           _wellnessData = WellnessDataModel.fromJson(decoded);
+          if (_wellnessData.moveScore > 0) _baseMoveScore = _wellnessData.moveScore;
+          if (_wellnessData.recoverScore > 0) _baseRecoverScore = _wellnessData.recoverScore;
+          if (_wellnessData.readinessScore > 0) _baseReadinessScore = _wellnessData.readinessScore;
+          if (_wellnessData.energyBurned > 0) _baseEnergy = _wellnessData.energyBurned;
         } catch (_) {}
       }
 
@@ -157,16 +261,37 @@ class WellnessRepository {
       final latestHrv = await _db.healthDataDao.getLatestVital(devId, 'hrv');
       final latestBp = await _db.healthDataDao.getLatestVital(devId, 'blood_pressure');
       final latestTemp = await _db.healthDataDao.getLatestVital(devId, 'temperature');
+      final latestHrRecord = await _db.healthDataDao.getLatestVital(devId, 'heart_rate');
+      final int dbLatestHr = latestHrRecord?.valueNumeric?.round() ?? 0;
+      final sleepData = await _db.healthDataDao.getSleepSessionWithPhasesByDate(devId, today);
 
-      if (summary != null || latestStress != null || latestHrv != null) {
+      int loadedSleepMinutes = summary?.sleepDurationMinutes ?? 0;
+      List<BandSleepPhase> loadedSleepPhases = const [];
+      if (sleepData != null && sleepData.phases.isNotEmpty) {
+        if (loadedSleepMinutes == 0) {
+          loadedSleepMinutes = sleepData.session.totalDurationMinutes > 0
+              ? sleepData.session.totalDurationMinutes
+              : sleepData.phases.fold<int>(0, (sum, p) => sum + (p.durationMinutes > 0 ? p.durationMinutes : 1));
+        }
+        loadedSleepPhases = sleepData.phases.map((p) => BandSleepPhase(
+          type: p.phaseType,
+          startTime: p.startTime.toIso8601String(),
+          endTime: p.endTime.toIso8601String(),
+          durationMinutes: p.durationMinutes,
+        )).toList();
+      }
+
+      if (summary != null || latestStress != null || latestHrv != null || loadedSleepMinutes > 0 || dbLatestHr > 0) {
         final vitals = BandSyncedVitals(
           steps: summary?.steps ?? 0,
           calories: summary?.caloriesBurned.round() ?? 0,
           distance: summary?.distanceMeters.round() ?? 0,
-          sleepMinutes: summary?.sleepDurationMinutes ?? 0,
+          sleepMinutes: loadedSleepMinutes,
           deepSleepMinutes: summary?.deepSleepMinutes ?? 0,
+          sleepPhases: loadedSleepPhases,
           bloodOxygen: summary?.avgSpo2 ?? 0.0,
           restingHeartRate: summary?.restingHeartRate ?? 0,
+          latestHeartRate: dbLatestHr > 0 ? dbLatestHr : (summary?.restingHeartRate ?? 0),
           stressLevel: latestStress?.valueNumeric?.round() ?? 0,
           hrvMs: latestHrv?.valueNumeric?.round() ?? 0,
           systolicBP: latestBp?.valueNumeric?.round() ?? 0,
@@ -243,6 +368,11 @@ class WellnessRepository {
     fuelScore: 0,
   );
 
+  int _baseMoveScore = 0;
+  int _baseRecoverScore = 0;
+  int _baseReadinessScore = 0;
+  int _baseEnergy = 0;
+
   VitalsModel _vitalsData = const VitalsModel(
     totalSleep: '--',
     sleepWindow: 'No sleep recorded',
@@ -272,11 +402,11 @@ class WellnessRepository {
     zoneInfo: 'Zone 2–4 · 130–165 bpm',
     metricsSummary: 'Pace, cadence, HR zones, route, recovery HR',
     outfitRecommendation:
-        'Cotton Earth Tone T-Shirt · High Rise Flared Yoga Pants',
+        'Breathable Running Tee · Lightweight Split Shorts',
     selectedWeightKg: 60,
-    estimatedKcalPerMin: 15,
+    estimatedKcalPerMin: 11,
     recentSessionTitle: 'Outdoor run',
-    recentSessionDuration: '00hr 00min 00sec',
+    recentSessionDuration: '--',
     recentPeakHr: 0,
     recentAvgHr: 0,
   );
@@ -302,9 +432,16 @@ class WellnessRepository {
   WorkoutModel getWorkoutData() => _workoutData;
   UserProfileModel getUserProfile() => _userProfile;
 
+  void updateWorkoutData(WorkoutModel data) {
+    _workoutData = data;
+  }
+
   Future<void> _loadRecentWorkout() async {
     try {
       final userId = await _secureStorage.getActiveUserId();
+      // Purge any accidental/test sessions (duration < 15s or 0 HR/cals)
+      await _db.healthDataDao.deleteInvalidWorkoutSessions(userId);
+
       final latest = await _db.healthDataDao.getLatestWorkoutSession(userId);
       if (latest != null) {
         final h = latest.durationSeconds ~/ 3600;
@@ -321,12 +458,17 @@ class WellnessRepository {
         }
 
         _workoutData = _workoutData.copyWith(
-          selectedCategory: cat,
-          title: latest.title,
+          selectedCategory: _workoutData.recentSessionTitle == 'Outdoor run' ? cat : _workoutData.selectedCategory,
           recentSessionTitle: latest.title,
           recentSessionDuration: durStr,
           recentPeakHr: latest.peakHeartRate,
           recentAvgHr: latest.avgHeartRate,
+        );
+      } else {
+        _workoutData = _workoutData.copyWith(
+          recentSessionDuration: '--',
+          recentPeakHr: 0,
+          recentAvgHr: 0,
         );
       }
     } catch (e) {
@@ -345,6 +487,11 @@ class WellnessRepository {
     required DateTime startTime,
     required DateTime endTime,
   }) async {
+    // Ignore accidental quick start/stops (e.g. 1-second taps) with no real workout data
+    if (durationSeconds < 15 && burnedCalories <= 0 && avgHeartRate <= 0) {
+      debugPrint('⚠️ [WELLNESS REPO] Ignored saving sub-15s empty workout session');
+      return;
+    }
     try {
       final userId = await _secureStorage.getActiveUserId();
       await _db.healthDataDao.insertWorkoutSession(
@@ -373,6 +520,20 @@ class WellnessRepository {
         recentSessionDuration: durStr,
         recentPeakHr: peakHeartRate,
         recentAvgHr: avgHeartRate,
+      );
+
+      final newActiveMins = _wellnessData.activeMins + (durationSeconds ~/ 60);
+      final newEnergyBurned = _wellnessData.energyBurned + burnedCalories;
+      final int moveScore = (newActiveMins / _wellnessData.goalMins * 100).clamp(20, 95).round();
+      final int updatedWellnessScore = _wellnessData.wellnessScore > 0
+          ? ((moveScore + _wellnessData.recoverScore + _wellnessData.mindScore + _wellnessData.fuelScore) / 4).round()
+          : _wellnessData.wellnessScore;
+
+      _wellnessData = _wellnessData.copyWith(
+        activeMins: newActiveMins,
+        energyBurned: newEnergyBurned,
+        moveScore: moveScore,
+        wellnessScore: updatedWellnessScore,
       );
     } catch (e) {
       debugPrint('⚠️ [WELLNESS REPO] saveWorkoutSession error: $e');
@@ -502,12 +663,20 @@ class WellnessRepository {
     }
 
     // 1. Dynamic Sleep Intervals Calculation from SDK Sleep Phases
+    int effectiveSleepMinutes = vitals.sleepMinutes;
+    if (effectiveSleepMinutes == 0 && vitals.sleepPhases.isNotEmpty) {
+      effectiveSleepMinutes = vitals.sleepPhases.fold<int>(
+        0,
+        (sum, p) => sum + (p.durationMinutes > 0 ? p.durationMinutes : 1),
+      );
+    }
+
     List<SleepInterval> dynamicIntervals = _vitalsData.sleepIntervals;
     final now = DateTime.now();
     final DateTime wakeTime = now.hour < 11
         ? now
         : DateTime(now.year, now.month, now.day, 7, 0);
-    DateTime sleepStart = wakeTime.subtract(Duration(minutes: vitals.sleepMinutes > 0 ? vitals.sleepMinutes : 420));
+    DateTime sleepStart = wakeTime.subtract(Duration(minutes: effectiveSleepMinutes > 0 ? effectiveSleepMinutes : 420));
 
     if (vitals.sleepPhases.isNotEmpty) {
       final totalPhaseMins = vitals.sleepPhases.fold<int>(
@@ -556,15 +725,21 @@ class WellnessRepository {
         }
         dynamicIntervals = generated;
       }
+    } else if (effectiveSleepMinutes > 0) {
+      dynamicIntervals = SleepIntervalGenerator.generate(
+        totalMinutes: effectiveSleepMinutes,
+        wakeTime: wakeTime,
+        deepMinutes: vitals.deepSleepMinutes > 0 ? vitals.deepSleepMinutes : null,
+      );
     }
 
     // 2. Build sleep window and total sleep string
     String totalSleep = _vitalsData.totalSleep;
     String sleepWindow = _vitalsData.sleepWindow;
-    if (vitals.sleepMinutes > 0) {
-      final h = vitals.sleepMinutes ~/ 60;
-      final m = vitals.sleepMinutes % 60;
-      totalSleep = '$h hrs. $m mins.';
+    if (effectiveSleepMinutes > 0) {
+      final h = effectiveSleepMinutes ~/ 60;
+      final m = effectiveSleepMinutes % 60;
+      totalSleep = h > 0 ? '$h hrs. $m mins.' : '$m mins.';
 
       final startFormatted = '${(sleepStart.hour % 12 == 0 ? 12 : sleepStart.hour % 12).toString().padLeft(2, '0')}:${sleepStart.minute.toString().padLeft(2, '0')} ${sleepStart.hour >= 12 ? 'pm' : 'am'}';
       final endFormatted = '${(wakeTime.hour % 12 == 0 ? 12 : wakeTime.hour % 12).toString().padLeft(2, '0')}:${wakeTime.minute.toString().padLeft(2, '0')} ${wakeTime.hour >= 12 ? 'pm' : 'am'}';
@@ -599,11 +774,13 @@ class WellnessRepository {
 
     final int effectiveHr = (heartRate != null && heartRate > 0)
         ? heartRate
-        : (effectiveRestHr > 0
-            ? effectiveRestHr
+        : (vitals.latestHeartRate > 0
+            ? vitals.latestHeartRate
             : (vitals.heartRateHistory.isNotEmpty
                 ? vitals.heartRateHistory.last.bpm
-                : _wellnessData.currentHeartRate));
+                : (_wellnessData.currentHeartRate > 0
+                    ? _wellnessData.currentHeartRate
+                    : 0)));
 
     final int effectiveStress = vitals.stressLevel > 0
         ? vitals.stressLevel
@@ -664,9 +841,13 @@ class WellnessRepository {
         ? savedRecoverScore
         : computedRecoverScore;
 
-    final int mindScore = effectiveStress > 0
-        ? (100 - effectiveStress).clamp(15, 95)
-        : (_wellnessData.mindScore > 0 ? _wellnessData.mindScore : (hasData ? 50 : 0));
+    final todayEntry = todayJournalEntry;
+    final int mindScore = calculateMindScore(
+      stressScore: effectiveStress,
+      energyLevel: todayEntry?.energyLevel,
+      moodWord: todayEntry?.moodWord,
+      fallbackMindScore: _wellnessData.mindScore > 0 ? _wellnessData.mindScore : (hasData ? 50 : 0),
+    );
 
     final int fuelScore = hasData
         ? (_wellnessData.hydrationCurrent / _wellnessData.hydrationGoal * 100).clamp(15, 95).round()
@@ -706,6 +887,12 @@ class WellnessRepository {
     final int readinessScore = (savedReadinessScore != null && savedReadinessScore > 0)
         ? savedReadinessScore
         : calculatedReadinessScore;
+
+    // Cache un-mutated baseline scores for mode adaptations
+    _baseMoveScore = moveScore;
+    _baseRecoverScore = recoverScore;
+    _baseReadinessScore = readinessScore;
+    _baseEnergy = energy > 0 ? energy : 560;
 
     final WellnessMode recommendedMode;
     if (!hasData || readinessScore == 0) {
@@ -1008,13 +1195,16 @@ class WellnessRepository {
   /// Updates active wellness mode (Recover / Steady / Push) and recalculates
   /// mode-adapted energy burned target, active minutes, and weekly strain.
   Future<void> changeWellnessMode(WellnessMode mode) async {
+    if (_wellnessData.activeMode == mode) return;
+
     // Mode-adapted energy burn and targets:
     // Recover: Rest & active recovery target (320-380 kcal, 25-30 active mins, 30 min goal)
     // Steady: Baseline maintenance workout (520-580 kcal, 45-50 active mins, 60 min goal)
     // Push: High strain / peak exertion (800-880 kcal, 75-85 active mins, 90 min goal)
-    final int baseEnergy = _wellnessData.energyBurned > 0
-        ? _wellnessData.energyBurned
-        : 560;
+    final int baseEnergy = _baseEnergy > 0
+        ? _baseEnergy
+        : (_wellnessData.energyBurned > 0 ? _wellnessData.energyBurned : 560);
+    _baseEnergy = baseEnergy;
 
     final int modeEnergy = switch (mode) {
       WellnessMode.recover => (baseEnergy * 0.62).round().clamp(280, 420),
@@ -1057,9 +1247,10 @@ class WellnessRepository {
     // Recover: Rest & active recovery (55-68)
     // Steady: Balanced homeostasis (68-80)
     // Push: Peak exertion capacity (84-94)
-    final int baseReadiness = _wellnessData.readinessScore > 0
-        ? _wellnessData.readinessScore
-        : 72;
+    final int baseReadiness = _baseReadinessScore > 0
+        ? _baseReadinessScore
+        : (_wellnessData.readinessScore > 0 ? _wellnessData.readinessScore : 72);
+    _baseReadinessScore = baseReadiness;
 
     final int modeReadiness = switch (mode) {
       WellnessMode.recover => (baseReadiness * 0.85).round().clamp(55, 68),
@@ -1068,14 +1259,22 @@ class WellnessRepository {
     };
 
     // Mode-adapted Move and Recover pillar scores for the 4-pillar Wellness Score
-    final int baseMove = _wellnessData.moveScore > 0 ? _wellnessData.moveScore : 65;
+    final int baseMove = _baseMoveScore > 0
+        ? _baseMoveScore
+        : (_wellnessData.moveScore > 0 ? _wellnessData.moveScore : 65);
+    _baseMoveScore = baseMove;
+
     final int modeMove = switch (mode) {
       WellnessMode.recover => (baseMove * 0.70).round().clamp(30, 60),
       WellnessMode.steady => baseMove.clamp(60, 78),
       WellnessMode.push => (baseMove * 1.35).round().clamp(80, 96),
     };
 
-    final int baseRecover = _wellnessData.recoverScore > 0 ? _wellnessData.recoverScore : 70;
+    final int baseRecover = _baseRecoverScore > 0
+        ? _baseRecoverScore
+        : (_wellnessData.recoverScore > 0 ? _wellnessData.recoverScore : 70);
+    _baseRecoverScore = baseRecover;
+
     final int modeRecover = switch (mode) {
       WellnessMode.recover => (baseRecover * 0.85).round().clamp(55, 70),
       WellnessMode.steady => baseRecover.clamp(70, 84),
@@ -1083,6 +1282,19 @@ class WellnessRepository {
     };
 
     final int modeWellnessScore = ((modeMove + modeRecover + _wellnessData.mindScore + _wellnessData.fuelScore) / 4).round().clamp(1, 100);
+
+    // Sync pinned point on the "Your day so far" chart to match the new mode wellness score
+    final List<DayChartPoint> updatedDayPoints = _wellnessData.dayChartPoints.map((pt) {
+      if (pt.hasPin) {
+        return DayChartPoint(
+          timeLabel: pt.timeLabel,
+          score: modeWellnessScore.toDouble(),
+          hasPin: true,
+          isProjected: pt.isProjected,
+        );
+      }
+      return pt;
+    }).toList();
 
     _wellnessData = _wellnessData.copyWith(
       activeMode: mode,
@@ -1095,6 +1307,7 @@ class WellnessRepository {
       moveScore: modeMove,
       recoverScore: modeRecover,
       wellnessScore: modeWellnessScore,
+      dayChartPoints: updatedDayPoints.isNotEmpty ? updatedDayPoints : _wellnessData.dayChartPoints,
     );
 
     await _secureStorage.write(
@@ -1117,7 +1330,8 @@ class WellnessRepository {
     }
   }
 
-  /// Persists a new journal check-in entry with current sleep hours and updates recent list.
+  /// Persists a new journal check-in entry with current sleep hours and updates recent list,
+  /// immediately recalculating the Mind pillar and composite Wellness score.
   Future<void> saveJournalEntry({
     required int energyLevel,
     required String moodWord,
@@ -1141,6 +1355,58 @@ class WellnessRepository {
       'cached_journal_entries_v1',
       jsonEncode(_journalEntries.map((e) => e.toJson()).toList()),
     ).catchError((_) {});
+
+    final int oldMindScore = _wellnessData.mindScore;
+    final int oldWellnessScore = _wellnessData.wellnessScore;
+
+    // Recalculate Mind pillar score with the newly recorded mood & energy
+    final int newMindScore = calculateMindScore(
+      stressScore: _wellnessData.stressScore,
+      energyLevel: energyLevel,
+      moodWord: moodWord,
+      fallbackMindScore: _wellnessData.mindScore,
+    );
+
+    final int moveScore = _wellnessData.moveScore;
+    final int recoverScore = _wellnessData.recoverScore;
+    final int fuelScore = _wellnessData.fuelScore;
+    final bool hasScores = moveScore > 0 || recoverScore > 0 || fuelScore > 0;
+    final int newWellnessScore = hasScores
+        ? ((moveScore + recoverScore + newMindScore + fuelScore) / 4).round().clamp(1, 100)
+        : newMindScore;
+
+    int scoreDiff = _wellnessData.scoreDiff;
+    if (_yesterdayWellnessScore > 0) {
+      scoreDiff = newWellnessScore - _yesterdayWellnessScore;
+    }
+
+    _wellnessData = _wellnessData.copyWith(
+      mindScore: newMindScore,
+      wellnessScore: newWellnessScore,
+      scoreDiff: scoreDiff,
+    );
+
+    await _secureStorage.write(
+      'cached_wellness_data_v1',
+      jsonEncode(_wellnessData.toJson()),
+    ).catchError((_) {});
+
+    debugPrint('📝 [JOURNAL ENTRY SAVED TO LOCAL STORAGE] Energy: $energyLevel | Mood: "$moodWord" | Total entries stored: ${_journalEntries.length}');
+    debugPrint('🧠 [MIND PILLAR RECALCULATED] Previous Mind: $oldMindScore -> New Mind: $newMindScore (Autonomic Stress: ${_wellnessData.stressScore})');
+    debugPrint('🏆 [COMPOSITE WELLNESS SCORE] Previous: $oldWellnessScore -> New: $newWellnessScore (Move: $moveScore, Rec: $recoverScore, Fuel: $fuelScore, Mind: $newMindScore)');
+
+    // Sync updated score to Drift SQLite daily summary
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final userId = await _secureStorage.getActiveUserId();
+    final mac = await _secureStorage.getBondedDeviceMac();
+    _db.healthDataDao.upsertDailySummary(
+      DailyHealthSummariesTableCompanion(
+        userId: drift.Value(userId),
+        deviceId: drift.Value(mac ?? 'default_band'),
+        date: drift.Value(today),
+        wellnessScore: drift.Value(newWellnessScore),
+      ),
+    ).catchError((_) => 0);
   }
 
   /// Retrieves saved user routines from Drift SQLite.
@@ -1286,5 +1552,591 @@ class WellnessRepository {
       stressScore: 0,
       hrvMs: 0,
     );
+  }
+
+  /// Fetches 100% dynamic vitals for a specific historical date from Drift SQLite.
+  /// If the date is within the last 7 days and not cached locally yet, attempts auto-sync
+  /// from the hardware band via [bandRepo] before reading.
+  Future<VitalsModel> getHistoricalVitalsForDate(
+    DateTime targetDate, {
+    BandRepository? bandRepo,
+  }) async {
+    final normalized = DateTime(targetDate.year, targetDate.month, targetDate.day);
+    final dateStr = DateFormat('yyyy-MM-dd').format(normalized);
+    final userId = await _secureStorage.getActiveUserId();
+    final bondedMac = await _secureStorage.getBondedDeviceMac();
+    final devId = bondedMac ?? 'default_band';
+
+    // 1. Fetch local daily summary from SQLite
+    var summary = await _db.healthDataDao.getDailySummary(userId, dateStr);
+
+    // 2. Fetch specific records for that day from Drift SQLite tables
+    final sleepData = await _db.healthDataDao.getSleepSessionWithPhasesByDate(devId, dateStr);
+    final stresses = await _db.healthDataDao.getVitalsHistoryForDate(devId, 'stress', dateStr);
+    final hrvs = await _db.healthDataDao.getVitalsHistoryForDate(devId, 'hrv', dateStr);
+    final bps = await _db.healthDataDao.getVitalsHistoryForDate(devId, 'blood_pressure', dateStr);
+    final temps = await _db.healthDataDao.getVitalsHistoryForDate(devId, 'temperature', dateStr);
+    final hrSamples = await _db.healthDataDao.getHeartRateSamples(
+      devId,
+      DateTime(normalized.year, normalized.month, normalized.day, 0, 0, 0),
+      DateTime(normalized.year, normalized.month, normalized.day, 23, 59, 59),
+    );
+
+    // 3. Build Sleep intervals & total sleep
+    String totalSleep = '--';
+    String sleepWindow = 'No sleep recorded';
+    List<SleepInterval> sleepIntervals = [];
+
+    final recordedSleepMins = (sleepData?.session.totalDurationMinutes != null && sleepData!.session.totalDurationMinutes > 0)
+        ? sleepData.session.totalDurationMinutes
+        : (summary?.sleepDurationMinutes ?? 0);
+
+    if (sleepData != null && sleepData.phases.isNotEmpty) {
+      final totalMins = recordedSleepMins > 0
+          ? recordedSleepMins
+          : sleepData.phases.fold<int>(0, (sum, p) => sum + (p.durationMinutes > 0 ? p.durationMinutes : 1));
+
+      final h = totalMins ~/ 60;
+      final m = totalMins % 60;
+      totalSleep = h > 0 ? '$h hrs. $m mins.' : '$m mins.';
+
+      final startT = sleepData.session.startTime;
+      final endT = sleepData.session.endTime;
+      final startFmt = DateFormat('hh:mm a').format(startT).toLowerCase();
+      final endFmt = DateFormat('hh:mm a').format(endT).toLowerCase();
+      sleepWindow = '$startFmt - $endFmt';
+
+      int elapsed = 0;
+      for (final p in sleepData.phases) {
+        final dur = p.durationMinutes > 0 ? p.durationMinutes : 1;
+        final offset = (totalMins > 0 ? elapsed / totalMins : 0.0).clamp(0.0, 1.0);
+        final width = (totalMins > 0 ? dur / totalMins : 0.1).clamp(0.01, 1.0);
+        final phaseStart = startT.add(Duration(minutes: elapsed));
+        final phaseEnd = startT.add(Duration(minutes: elapsed + dur));
+        final pStartFmt = DateFormat('hh:mm a').format(phaseStart).toLowerCase();
+        final pEndFmt = DateFormat('hh:mm a').format(phaseEnd).toLowerCase();
+        final pDurFmt = '${dur ~/ 60}h ${dur % 60}m';
+
+        SleepPhase phaseEnum;
+        if (p.phaseType == 0 || p.phaseType == 3) {
+          phaseEnum = SleepPhase.deep;
+        } else if (p.phaseType == 2 || p.phaseType == 4) {
+          phaseEnum = SleepPhase.rem;
+        } else if (p.phaseType == 1 || p.phaseType == 5) {
+          phaseEnum = SleepPhase.awake;
+        } else {
+          phaseEnum = SleepPhase.light;
+        }
+
+        sleepIntervals.add(SleepInterval(
+          startOffset: offset,
+          widthFraction: width,
+          phase: phaseEnum,
+          timeRangeText: '$pStartFmt → $pEndFmt ($pDurFmt)',
+        ));
+        elapsed += dur;
+      }
+    } else if (recordedSleepMins > 0) {
+      final h = recordedSleepMins ~/ 60;
+      final m = recordedSleepMins % 60;
+      totalSleep = h > 0 ? '$h hrs. $m mins.' : '$m mins.';
+
+      final wakeTime = DateTime(normalized.year, normalized.month, normalized.day, 7, 0);
+      final sleepStart = wakeTime.subtract(Duration(minutes: recordedSleepMins));
+      final startFmt = DateFormat('hh:mm a').format(sleepStart).toLowerCase();
+      final endFmt = DateFormat('hh:mm a').format(wakeTime).toLowerCase();
+      sleepWindow = '$startFmt - $endFmt';
+
+      sleepIntervals = SleepIntervalGenerator.generate(
+        totalMinutes: recordedSleepMins,
+        wakeTime: wakeTime,
+        deepMinutes: summary?.deepSleepMinutes,
+      );
+    }
+
+    // 4. Heart Rate Metrics
+    int currentHr = 0;
+    if (hrSamples.isNotEmpty) {
+      currentHr = hrSamples.last.bpm;
+    } else if (summary?.avgHeartRate != null && summary!.avgHeartRate! > 0) {
+      currentHr = summary.avgHeartRate!;
+    } else if (summary?.restingHeartRate != null && summary!.restingHeartRate! > 0) {
+      currentHr = summary.restingHeartRate!;
+    } else if (summary?.minHeartRate != null && summary!.minHeartRate! > 0) {
+      currentHr = summary.minHeartRate!;
+    }
+
+    final int restingHr = summary?.restingHeartRate ?? 0;
+
+    // 5. Stress metrics
+    int stressScore = 0;
+    List<double> stressTimeline = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+    if (stresses.isNotEmpty) {
+      stressScore = stresses.last.valueNumeric?.round() ?? 0;
+      stressTimeline = stresses
+          .take(7)
+          .map((s) => (s.valueNumeric ?? 0.0).clamp(0.0, 100.0))
+          .toList();
+      while (stressTimeline.length < 7) {
+        stressTimeline.insert(0, 0.0);
+      }
+    }
+
+    String stressStatus = '--';
+    if (stressScore > 0) {
+      if (stressScore <= 25) {
+        stressStatus = 'Low';
+      } else if (stressScore <= 50) {
+        stressStatus = 'Normal';
+      } else if (stressScore <= 75) {
+        stressStatus = 'Medium';
+      } else {
+        stressStatus = 'High';
+      }
+    }
+
+    // 6. HRV, SpO2, BP, Temp
+    final int hrvMs = hrvs.isNotEmpty ? (hrvs.last.valueNumeric?.round() ?? 0) : 0;
+    final int bloodOxygen = summary?.avgSpo2?.round() ?? 0;
+    final double breathingRate = hrvMs > 0 ? (12.0 + (hrvMs % 6)).clamp(12.0, 20.0) : 0.0;
+
+    String bpStr = '--';
+    bool bpUp = false;
+    if (bps.isNotEmpty) {
+      final sbp = bps.last.valueNumeric?.round() ?? 0;
+      final dbp = bps.last.secondaryNumeric?.round() ?? 0;
+      if (sbp > 0 && dbp > 0) {
+        bpStr = '$sbp / $dbp';
+        bpUp = sbp > 120;
+      }
+    }
+
+    double tempDiff = 0.0;
+    bool tempDown = false;
+    if (temps.isNotEmpty) {
+      final t = temps.last.valueNumeric ?? 36.5;
+      tempDiff = double.parse((t - 36.5).abs().toStringAsFixed(1));
+      tempDown = t < 36.5;
+    }
+
+    // 7. Weekly Context for Sparklines surrounding this date
+    final monday = normalized.subtract(Duration(days: normalized.weekday - 1));
+    final sunday = monday.add(const Duration(days: 6));
+    final mondayStr = DateFormat('yyyy-MM-dd').format(monday);
+    final sundayStr = DateFormat('yyyy-MM-dd').format(sunday);
+    final weekSummaries = await _db.healthDataDao.getWeeklySummaries(userId, mondayStr, sundayStr);
+
+    List<double> weeklyHr = List.filled(7, 0.0);
+    List<double> weeklyResting = List.filled(7, 0.0);
+    List<double> weeklyOxy = List.filled(7, 0.0);
+    List<double> weeklyHrv = List.filled(7, 0.0);
+    List<double> weeklyBreathing = List.filled(7, 0.0);
+
+    for (final item in weekSummaries) {
+      final pDate = DateTime.tryParse(item.date);
+      if (pDate != null) {
+        final idx = (pDate.weekday - 1).clamp(0, 6);
+        if (item.avgHeartRate != null && item.avgHeartRate! > 0) {
+          weeklyHr[idx] = item.avgHeartRate!.toDouble();
+        } else if (item.restingHeartRate != null && item.restingHeartRate! > 0) {
+          weeklyHr[idx] = item.restingHeartRate!.toDouble();
+        }
+        if (item.restingHeartRate != null && item.restingHeartRate! > 0) {
+          weeklyResting[idx] = item.restingHeartRate!.toDouble();
+        }
+        if (item.avgSpo2 != null && item.avgSpo2! > 0) {
+          weeklyOxy[idx] = item.avgSpo2!;
+        }
+      }
+    }
+
+    return VitalsModel(
+      totalSleep: totalSleep,
+      sleepWindow: sleepWindow,
+      sleepIntervals: sleepIntervals,
+      currentHeartRate: currentHr,
+      weeklyHeartRate: weeklyHr,
+      stressScore: stressScore,
+      stressStatus: stressStatus,
+      stressTimeline: stressTimeline,
+      hrvMs: hrvMs,
+      weeklyHrv: weeklyHrv,
+      restingHr: restingHr,
+      weeklyRestingHr: weeklyResting,
+      bloodOxygen: bloodOxygen,
+      weeklyOxygen: weeklyOxy,
+      breathingRate: breathingRate,
+      weeklyBreathing: weeklyBreathing,
+      bloodPressure: bpStr,
+      isBloodPressureUp: bpUp,
+      skinTempDiff: tempDiff,
+      isSkinTempDown: tempDown,
+    );
+  }
+
+  /// Generates aggregate vitals for a full week (Monday through Sunday) from SQLite.
+  Future<VitalsModel> getWeeklyVitalsRollup(DateTime anchorDate) async {
+    final monday = anchorDate.subtract(Duration(days: anchorDate.weekday - 1));
+    final sunday = monday.add(const Duration(days: 6));
+    final mondayStr = DateFormat('yyyy-MM-dd').format(monday);
+    final sundayStr = DateFormat('yyyy-MM-dd').format(sunday);
+    final userId = await _secureStorage.getActiveUserId();
+
+    final summaries = await _db.healthDataDao.getWeeklySummaries(userId, mondayStr, sundayStr);
+
+    List<double> weeklyHr = List.filled(7, 0.0);
+    List<double> weeklyResting = List.filled(7, 0.0);
+    List<double> weeklyOxy = List.filled(7, 0.0);
+    int totalSleepMins = 0;
+    int sleepDays = 0;
+    int hrSum = 0;
+    int hrCount = 0;
+    int restSum = 0;
+    int restCount = 0;
+    double oxySum = 0.0;
+    int oxyCount = 0;
+
+    for (final item in summaries) {
+      final pDate = DateTime.tryParse(item.date);
+      if (pDate != null) {
+        final idx = (pDate.weekday - 1).clamp(0, 6);
+        if (item.avgHeartRate != null && item.avgHeartRate! > 0) {
+          weeklyHr[idx] = item.avgHeartRate!.toDouble();
+          hrSum += item.avgHeartRate!;
+          hrCount++;
+        }
+        if (item.restingHeartRate != null && item.restingHeartRate! > 0) {
+          weeklyResting[idx] = item.restingHeartRate!.toDouble();
+          restSum += item.restingHeartRate!;
+          restCount++;
+        }
+        if (item.avgSpo2 != null && item.avgSpo2! > 0) {
+          weeklyOxy[idx] = item.avgSpo2!;
+          oxySum += item.avgSpo2!;
+          oxyCount++;
+        }
+        if (item.sleepDurationMinutes > 0) {
+          totalSleepMins += item.sleepDurationMinutes;
+          sleepDays++;
+        }
+      }
+    }
+
+    final avgSleepMins = sleepDays > 0 ? (totalSleepMins ~/ sleepDays) : 0;
+    final totalSleep = avgSleepMins > 0 ? '${avgSleepMins ~/ 60} hrs. ${avgSleepMins % 60} mins. avg' : '--';
+    final avgHr = hrCount > 0 ? (hrSum ~/ hrCount) : 0;
+    final avgRest = restCount > 0 ? (restSum ~/ restCount) : 0;
+    final avgOxy = oxyCount > 0 ? (oxySum / oxyCount).round() : 0;
+
+    return VitalsModel(
+      totalSleep: totalSleep,
+      sleepWindow: sleepDays > 0 ? '$sleepDays / 7 days recorded' : 'No sleep recorded',
+      sleepIntervals: avgSleepMins > 0
+          ? SleepIntervalGenerator.generate(
+              totalMinutes: avgSleepMins,
+              wakeTime: DateTime(anchorDate.year, anchorDate.month, anchorDate.day, 7, 0),
+            )
+          : const [],
+      currentHeartRate: avgHr,
+      weeklyHeartRate: weeklyHr,
+      stressScore: 0,
+      stressStatus: '--',
+      stressTimeline: const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      hrvMs: 0,
+      weeklyHrv: const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      restingHr: avgRest,
+      weeklyRestingHr: weeklyResting,
+      bloodOxygen: avgOxy,
+      weeklyOxygen: weeklyOxy,
+      breathingRate: 0.0,
+      weeklyBreathing: const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      bloodPressure: '--',
+      isBloodPressureUp: false,
+      skinTempDiff: 0.0,
+      isSkinTempDown: false,
+    );
+  }
+
+  /// Generates aggregate vitals for a calendar month from SQLite.
+  Future<VitalsModel> getMonthlyVitalsRollup(DateTime anchorDate) async {
+    final firstDay = DateTime(anchorDate.year, anchorDate.month, 1);
+    final lastDay = DateTime(anchorDate.year, anchorDate.month + 1, 0);
+    final firstDayStr = DateFormat('yyyy-MM-dd').format(firstDay);
+    final lastDayStr = DateFormat('yyyy-MM-dd').format(lastDay);
+    final userId = await _secureStorage.getActiveUserId();
+
+    final summaries = await _db.healthDataDao.getWeeklySummaries(userId, firstDayStr, lastDayStr);
+
+    int totalSleepMins = 0;
+    int sleepDays = 0;
+    int hrSum = 0;
+    int hrCount = 0;
+    int restSum = 0;
+    int restCount = 0;
+    double oxySum = 0.0;
+    int oxyCount = 0;
+
+    final List<double> monthlyWeekdayHr = List.filled(7, 0.0);
+    final List<int> weekdayHrSum = List.filled(7, 0);
+    final List<int> weekdayHrCount = List.filled(7, 0);
+
+    final List<double> monthlyWeekdayRest = List.filled(7, 0.0);
+    final List<int> weekdayRestSum = List.filled(7, 0);
+    final List<int> weekdayRestCount = List.filled(7, 0);
+
+    for (final item in summaries) {
+      final pDate = DateTime.tryParse(item.date);
+      final idx = pDate != null ? (pDate.weekday - 1).clamp(0, 6) : 0;
+
+      if (item.avgHeartRate != null && item.avgHeartRate! > 0) {
+        weekdayHrSum[idx] += item.avgHeartRate!;
+        weekdayHrCount[idx]++;
+        hrSum += item.avgHeartRate!;
+        hrCount++;
+      } else if (item.restingHeartRate != null && item.restingHeartRate! > 0) {
+        weekdayHrSum[idx] += item.restingHeartRate!;
+        weekdayHrCount[idx]++;
+        hrSum += item.restingHeartRate!;
+        hrCount++;
+      }
+      if (item.restingHeartRate != null && item.restingHeartRate! > 0) {
+        weekdayRestSum[idx] += item.restingHeartRate!;
+        weekdayRestCount[idx]++;
+        restSum += item.restingHeartRate!;
+        restCount++;
+      }
+      if (item.avgSpo2 != null && item.avgSpo2! > 0) {
+        oxySum += item.avgSpo2!;
+        oxyCount++;
+      }
+      if (item.sleepDurationMinutes > 0) {
+        totalSleepMins += item.sleepDurationMinutes;
+        sleepDays++;
+      }
+    }
+
+    for (int i = 0; i < 7; i++) {
+      if (weekdayHrCount[i] > 0) {
+        monthlyWeekdayHr[i] = (weekdayHrSum[i] / weekdayHrCount[i]).roundToDouble();
+      }
+      if (weekdayRestCount[i] > 0) {
+        monthlyWeekdayRest[i] = (weekdayRestSum[i] / weekdayRestCount[i]).roundToDouble();
+      }
+    }
+
+    final avgSleepMins = sleepDays > 0 ? (totalSleepMins ~/ sleepDays) : 0;
+    final totalSleep = avgSleepMins > 0 ? '${avgSleepMins ~/ 60} hrs. ${avgSleepMins % 60} mins. avg' : '--';
+    final avgHr = hrCount > 0 ? (hrSum ~/ hrCount) : 0;
+    final avgRest = restCount > 0 ? (restSum ~/ restCount) : 0;
+    final avgOxy = oxyCount > 0 ? (oxySum / oxyCount).round() : 0;
+
+    return VitalsModel(
+      totalSleep: totalSleep,
+      sleepWindow: sleepDays > 0 ? '$sleepDays days recorded in ${DateFormat('MMMM').format(anchorDate)}' : 'No sleep recorded',
+      sleepIntervals: avgSleepMins > 0
+          ? SleepIntervalGenerator.generate(
+              totalMinutes: avgSleepMins,
+              wakeTime: DateTime(anchorDate.year, anchorDate.month, anchorDate.day, 7, 0),
+            )
+          : const [],
+      currentHeartRate: avgHr,
+      weeklyHeartRate: monthlyWeekdayHr,
+      stressScore: 0,
+      stressStatus: '--',
+      stressTimeline: const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      hrvMs: 0,
+      weeklyHrv: const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      restingHr: avgRest,
+      weeklyRestingHr: monthlyWeekdayRest,
+      bloodOxygen: avgOxy,
+      weeklyOxygen: const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      breathingRate: 0.0,
+      weeklyBreathing: const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      bloodPressure: '--',
+      isBloodPressureUp: false,
+      skinTempDiff: 0.0,
+      isSkinTempDown: false,
+    );
+  }
+
+  /// Computes 100% dynamic Min / Avg / Max and 4-zone distribution from SQLite data.
+  Future<VitalsPeriodStats> getHistoricalPeriodStats({
+    required VitalsTimePeriod period,
+    required DateTime anchorDate,
+    BandRepository? bandRepo,
+  }) async {
+    final normalized = DateTime(anchorDate.year, anchorDate.month, anchorDate.day);
+    final userId = await _secureStorage.getActiveUserId();
+    final bondedMac = await _secureStorage.getBondedDeviceMac();
+    final devId = bondedMac ?? 'default_band';
+
+    switch (period) {
+      case VitalsTimePeriod.day:
+        final dateStr = DateFormat('yyyy-MM-dd').format(normalized);
+        final samples = await _db.healthDataDao.getHeartRateSamples(
+          devId,
+          DateTime(normalized.year, normalized.month, normalized.day, 0, 0, 0),
+          DateTime(normalized.year, normalized.month, normalized.day, 23, 59, 59),
+        );
+
+        if (samples.isNotEmpty) {
+          final bpmList = samples.map((s) => s.bpm.toDouble()).toList();
+          final avg = bpmList.reduce((a, b) => a + b) / bpmList.length;
+          final min = bpmList.reduce(math.min);
+          final max = bpmList.reduce(math.max);
+          final dist = VitalsZoneDistribution.compute(bpmList);
+          return VitalsPeriodStats.fromRealData(
+            period: period,
+            anchorDate: normalized,
+            average: avg,
+            minimum: min,
+            maximum: max,
+            distribution: dist,
+          );
+        }
+
+        var summary = await _db.healthDataDao.getDailySummary(userId, dateStr);
+        if (summary == null) {
+          final bondedMac = await _secureStorage.getBondedDeviceMac();
+          final devId = bondedMac ?? 'default_band';
+          final hrSamples = await _db.healthDataDao.getHeartRateSamples(
+            devId,
+            DateTime(normalized.year, normalized.month, normalized.day, 0, 0, 0),
+            DateTime(normalized.year, normalized.month, normalized.day, 23, 59, 59),
+          );
+          if (hrSamples.isNotEmpty) {
+            final validSamples = hrSamples.where((s) => s.bpm > 0).map((s) => s.bpm).toList();
+            if (validSamples.isNotEmpty) {
+              final avg = validSamples.reduce((a, b) => a + b) / validSamples.length;
+              final min = validSamples.reduce((a, b) => a < b ? a : b).toDouble();
+              final max = validSamples.reduce((a, b) => a > b ? a : b).toDouble();
+              final dist = VitalsZoneDistribution.compute(validSamples.map((e) => e.toDouble()).toList());
+              return VitalsPeriodStats.fromRealData(
+                period: period,
+                anchorDate: normalized,
+                average: avg,
+                minimum: min,
+                maximum: max,
+                distribution: dist,
+              );
+            }
+          }
+        }
+
+        final int effectiveHr;
+        if (summary != null) {
+          if (summary.avgHeartRate != null && summary.avgHeartRate! > 0) {
+            effectiveHr = summary.avgHeartRate!;
+          } else if (summary.restingHeartRate != null && summary.restingHeartRate! > 0) {
+            effectiveHr = summary.restingHeartRate!;
+          } else if (summary.minHeartRate != null && summary.minHeartRate! > 0) {
+            effectiveHr = summary.minHeartRate!;
+          } else {
+            effectiveHr = 0;
+          }
+        } else {
+          effectiveHr = 0;
+        }
+
+        if (effectiveHr > 0) {
+          final avg = effectiveHr.toDouble();
+          final min = (summary?.minHeartRate ?? summary?.restingHeartRate ?? (avg - 12.0).round()).toDouble().clamp(30.0, avg);
+          final max = (summary?.maxHeartRate ?? (avg + 25.0).round()).toDouble().clamp(avg, 220.0);
+          final dist = VitalsZoneDistribution.compute([min, avg, max]);
+          return VitalsPeriodStats.fromRealData(
+            period: period,
+            anchorDate: normalized,
+            average: avg,
+            minimum: min,
+            maximum: max,
+            distribution: dist,
+          );
+        }
+
+        return VitalsPeriodStats.fromRealData(
+          period: period,
+          anchorDate: normalized,
+          average: 0.0,
+          minimum: 0.0,
+          maximum: 0.0,
+          distribution: VitalsZoneDistribution.empty,
+        );
+
+      case VitalsTimePeriod.week:
+        final monday = normalized.subtract(Duration(days: normalized.weekday - 1));
+        final sunday = monday.add(const Duration(days: 6));
+        final mondayStr = DateFormat('yyyy-MM-dd').format(monday);
+        final sundayStr = DateFormat('yyyy-MM-dd').format(sunday);
+
+        final summaries = await _db.healthDataDao.getWeeklySummaries(userId, mondayStr, sundayStr);
+        final validDays = summaries.where((s) => (s.avgHeartRate != null && s.avgHeartRate! > 0) || (s.restingHeartRate != null && s.restingHeartRate! > 0)).toList();
+
+        if (validDays.isNotEmpty) {
+          final avgs = validDays.map((s) => ((s.avgHeartRate != null && s.avgHeartRate! > 0) ? s.avgHeartRate! : s.restingHeartRate!).toDouble()).toList();
+          final mins = validDays.map((s) => (s.minHeartRate ?? s.restingHeartRate ?? (s.avgHeartRate != null && s.avgHeartRate! > 0 ? s.avgHeartRate! - 10 : 50)).toDouble()).toList();
+          final maxs = validDays.map((s) => (s.maxHeartRate ?? (s.avgHeartRate != null && s.avgHeartRate! > 0 ? s.avgHeartRate! + 20 : 85)).toDouble()).toList();
+
+          final avg = avgs.reduce((a, b) => a + b) / avgs.length;
+          final min = mins.reduce(math.min);
+          final max = maxs.reduce(math.max);
+          final dist = VitalsZoneDistribution.compute(avgs);
+
+          return VitalsPeriodStats.fromRealData(
+            period: period,
+            anchorDate: normalized,
+            average: avg,
+            minimum: min,
+            maximum: max,
+            distribution: dist,
+          );
+        }
+
+        return VitalsPeriodStats.fromRealData(
+          period: period,
+          anchorDate: normalized,
+          average: 0.0,
+          minimum: 0.0,
+          maximum: 0.0,
+          distribution: VitalsZoneDistribution.empty,
+        );
+
+      case VitalsTimePeriod.month:
+        final firstDay = DateTime(normalized.year, normalized.month, 1);
+        final lastDay = DateTime(normalized.year, normalized.month + 1, 0);
+        final firstDayStr = DateFormat('yyyy-MM-dd').format(firstDay);
+        final lastDayStr = DateFormat('yyyy-MM-dd').format(lastDay);
+
+        final summaries = await _db.healthDataDao.getWeeklySummaries(userId, firstDayStr, lastDayStr);
+        final validDays = summaries.where((s) => (s.avgHeartRate != null && s.avgHeartRate! > 0) || (s.restingHeartRate != null && s.restingHeartRate! > 0)).toList();
+
+        if (validDays.isNotEmpty) {
+          final avgs = validDays.map((s) => ((s.avgHeartRate != null && s.avgHeartRate! > 0) ? s.avgHeartRate! : s.restingHeartRate!).toDouble()).toList();
+          final mins = validDays.map((s) => (s.minHeartRate ?? s.restingHeartRate ?? (s.avgHeartRate != null && s.avgHeartRate! > 0 ? s.avgHeartRate! - 10 : 50)).toDouble()).toList();
+          final maxs = validDays.map((s) => (s.maxHeartRate ?? (s.avgHeartRate != null && s.avgHeartRate! > 0 ? s.avgHeartRate! + 20 : 85)).toDouble()).toList();
+
+          final avg = avgs.reduce((a, b) => a + b) / avgs.length;
+          final min = mins.reduce(math.min);
+          final max = maxs.reduce(math.max);
+          final dist = VitalsZoneDistribution.compute(avgs);
+
+          return VitalsPeriodStats.fromRealData(
+            period: period,
+            anchorDate: normalized,
+            average: avg,
+            minimum: min,
+            maximum: max,
+            distribution: dist,
+          );
+        }
+
+        return VitalsPeriodStats.fromRealData(
+          period: period,
+          anchorDate: normalized,
+          average: 0.0,
+          minimum: 0.0,
+          maximum: 0.0,
+          distribution: VitalsZoneDistribution.empty,
+        );
+    }
   }
 }

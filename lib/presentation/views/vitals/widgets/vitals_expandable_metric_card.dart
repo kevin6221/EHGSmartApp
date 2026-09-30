@@ -6,6 +6,7 @@ import '../../../../core/constants/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/responsive.dart';
 import '../../../helpers/vitals_card_calculator.dart';
+import 'vitals_interpretation_section.dart';
 
 /// Reusable expandable & collapsible metric card for Vitals dashboard.
 ///
@@ -361,7 +362,11 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
                               child: Align(
                                 alignment: Alignment.topCenter,
                                 heightFactor: progress,
-                                child: _buildExpandedDetails(r, dims),
+                                child: VitalsInterpretationSection(
+                                  whatItIs: widget.whatItIs,
+                                  yourReading: widget.yourReading,
+                                  doThis: widget.doThis,
+                                ),
                               ),
                             ),
                         ],
@@ -375,108 +380,5 @@ class _VitalsExpandableMetricCardState extends State<VitalsExpandableMetricCard>
       },
     );
   }
-
-  Widget _buildExpandedDetails(Responsive r, VitalsCardDimensions dims) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(height: dims.itemSpacing),
-        // Divider
-        Container(
-          height: 1.0,
-          color: context.dividerColor,
-        ),
-        SizedBox(height: dims.itemSpacing),
-
-        // "What it is"
-        Text(
-          'What it is',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: r.font(14.0),
-            fontWeight: FontWeight.w500,
-            color: context.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 4.0),
-        Text(
-          widget.whatItIs,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: r.font(10.0),
-            fontWeight: FontWeight.w400,
-            color: context.textSecondary,
-            height: 1.45,
-          ),
-        ),
-        SizedBox(height: dims.itemSpacing),
-
-        // "Your reading"
-        Text(
-          'Your reading',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: r.font(14.0),
-            fontWeight: FontWeight.w500,
-            color: context.textPrimary,
-          ),
-        ),
-        const SizedBox(height: 4.0),
-        Text(
-          widget.yourReading,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: r.font(10.0),
-            fontWeight: FontWeight.w400,
-            color: context.textSecondary,
-            height: 1.45,
-          ),
-        ),
-        SizedBox(height: dims.itemSpacing * 1.1),
-
-        // "Do this" Callout Banner
-        Container(
-          width: double.infinity,
-          padding: EdgeInsets.symmetric(
-            horizontal: (r.width * 0.035).clamp(12.0, 16.0),
-            vertical: (r.height * 0.014).clamp(10.0, 14.0),
-          ),
-          decoration: BoxDecoration(
-            gradient: AppGradients.primary,
-            borderRadius: BorderRadius.circular(12.0),
-            border: Border.all(
-              color: AppColors.tertiary.withValues(alpha: 0.2),
-              width: 0.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.vitalsCalloutBorder,
-                blurRadius: 10.0,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Do this',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: r.font(14.0),
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.white,
-                ),
-              ),
-              const SizedBox(height: 4.0),
-              Text(
-                widget.doThis,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: r.font(10.0),
-                  fontWeight: FontWeight.w400,
-                  color: AppColors.vitalsCalloutSubtext,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 }
+

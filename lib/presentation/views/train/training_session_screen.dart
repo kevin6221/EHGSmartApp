@@ -14,6 +14,8 @@ import '../../blocs/band/band_state.dart';
 import '../../blocs/training/training_bloc.dart';
 import '../../blocs/training/training_event.dart';
 import '../../blocs/training/training_state.dart';
+import '../../blocs/wellness/wellness_bloc.dart';
+import '../../blocs/wellness/wellness_event.dart';
 import '../../widgets/common/app_back_button.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/custom_bottom_nav_bar.dart';
@@ -226,9 +228,16 @@ class _TrainingSessionScreenState extends State<TrainingSessionScreen> {
                                   context.read<TrainingBloc>().add(
                                     const FinishWorkoutEvent(),
                                   );
-                                  Navigator.of(context).pushReplacementNamed(
-                                    AppRoutes.membership,
+                                  context.read<WellnessBloc>().add(
+                                    const LoadWellnessDataEvent(),
                                   );
+                                  if (Navigator.of(context).canPop()) {
+                                    Navigator.of(context).pop();
+                                  } else {
+                                    Navigator.of(context).pushReplacementNamed(
+                                      AppRoutes.dashboard,
+                                    );
+                                  }
                                 },
                                 useGradient: true,
                                 borderRadius: BorderRadius.circular(12),

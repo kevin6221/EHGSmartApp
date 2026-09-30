@@ -21,11 +21,13 @@ import 'widgets/systems_system_card.dart';
 class SystemsScreen extends StatefulWidget {
   final WellnessMode? initialMode;
   final String? initialExpandedSection;
+  final bool isTab;
 
   const SystemsScreen({
     super.key,
     this.initialMode,
     this.initialExpandedSection,
+    this.isTab = false,
   });
 
   @override
@@ -151,12 +153,12 @@ class _SystemsScreenState extends State<SystemsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 1. Unified Top Header Row (Title & User Avatar)
-                  const ScreenHeader(
+                  ScreenHeader(
                     title: 'Four systems, one wardrobe',
                     titleFontSize: 20.0,
                     showAvatar: true,
-                    showBackButton: true,
-                    showOnlineIndicator: true,
+                    showBackButton: !widget.isTab,
+                    showOnlineIndicator: false,
                   ),
 
                   // Subtle divider under top bar matching Figma

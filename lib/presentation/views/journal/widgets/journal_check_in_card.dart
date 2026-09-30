@@ -30,10 +30,7 @@ class JournalCheckInCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: context.cardBackground,
         borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(
-          color: context.cardBorder,
-          width: 1.0,
-        ),
+        border: Border.all(color: context.cardBorder, width: 1.0),
         boxShadow: context.isDark
             ? []
             : [
@@ -87,7 +84,9 @@ class JournalCheckInCard extends StatelessWidget {
                           '$energyLevel',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: r.font(14.0),
-                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                             color: isSelected
                                 ? AppColors.white
                                 : context.textSecondary,
@@ -175,6 +174,7 @@ class JournalCheckInCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(10.0),
             fillColor: context.inputFill,
             activeFillColor: context.inputFill,
+            textInputAction: TextInputAction.done,
             borderColor: context.inputBorder,
             activeBorderColor: AppColors.primary,
             borderWidth: 0.8,

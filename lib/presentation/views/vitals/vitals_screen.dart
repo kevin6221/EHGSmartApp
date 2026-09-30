@@ -6,6 +6,7 @@ import '../../../core/engine/recommendation_engine.dart';
 import '../../../core/sync/health_sync_manager.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
+import '../../../data/models/vitals_model.dart';
 import '../../../data/repositories/band_repository.dart';
 import '../../../data/repositories/wellness_repository.dart';
 import '../../blocs/band/band_bloc.dart';
@@ -13,21 +14,24 @@ import '../../blocs/band/band_event.dart';
 import '../../blocs/vitals/vitals_bloc.dart';
 import '../../blocs/vitals/vitals_event.dart';
 import '../../blocs/vitals/vitals_state.dart';
+import '../../helpers/vitals_history_calculator.dart';
 import '../../widgets/charts/capsule_bar_chart.dart';
 import '../../widgets/charts/sparkline_chart.dart';
 import '../../widgets/common/screen_header.dart';
+import 'widgets/vitals_date_navigator.dart';
 import 'widgets/vitals_expandable_metric_card.dart';
 import 'widgets/vitals_heart_rate_card.dart';
 import 'widgets/vitals_hrv_card.dart';
+import 'widgets/vitals_period_segmented_bar.dart';
+import 'widgets/vitals_period_stats_card.dart';
 import 'widgets/vitals_sleep_summary_card.dart';
 import 'widgets/vitals_stress_card.dart';
 import 'widgets/vitals_twin_trend_cards.dart';
 
-
 /// Vitals dashboard screen displaying sleep, heart metrics, stress, oxygen, and trend vitals.
 ///
-/// Features expandable/collapsible metric cards for HRV, Resting HR, Blood Oxygen, and Breathing Rate
-/// with butter-smooth transitions matching Figma Node 71:886 and 119:1442.
+/// Features Day/Week/Month historical browsing with date navigation,
+/// period stats, and expandable/collapsible metric cards matching Figma Nodes 71:886 & 119:1442.
 class VitalsScreen extends StatefulWidget {
   const VitalsScreen({super.key});
 
@@ -37,20 +41,121 @@ class VitalsScreen extends StatefulWidget {
 
 class _VitalsScreenState extends State<VitalsScreen> {
   late final List<ValueNotifier<bool>> _expandNotifiers;
+  late final ValueNotifier<VitalsTimePeriod> _selectedPeriodNotifier;
+  late final ValueNotifier<DateTime> _selectedDateNotifier;
+  late final ValueNotifier<VitalsModel?> _historicalVitalsNotifier;
+  late final ValueNotifier<VitalsPeriodStats?> _periodStatsNotifier;
 
   @override
   void initState() {
     super.initState();
-    _expandNotifiers = List.generate(4, (_) => ValueNotifier<bool>(false));
-    // No automatic sync — data updates only via pull-to-refresh.
+    _expandNotifiers = List.generate(9, (_) => ValueNotifier<bool>(false));
+    _selectedPeriodNotifier = ValueNotifier<VitalsTimePeriod>(VitalsTimePeriod.day);
+    _selectedDateNotifier = ValueNotifier<DateTime>(DateTime.now());
+    _historicalVitalsNotifier = ValueNotifier<VitalsModel?>(null);
+    _periodStatsNotifier = ValueNotifier<VitalsPeriodStats?>(null);
+
+    _selectedPeriodNotifier.addListener(_onPeriodOrDateChanged);
+    _selectedDateNotifier.addListener(_onPeriodOrDateChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _refreshHistoricalData();
   }
 
   @override
   void dispose() {
+    _selectedPeriodNotifier.removeListener(_onPeriodOrDateChanged);
+    _selectedDateNotifier.removeListener(_onPeriodOrDateChanged);
     for (final notifier in _expandNotifiers) {
       notifier.dispose();
     }
+    _selectedPeriodNotifier.dispose();
+    _selectedDateNotifier.dispose();
+    _historicalVitalsNotifier.dispose();
+    _periodStatsNotifier.dispose();
     super.dispose();
+  }
+
+  bool _isToday(DateTime d) {
+    final now = DateTime.now();
+    return d.year == now.year && d.month == now.month && d.day == now.day;
+  }
+
+  void _onPeriodOrDateChanged() {
+    _refreshHistoricalData();
+  }
+
+  Future<void> _refreshHistoricalData() async {
+    final period = _selectedPeriodNotifier.value;
+    final date = _selectedDateNotifier.value;
+    final wellnessRepo = context.read<WellnessRepository>();
+    final bandRepo = context.read<BandRepository>();
+
+    // 1. Immediately fetch cached SQLite data in parallel (executes in < 5ms)
+    final statsFuture = wellnessRepo.getHistoricalPeriodStats(
+      period: period,
+      anchorDate: date,
+    );
+
+    final vitalsFuture = (period == VitalsTimePeriod.day && _isToday(date))
+        ? Future<VitalsModel?>.value(null)
+        : (period == VitalsTimePeriod.day)
+            ? wellnessRepo.getHistoricalVitalsForDate(date)
+            : (period == VitalsTimePeriod.week)
+                ? wellnessRepo.getWeeklyVitalsRollup(date)
+                : wellnessRepo.getMonthlyVitalsRollup(date);
+
+    final results = await Future.wait([statsFuture, vitalsFuture]);
+    if (!mounted) return;
+
+    // Verify current selection hasn't changed while awaiting
+    if (_selectedPeriodNotifier.value == period && _selectedDateNotifier.value == date) {
+      _periodStatsNotifier.value = results[0] as VitalsPeriodStats;
+      _historicalVitalsNotifier.value = results[1] as VitalsModel?;
+    }
+
+    // 2. Asynchronously sync from band in background if viewing a past day (1-6 days ago)
+    if (period == VitalsTimePeriod.day && !_isToday(date) && bandRepo.isConnected) {
+      _syncPastDayInBackground(date, wellnessRepo, bandRepo);
+    }
+  }
+
+  void _syncPastDayInBackground(
+    DateTime targetDate,
+    WellnessRepository wellnessRepo,
+    BandRepository bandRepo,
+  ) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final normalized = DateTime(targetDate.year, targetDate.month, targetDate.day);
+    final dayDiff = today.difference(normalized).inDays;
+    if (dayDiff >= 1 && dayDiff <= 6) {
+      bandRepo.syncHistoricalDay(dayDiff).then((_) async {
+        if (!mounted) return;
+        final curDate = _selectedDateNotifier.value;
+        final curPeriod = _selectedPeriodNotifier.value;
+        if (curPeriod == VitalsTimePeriod.day &&
+            curDate.year == targetDate.year &&
+            curDate.month == targetDate.month &&
+            curDate.day == targetDate.day) {
+          final updated = await Future.wait([
+            wellnessRepo.getHistoricalPeriodStats(period: curPeriod, anchorDate: curDate),
+            wellnessRepo.getHistoricalVitalsForDate(curDate),
+          ]);
+          if (mounted &&
+              _selectedPeriodNotifier.value == curPeriod &&
+              _selectedDateNotifier.value == curDate) {
+            _periodStatsNotifier.value = updated[0] as VitalsPeriodStats;
+            _historicalVitalsNotifier.value = updated[1] as VitalsModel?;
+          }
+        }
+      }).catchError((e) {
+        debugPrint('⚠️ [VITALS] Background past day sync error: $e');
+      });
+    }
   }
 
   void _onToggleCard(int index) {
@@ -58,6 +163,45 @@ class _VitalsScreenState extends State<VitalsScreen> {
     for (int i = 0; i < _expandNotifiers.length; i++) {
       _expandNotifiers[i].value = (i == index) ? willExpand : false;
     }
+  }
+
+  void _onPreviousDate() {
+    final cur = _selectedDateNotifier.value;
+    final period = _selectedPeriodNotifier.value;
+    switch (period) {
+      case VitalsTimePeriod.day:
+        _selectedDateNotifier.value = cur.subtract(const Duration(days: 1));
+        break;
+      case VitalsTimePeriod.week:
+        _selectedDateNotifier.value = cur.subtract(const Duration(days: 7));
+        break;
+      case VitalsTimePeriod.month:
+        _selectedDateNotifier.value = DateTime(cur.year, cur.month - 1, cur.day);
+        break;
+    }
+  }
+
+  void _onNextDate() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final cur = _selectedDateNotifier.value;
+    final period = _selectedPeriodNotifier.value;
+    DateTime next;
+    switch (period) {
+      case VitalsTimePeriod.day:
+        next = cur.add(const Duration(days: 1));
+        break;
+      case VitalsTimePeriod.week:
+        next = cur.add(const Duration(days: 7));
+        break;
+      case VitalsTimePeriod.month:
+        next = DateTime(cur.year, cur.month + 1, cur.day);
+        break;
+    }
+    if (next.isAfter(today)) {
+      next = today;
+    }
+    _selectedDateNotifier.value = next;
   }
 
   @override
@@ -69,28 +213,47 @@ class _VitalsScreenState extends State<VitalsScreen> {
 
     return BlocBuilder<VitalsBloc, VitalsState>(
       builder: (context, state) {
-        final data = state.data;
-        if (data == null) {
+        final liveData = state.data;
+        if (liveData == null) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        final restingHrRec = RecommendationEngine.getRestingHrRecommendation(
-          data.restingHr,
-          data.weeklyRestingHr,
-        );
-        final oxygenRec = RecommendationEngine.getBloodOxygenRecommendation(
-          data.bloodOxygen,
-        );
-        final breathingRec = RecommendationEngine.getBreathingRateRecommendation(
-          data.breathingRate,
-        );
+        return ValueListenableBuilder<VitalsModel?>(
+          valueListenable: _historicalVitalsNotifier,
+          builder: (context, historicalData, _) {
+            final data = historicalData ?? liveData;
+
+            final sleepRec = RecommendationEngine.getSleepRecommendation(
+              data.totalSleep,
+              data.sleepIntervals,
+            );
+            final hrRec = RecommendationEngine.getHeartRateRecommendation(
+              data.currentHeartRate,
+              data.weeklyHeartRate,
+            );
+            final stressRec = RecommendationEngine.getStressRecommendation(
+              data.stressScore,
+              data.stressTimeline,
+            );
+            final restingHrRec = RecommendationEngine.getRestingHrRecommendation(
+              data.restingHr,
+              data.weeklyRestingHr,
+            );
+            final oxygenRec = RecommendationEngine.getBloodOxygenRecommendation(
+              data.bloodOxygen,
+              data.weeklyOxygen,
+            );
+            final breathingRec = RecommendationEngine.getBreathingRateRecommendation(
+              data.breathingRate,
+              data.weeklyBreathing,
+            );
 
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           body: Stack(
             children: [
               // Top Sky Gradient
-              SkyHeaderBackground(height: r.hp(0.32), stops: const [0.0, 0.85]),
+              SkyHeaderBackground(height: r.hp(0.42), stops: const [0.0, 0.85]),
 
               SafeArea(
                 bottom: false,
@@ -130,22 +293,83 @@ class _VitalsScreenState extends State<VitalsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Header Row
-                        const ScreenHeader(title: 'Vitals',showAvatar: true,showOnlineIndicator: true,),
-                      SizedBox(height: cardSpacing),
+                        const ScreenHeader(
+                          title: 'Vitals',
+                          showAvatar: true,
+                          showOnlineIndicator: false,
+                        ),
+                        SizedBox(height: itemSpacing),
 
-                      // 1. Last night Sleep Summary Card (Figma Node 73:1319)
-                      VitalsSleepSummaryCard(
-                        totalSleep: data.totalSleep,
-                        sleepWindow: data.sleepWindow,
-                        sleepIntervals: data.sleepIntervals,
-                      ),
-                      SizedBox(height: cardSpacing),
+                        // 1. Day / Week / Month Segmented Control (QWatch Pro & Garmin)
+                        VitalsPeriodSegmentedBar(
+                          periodNotifier: _selectedPeriodNotifier,
+                        ),
+                        const SizedBox(height: 12.0),
 
-                      // 2. Heart Rate Card (Figma Node 73:1418)
-                      VitalsHeartRateCard(
-                        currentHeartRate: data.currentHeartRate,
-                        weeklyHeartRate: data.weeklyHeartRate,
-                      ),
+                        // 2. Date Navigation Bar with Back/Forward Arrows
+                        VitalsDateNavigator(
+                          dateNotifier: _selectedDateNotifier,
+                          periodNotifier: _selectedPeriodNotifier,
+                          onPrevious: _onPreviousDate,
+                          onNext: _onNextDate,
+                        ),
+                        SizedBox(height: cardSpacing),
+
+                        // 3. Period Overview Stats Card with Relax/Normal/Medium/High Distribution
+                        ValueListenableBuilder<VitalsPeriodStats?>(
+                          valueListenable: _periodStatsNotifier,
+                          builder: (context, dynamicStats, _) {
+                            final periodStats = dynamicStats ??
+                                VitalsPeriodStats.compute(
+                                  period: _selectedPeriodNotifier.value,
+                                  anchorDate: _selectedDateNotifier.value,
+                                  currentVitals: data,
+                                );
+                            return VitalsPeriodStatsCard(stats: periodStats);
+                          },
+                        ),
+                        SizedBox(height: cardSpacing),
+
+                        // 4. Last night / Weekly / Monthly Sleep Summary Card (Figma Node 73:1319)
+                        ValueListenableBuilder<VitalsTimePeriod>(
+                          valueListenable: _selectedPeriodNotifier,
+                          builder: (context, period, _) {
+                            final sleepTitle = period == VitalsTimePeriod.day
+                                ? 'Last night Sleep Summary'
+                                : period == VitalsTimePeriod.week
+                                    ? 'Weekly Sleep Summary'
+                                    : 'Monthly Sleep Summary';
+                            return VitalsSleepSummaryCard(
+                              title: sleepTitle,
+                              totalSleep: data.totalSleep,
+                              sleepWindow: data.sleepWindow,
+                              sleepIntervals: data.sleepIntervals,
+                              isExpandedNotifier: _expandNotifiers[0],
+                              onTap: () => _onToggleCard(0),
+                              whatItIs: sleepRec.whatItIs,
+                              yourReading: sleepRec.yourReading,
+                              doThis: sleepRec.doThis,
+                            );
+                          },
+                        ),
+                        SizedBox(height: cardSpacing),
+
+                        // 2. Heart Rate Card (Figma Node 73:1418)
+                        ValueListenableBuilder<VitalsTimePeriod>(
+                          valueListenable: _selectedPeriodNotifier,
+                          builder: (context, period, _) {
+                            return VitalsHeartRateCard(
+                              currentHeartRate: data.currentHeartRate,
+                              weeklyHeartRate: data.weeklyHeartRate,
+                              period: period,
+                              isExpandedNotifier: _expandNotifiers[1],
+                              onTap: () => _onToggleCard(1),
+                              whatItIs: hrRec.whatItIs,
+                              yourReading: hrRec.yourReading,
+                              doThis: hrRec.doThis,
+                            );
+                          },
+                        ),
                       SizedBox(height: cardSpacing),
 
                       // 3. Stress Card with Interactive Scrubber (Figma Node 71:1042)
@@ -153,16 +377,20 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         stressScore: data.stressScore,
                         stressStatus: data.stressStatus,
                         stressTimeline: data.stressTimeline,
+                        isExpandedNotifier: _expandNotifiers[2],
+                        onTap: () => _onToggleCard(2),
+                        whatItIs: stressRec.whatItIs,
+                        yourReading: stressRec.yourReading,
+                        doThis: stressRec.doThis,
                       ),
                       SizedBox(height: cardSpacing),
 
                       // 4. Expandable Heart Rate Variability Card (Figma Node 73:1530 & 119:1517)
                       VitalsHrvCard(
                         hrvMs: data.hrvMs,
-                        status: 'Below your usual',
                         weeklyHrv: data.weeklyHrv,
-                        isExpandedNotifier: _expandNotifiers[0],
-                        onTap: () => _onToggleCard(0),
+                        isExpandedNotifier: _expandNotifiers[3],
+                        onTap: () => _onToggleCard(3),
                       ),
                       SizedBox(height: itemSpacing),
 
@@ -175,8 +403,8 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         unit: 'bpm',
                         status: data.restingHr > 0 ? restingHrRec.status : '--',
                         showWeekdays: true,
-                        isExpandedNotifier: _expandNotifiers[1],
-                        onTap: () => _onToggleCard(1),
+                        isExpandedNotifier: _expandNotifiers[4],
+                        onTap: () => _onToggleCard(4),
                         chart: SparklineChart(
                           values: data.weeklyRestingHr,
                           lineColor: AppColors.orangeMetric,
@@ -198,8 +426,8 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         unit: '%',
                         status: data.bloodOxygen > 0 ? oxygenRec.status : '--',
                         showWeekdays: false, // CapsuleBarChart already renders weekdays
-                        isExpandedNotifier: _expandNotifiers[2],
-                        onTap: () => _onToggleCard(2),
+                        isExpandedNotifier: _expandNotifiers[5],
+                        onTap: () => _onToggleCard(5),
                         chart: CapsuleBarChart(
                           values: data.weeklyOxygen,
                           activeColor: AppColors.greenMetric,
@@ -219,8 +447,8 @@ class _VitalsScreenState extends State<VitalsScreen> {
                         unit: '/min.',
                         status: data.breathingRate > 0 ? breathingRec.status : '--',
                         showWeekdays: true,
-                        isExpandedNotifier: _expandNotifiers[3],
-                        onTap: () => _onToggleCard(3),
+                        isExpandedNotifier: _expandNotifiers[6],
+                        onTap: () => _onToggleCard(6),
                         chart: SparklineChart(
                           values: data.weeklyBreathing,
                           lineColor: AppColors.cyanAccent,
@@ -234,21 +462,28 @@ class _VitalsScreenState extends State<VitalsScreen> {
                       ),
                       SizedBox(height: cardSpacing),
 
-                      // 8. Unified Twin Trend Card (Figma Node 75:1819 / 119:1654)
+                      // 8. Blood Pressure Trend Card (Skin temp commented out as hardware does not support it)
                       VitalsTwinTrendCards(
                         bloodPressure: data.bloodPressure,
-                        skinTempDiff: data.skinTempDiff,
+                        // skinTempDiff: data.skinTempDiff,
+                        isBpExpandedNotifier: _expandNotifiers[7],
+                        // isSkinTempExpandedNotifier: _expandNotifiers[8],
+                        onBloodPressureTap: () => _onToggleCard(7),
+                        // onSkinTempTap: () => _onToggleCard(8),
                       ),
                       SizedBox(height: cardSpacing),
                     ],
                   ),
                 ),
-                ),
               ),
-            ],
-          ),
-        );
-      },
-    );
-  }
+            ),
+          ],
+        ),
+      );
+    },
+  );
+},
+);
 }
+}
+

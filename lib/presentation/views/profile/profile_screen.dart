@@ -268,8 +268,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const ScreenHeader(
                         title: 'Profile',
                         showBackButton: false,
-                        showAvatar: true,
-                        showOnlineIndicator: true,
+                        showAvatar: false,
+                        showOnlineIndicator: false,
                       ),
                       SizedBox(
                         height: (screenHeight * 0.020).clamp(16.0, 20.0),

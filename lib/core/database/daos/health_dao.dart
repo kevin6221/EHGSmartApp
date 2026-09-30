@@ -273,8 +273,27 @@ class HealthDataDao extends DatabaseAccessor<AppDatabase> with _$HealthDataDaoMi
     return into(workoutSessionsTable).insert(session);
   }
 
+  /// Deletes junk or broken test workout sessions (e.g. 1 sec duration or 0 HR and 0 cals with short duration)
+  Future<int> deleteInvalidWorkoutSessions([String? userId]) {
+    var q = delete(workoutSessionsTable)
+      ..where((tbl) =>
+          tbl.durationSeconds.isSmallerThanValue(15) |
+          (tbl.durationSeconds.isSmallerThanValue(60) &
+              tbl.avgHeartRate.equals(0) &
+              tbl.burnedCalories.equals(0)));
+    if (userId != null && userId.isNotEmpty) {
+      q.where((tbl) => tbl.userId.equals(userId));
+    }
+    return q.go();
+  }
+
   Future<WorkoutSession?> getLatestWorkoutSession([String? userId]) {
-    var query = select(workoutSessionsTable);
+    var query = select(workoutSessionsTable)
+      ..where((tbl) =>
+          tbl.durationSeconds.isBiggerOrEqualValue(15) &
+          (tbl.burnedCalories.isBiggerThanValue(0) |
+              tbl.avgHeartRate.isBiggerThanValue(0) |
+              tbl.durationSeconds.isBiggerOrEqualValue(60)));
     if (userId != null && userId.isNotEmpty) {
       query.where((tbl) => tbl.userId.equals(userId));
     }
@@ -285,7 +304,12 @@ class HealthDataDao extends DatabaseAccessor<AppDatabase> with _$HealthDataDaoMi
   }
 
   Future<List<WorkoutSession>> getRecentWorkoutSessions({String? userId, int limit = 10}) {
-    var query = select(workoutSessionsTable);
+    var query = select(workoutSessionsTable)
+      ..where((tbl) =>
+          tbl.durationSeconds.isBiggerOrEqualValue(15) &
+          (tbl.burnedCalories.isBiggerThanValue(0) |
+              tbl.avgHeartRate.isBiggerThanValue(0) |
+              tbl.durationSeconds.isBiggerOrEqualValue(60)));
     if (userId != null && userId.isNotEmpty) {
       query.where((tbl) => tbl.userId.equals(userId));
     }
@@ -296,7 +320,12 @@ class HealthDataDao extends DatabaseAccessor<AppDatabase> with _$HealthDataDaoMi
   }
 
   Stream<List<WorkoutSession>> watchRecentWorkoutSessions({String? userId, int limit = 10}) {
-    var query = select(workoutSessionsTable);
+    var query = select(workoutSessionsTable)
+      ..where((tbl) =>
+          tbl.durationSeconds.isBiggerOrEqualValue(15) &
+          (tbl.burnedCalories.isBiggerThanValue(0) |
+              tbl.avgHeartRate.isBiggerThanValue(0) |
+              tbl.durationSeconds.isBiggerOrEqualValue(60)));
     if (userId != null && userId.isNotEmpty) {
       query.where((tbl) => tbl.userId.equals(userId));
     }

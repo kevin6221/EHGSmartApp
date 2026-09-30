@@ -14,6 +14,7 @@ import 'train_weight_selector.dart';
 class TrainActiveWorkoutCard extends StatelessWidget {
   final WorkoutModel data;
   final UnitSystem unitSystem;
+  final int? liveHeartRate;
   final VoidCallback? onStartWorkout;
   final ValueChanged<int>? onWeightSelected;
 
@@ -21,6 +22,7 @@ class TrainActiveWorkoutCard extends StatelessWidget {
     super.key,
     required this.data,
     this.unitSystem = UnitSystem.metric,
+    this.liveHeartRate,
     this.onStartWorkout,
     this.onWeightSelected,
   });
@@ -163,7 +165,7 @@ class TrainActiveWorkoutCard extends StatelessWidget {
                     color: context.textSecondary,
                   ),
                   text:
-                      '≈ ${data.estimatedKcalPerMin} kcal/min at ${unitSystem == UnitSystem.imperial ? '${(data.selectedWeightKg * 2.20462).round()}lb' : '${data.selectedWeightKg}kg'}',
+                      '≈ ${data.estimatedKcalPerMin} kcal/min at ${unitSystem == UnitSystem.imperial ? '${(data.selectedWeightKg * 2.20462).round()}lb' : '${data.selectedWeightKg}kg'}${liveHeartRate != null && liveHeartRate! > 0 ? ' · Live $liveHeartRate bpm' : ''}',
                   r: r,
                 ),
               ],

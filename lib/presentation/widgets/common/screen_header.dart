@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/constants/app_icons.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
@@ -146,10 +147,17 @@ class ScreenHeader extends StatelessWidget {
                   height: avatarDim,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    image: DecorationImage(
-                       image: AssetImage(avatarAsset),
-                      fit: BoxFit.cover,
+                    color: AppColors.white.withValues(alpha: 0.16),
+                    border: Border.all(
+                      color: AppColors.white.withValues(alpha: 0.28),
+                      width: 1.0,
                     ),
+                  ),
+                  alignment: Alignment.center,
+                  child: AppSvgIcon(
+                    AppIcons.settings,
+                    size: (avatarDim * 0.48).clamp(20.0, 24.0),
+                    color: AppColors.white,
                   ),
                 ),
                 if (showOnlineIndicator)

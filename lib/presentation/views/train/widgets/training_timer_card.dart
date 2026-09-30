@@ -17,7 +17,7 @@ class TrainingTimerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final r = context.responsive;
     final media = MediaQuery.sizeOf(context);
-    final totalSeconds = 16080 + elapsedSeconds;
+    final totalSeconds = elapsedSeconds;
     final duration = Duration(seconds: totalSeconds);
     final hours = duration.inHours.toString().padLeft(2, '0');
     final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');

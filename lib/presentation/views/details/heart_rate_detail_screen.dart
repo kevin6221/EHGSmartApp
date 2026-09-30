@@ -220,7 +220,8 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
 
     _measuringStatusNotifier.value = 'Reading complete: $hr bpm ($classification) · Saved to Daily Vitals';
 
-    // Dispatch to Bloc and SQLite
+    // Dispatch to Bloc, Repository, and SQLite
+    await repo.recordHeartRateMeasurement(hr);
     bloc.add(LiveHeartRateUpdatedEvent(hr));
     bloc.add(StopLiveHeartRateEvent());
     wellnessBloc.add(SyncBandVitalsEvent(liveHeartRate: hr));
@@ -279,24 +280,71 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
                           final wellness = wellnessState.data;
 
                           final int liveHr = bandState.liveHeartRate;
-                          final int currentHr = liveHr > 0
-                              ? liveHr
-                              : ((vitals?.restingHeartRate ?? 0) > 0
-                                  ? vitals!.restingHeartRate
-                                  : ((wellness?.currentHeartRate ?? 0) > 0
-                                      ? wellness!.currentHeartRate
-                                      : 72));
+                          final bool isLive = bandState.isConnected && liveHr > 0;
+
+                          // Prioritize the latest recorded reading (matching HomeScreen logic):
+                          // 1. Actively streaming real-time heart rate (if measuring)
+                          // 2. BandState latestHeartRate (recorded from spot checks or stream)
+                          // 3. Synced vitals latestHeartRate
+                          // 4. Most recent non-zero sample in heartRateHistory
+                          // 5. WellnessBloc currentHeartRate
+                          int latestHr = 0;
+                          if (isLive) {
+                            latestHr = liveHr;
+                          } else if (bandState.latestHeartRate > 0) {
+                            latestHr = bandState.latestHeartRate;
+                          } else if (vitals != null && vitals.latestHeartRate > 0) {
+                            latestHr = vitals.latestHeartRate;
+                          } else {
+                            final hrList = vitals?.heartRateHistory;
+                            if (hrList != null && hrList.isNotEmpty) {
+                              for (int i = hrList.length - 1; i >= 0; i--) {
+                                if (hrList[i].bpm > 0) {
+                                  latestHr = hrList[i].bpm;
+                                  break;
+                                }
+                              }
+                            }
+                          }
+
+                          if (latestHr <= 0 && (wellness?.currentHeartRate ?? 0) > 0) {
+                            latestHr = wellness!.currentHeartRate;
+                          }
+
+                          final int currentHr = latestHr > 0 ? latestHr : 72;
 
                           final int restingHr = (wellness?.restHr ?? 0) > 0
                               ? wellness!.restHr
-                              : (vitals?.restingHeartRate ?? 58);
+                              : ((vitals?.restingHeartRate ?? 0) > 0
+                                  ? vitals!.restingHeartRate
+                                  : 58);
 
-                          final List<double> weeklyHr = (wellness?.weeklyHeartRate.length == 7)
-                              ? wellness!.weeklyHeartRate
-                              : const [68.0, 71.0, 65.0, 74.0, 69.0, 66.0, 72.0];
+                          final List<double> weeklyHr = (vitals?.weeklyHeartRate.isNotEmpty == true &&
+                                  vitals!.weeklyHeartRate.any((v) => v > 0))
+                              ? vitals.weeklyHeartRate
+                              : ((wellness?.weeklyHeartRate.length == 7)
+                                  ? wellness!.weeklyHeartRate
+                                  : const [68.0, 71.0, 65.0, 74.0, 69.0, 66.0, 72.0]);
 
-                          final int minHr = restingHr > 0 ? restingHr - 4 : 48;
-                          final int maxHr = (currentHr * 1.55).round().clamp(120, 185);
+                          int minRecorded = 0;
+                          int maxRecorded = 0;
+                          if (vitals?.heartRateHistory.isNotEmpty == true) {
+                            final positiveBpm = vitals!.heartRateHistory
+                                .map((e) => e.bpm)
+                                .where((b) => b > 35 && b < 220)
+                                .toList();
+                            if (positiveBpm.isNotEmpty) {
+                              minRecorded = positiveBpm.reduce((a, b) => a < b ? a : b);
+                              maxRecorded = positiveBpm.reduce((a, b) => a > b ? a : b);
+                            }
+                          }
+
+                          final int minHr = minRecorded > 0
+                              ? minRecorded
+                              : (restingHr > 0 ? restingHr - 4 : 48);
+                          final int maxHr = maxRecorded > 0
+                              ? maxRecorded
+                              : (currentHr * 1.55).round().clamp(120, 185);
 
                           return SingleChildScrollView(
                             physics: const BouncingScrollPhysics(),

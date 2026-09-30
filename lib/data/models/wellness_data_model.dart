@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import 'band_device_model.dart';
+
 enum WellnessMode { recover, steady, push }
 
 class DayChartPoint extends Equatable {
@@ -179,16 +181,8 @@ class WellnessDataModel extends Equatable {
   };
 
   factory WellnessDataModel.fromJson(Map<String, dynamic> json) {
-    int rawEnergy = (json['energyBurned'] as num?)?.toInt() ?? 0;
-    // Normalize using the same logic as BandSyncedVitals.sanitizeCalories
-    if (rawEnergy > 50000) {
-      rawEnergy = (rawEnergy / 1000).round();
-    } else if (rawEnergy > 5000) {
-      rawEnergy = (rawEnergy / 100).round();
-    } else if (rawEnergy > 3500) {
-      rawEnergy = (rawEnergy / 10).round();
-    }
-    rawEnergy = rawEnergy.clamp(0, 10000);
+    final rawEnergy = (json['energyBurned'] as num?)?.toInt() ?? 0;
+    final normalizedEnergy = BandSyncedVitals.sanitizeCalories(rawEnergy);
 
     int rawGoalMins = (json['goalMins'] as num?)?.toInt() ?? 60;
     if (rawGoalMins > 120 || rawGoalMins <= 0) {
@@ -228,7 +222,7 @@ class WellnessDataModel extends Equatable {
               ?.map((e) => (e as num).toDouble())
               .toList() ??
           const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-      energyBurned: rawEnergy,
+      energyBurned: normalizedEnergy,
       steps: (json['steps'] as num?)?.toInt() ?? 0,
       activeMins: (json['activeMins'] as num?)?.toInt() ?? 0,
       goalMins: rawGoalMins,

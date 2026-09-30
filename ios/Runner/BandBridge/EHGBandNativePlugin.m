@@ -44,6 +44,7 @@ typedef void (^EHGBandWork)(EHGBandDone done);
 @property (nonatomic, assign) NSInteger lastKnownStressLevel;
 @property (nonatomic, assign) NSInteger lastKnownHrvMs;
 @property (nonatomic, assign) NSInteger lastKnownRestingHeartRate;
+@property (nonatomic, assign) NSInteger lastKnownHeartRate;
 @property (nonatomic, strong) NSMutableArray<NSDictionary *> *lastKnownSleepPhases;
 @property (nonatomic, strong) NSMutableArray<NSDictionary *> *lastKnownHeartRateHistory;
 @end
@@ -107,6 +108,7 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     _lastKnownStressLevel = [prefs integerForKey:@"last_known_stress"];
     _lastKnownHrvMs = [prefs integerForKey:@"last_known_hrv"];
     _lastKnownRestingHeartRate = [prefs integerForKey:@"last_known_resting_hr"];
+    _lastKnownHeartRate = [prefs integerForKey:@"last_known_heart_rate"];
     _lastKnownBattery = [prefs integerForKey:@"last_known_battery"];
     _lastKnownCharging = [prefs boolForKey:@"last_known_charging"];
 }
@@ -124,6 +126,7 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     _lastKnownStressLevel = 0;
     _lastKnownHrvMs = 0;
     _lastKnownRestingHeartRate = 0;
+    _lastKnownHeartRate = 0;
     _lastKnownBattery = 0;
     _lastKnownCharging = NO;
     [_lastKnownSleepPhases removeAllObjects];
@@ -141,6 +144,7 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     [prefs removeObjectForKey:@"last_known_stress"];
     [prefs removeObjectForKey:@"last_known_hrv"];
     [prefs removeObjectForKey:@"last_known_resting_hr"];
+    [prefs removeObjectForKey:@"last_known_heart_rate"];
     [prefs removeObjectForKey:@"last_known_battery"];
     [prefs removeObjectForKey:@"last_known_charging"];
     [prefs synchronize];
@@ -160,6 +164,7 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     NSInteger stress = self.lastKnownStressLevel > 0 ? self.lastKnownStressLevel : [prefs integerForKey:@"last_known_stress"];
     NSInteger hrv = self.lastKnownHrvMs > 0 ? self.lastKnownHrvMs : [prefs integerForKey:@"last_known_hrv"];
     NSInteger restingHr = self.lastKnownRestingHeartRate > 0 ? self.lastKnownRestingHeartRate : [prefs integerForKey:@"last_known_resting_hr"];
+    NSInteger latestHr = self.lastKnownHeartRate > 0 ? self.lastKnownHeartRate : [prefs integerForKey:@"last_known_heart_rate"];
 
     return @{
         @"steps": @(steps),
@@ -174,6 +179,7 @@ typedef void (^EHGBandWork)(EHGBandDone done);
         @"stressLevel": @(stress),
         @"hrvMs": @(hrv),
         @"restingHeartRate": @(restingHr),
+        @"latestHeartRate": @(latestHr),
         @"sleepPhases": [self.lastKnownSleepPhases copy] ?: @[],
         @"heartRateHistory": [self.lastKnownHeartRateHistory copy] ?: @[]
     };
@@ -183,6 +189,10 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     __weak typeof(self) weakSelf = self;
 
     [QCSDKManager shareInstance].realTimeHeartRate = ^(NSInteger hr) {
+        if (hr > 0) {
+            weakSelf.lastKnownHeartRate = hr;
+            [[NSUserDefaults standardUserDefaults] setInteger:hr forKey:@"last_known_heart_rate"];
+        }
         dispatch_async(dispatch_get_main_queue(), ^{
             [weakSelf sendEvent:@{@"type": @"live_heart_rate", @"bpm": @(hr)}];
         });
@@ -996,6 +1006,7 @@ typedef void (^EHGBandWork)(EHGBandDone done);
         syncData[@"stressLevel"] = @(weakSelf.lastKnownStressLevel);
         syncData[@"hrvMs"] = @(weakSelf.lastKnownHrvMs);
         syncData[@"restingHeartRate"] = @(weakSelf.lastKnownRestingHeartRate);
+        syncData[@"latestHeartRate"] = @(weakSelf.lastKnownHeartRate);
         syncData[@"sleepPhases"] = [weakSelf.lastKnownSleepPhases copy] ?: @[];
         syncData[@"heartRateHistory"] = [weakSelf.lastKnownHeartRateHistory copy] ?: @[];
 
@@ -1178,11 +1189,13 @@ typedef void (^EHGBandWork)(EHGBandDone done);
 - (void)syncHeartRateForDay:(NSInteger)dayIndex into:(NSMutableDictionary *)syncData finish:(void (^)(void))finish {
     [QCSDKCmdCreator getSchedualHeartRateDataWithDayIndexs:@[@(dayIndex)] success:^(NSArray<QCSchedualHeartRateModel *> *models) {
         NSMutableArray *history = [NSMutableArray array];
+        NSInteger latest = 0;
         for (QCSchedualHeartRateModel *model in models) {
             NSInteger index = 0;
             for (NSNumber *hr in model.heartRates) {
                 NSInteger bpm = hr.integerValue;
                 if (bpm > 0) {
+                    latest = bpm;
                     [history addObject:@{
                         @"bpm": @(bpm),
                         @"timestamp": [NSString stringWithFormat:@"%@#%ld", model.date ?: @"", (long)index]
@@ -1190,6 +1203,9 @@ typedef void (^EHGBandWork)(EHGBandDone done);
                 }
                 index += 1;
             }
+        }
+        if (latest > 0) {
+            syncData[@"latestHeartRate"] = @(latest);
         }
         syncData[@"heartRateHistory"] = history;
         finish();
@@ -1300,6 +1316,9 @@ typedef void (^EHGBandWork)(EHGBandDone done);
             }
         }
         if (latest > 0) {
+            syncData[@"latestHeartRate"] = @(latest);
+            weakSelf.lastKnownHeartRate = latest;
+            [[NSUserDefaults standardUserDefaults] setInteger:latest forKey:@"last_known_heart_rate"];
             syncData[@"restingHeartRate"] = @(resting);
             weakSelf.lastKnownRestingHeartRate = resting;
             [[NSUserDefaults standardUserDefaults] setInteger:resting forKey:@"last_known_resting_hr"];
@@ -1503,9 +1522,9 @@ typedef void (^EHGBandWork)(EHGBandDone done);
             [weakSelf emitMeasurementResult:type success:YES result:resultObj error:nil];
         } completedHandle:^(BOOL isSuccess, id resultObj, NSError *error) {
             [weakSelf emitMeasurementResult:type success:isSuccess result:resultObj error:error];
-            result(@(isSuccess));
             done();
         }];
+        result(@(YES));
     }];
 }
 
@@ -1533,9 +1552,19 @@ typedef void (^EHGBandWork)(EHGBandDone done);
             [[NSUserDefaults standardUserDefaults] setInteger:[resultObj integerValue] forKey:@"last_known_hrv"];
         } else {
             event[@"hr"] = resultObj;
+            NSInteger hrVal = [resultObj integerValue];
+            if (hrVal > 0) {
+                self.lastKnownHeartRate = hrVal;
+                [[NSUserDefaults standardUserDefaults] setInteger:hrVal forKey:@"last_known_heart_rate"];
+            }
         }
     } else if ([resultObj isKindOfClass:[QCHeartRateModel class]]) {
-        event[@"hr"] = @(((QCHeartRateModel *)resultObj).heartrate);
+        NSInteger hrVal = ((QCHeartRateModel *)resultObj).heartrate;
+        event[@"hr"] = @(hrVal);
+        if (hrVal > 0) {
+            self.lastKnownHeartRate = hrVal;
+            [[NSUserDefaults standardUserDefaults] setInteger:hrVal forKey:@"last_known_heart_rate"];
+        }
     } else if ([resultObj isKindOfClass:[QCBloodPressureModel class]]) {
         QCBloodPressureModel *model = (QCBloodPressureModel *)resultObj;
         event[@"sbp"] = @(model.systolicPressure);
@@ -1557,7 +1586,12 @@ typedef void (^EHGBandWork)(EHGBandDone done);
         self.lastKnownSkinTemperature = ((QCThreeValueTemperatureModel *)resultObj).temperature1;
         [[NSUserDefaults standardUserDefaults] setFloat:self.lastKnownSkinTemperature forKey:@"last_known_temp"];
     } else if ([resultObj isKindOfClass:[QCRealOneKeyMeasureHeartRateModel class]]) {
-        event[@"hr"] = @(((QCRealOneKeyMeasureHeartRateModel *)resultObj).heartRateValue);
+        NSInteger hrVal = ((QCRealOneKeyMeasureHeartRateModel *)resultObj).heartRateValue;
+        event[@"hr"] = @(hrVal);
+        if (hrVal > 0) {
+            self.lastKnownHeartRate = hrVal;
+            [[NSUserDefaults standardUserDefaults] setInteger:hrVal forKey:@"last_known_heart_rate"];
+        }
         event[@"hrv"] = @(((QCRealOneKeyMeasureHeartRateModel *)resultObj).heartRateHRV);
         event[@"stress"] = @(((QCRealOneKeyMeasureHeartRateModel *)resultObj).stress);
         event[@"sbp"] = @(((QCRealOneKeyMeasureHeartRateModel *)resultObj).bloodPressureSbp);

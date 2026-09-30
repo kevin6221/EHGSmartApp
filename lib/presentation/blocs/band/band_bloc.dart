@@ -468,6 +468,8 @@ class BandBloc extends Bloc<BandEvent, BandState> {
         battery: repository.currentBattery,
         clearError: true,
       ));
+      // Automatically pull offline backlog and merge into timeline upon reconnect
+      add(SyncVitalsEvent());
     } else if (event.status == BandConnectionStatus.disconnected) {
       emit(state.copyWith(
         status: BandConnectionStatus.disconnected,
@@ -495,7 +497,10 @@ class BandBloc extends Bloc<BandEvent, BandState> {
 
   void _onLiveHeartRateUpdated(LiveHeartRateUpdatedEvent event, Emitter<BandState> emit) {
     debugPrint('💓 [BAND BLOC] Live Heart Rate updated from band: ${event.bpm} bpm');
-    emit(state.copyWith(liveHeartRate: event.bpm));
+    emit(state.copyWith(
+      liveHeartRate: event.bpm,
+      latestHeartRate: event.bpm > 0 ? event.bpm : state.latestHeartRate,
+    ));
   }
 
   void _onBatteryUpdated(BatteryUpdatedEvent event, Emitter<BandState> emit) {
@@ -531,19 +536,37 @@ class BandBloc extends Bloc<BandEvent, BandState> {
       debugPrint('   • Steps: ${vitals.steps}, Calories: ${vitals.calories} kcal, Distance: ${vitals.distance} m');
       debugPrint('   • Sleep: ${vitals.sleepMinutes} min (Deep: ${vitals.deepSleepMinutes} min)');
       debugPrint('   • SpO2: ${vitals.bloodOxygen}%, BP: ${vitals.systolicBP}/${vitals.diastolicBP}, Temp: ${vitals.skinTemperature}°C');
-      debugPrint('   • Stress: ${vitals.stressLevel}, HRV: ${vitals.hrvMs} ms, Rest HR: ${vitals.restingHeartRate} bpm');
+      debugPrint('   • Stress: ${vitals.stressLevel}, HRV: ${vitals.hrvMs} ms, Rest HR: ${vitals.restingHeartRate} bpm, Latest HR: ${vitals.latestHeartRate} bpm');
 
-      emit(state.copyWith(lastSyncedVitals: vitals));
+      int latestHr = vitals.latestHeartRate;
+      if (latestHr <= 0 && vitals.heartRateHistory.isNotEmpty) {
+        for (int i = vitals.heartRateHistory.length - 1; i >= 0; i--) {
+          if (vitals.heartRateHistory[i].bpm > 0) {
+            latestHr = vitals.heartRateHistory[i].bpm;
+            break;
+          }
+        }
+      }
+
+      emit(state.copyWith(
+        lastSyncedVitals: vitals,
+        latestHeartRate: latestHr > 0 ? latestHr : state.latestHeartRate,
+      ));
       wellnessBloc?.add(SyncBandFullVitalsEvent(vitals));
     } finally {
       emit(state.copyWith(isSyncingVitals: false));
     }
   }
 
-
   void _onPedometerUpdated(PedometerUpdatedEvent event, Emitter<BandState> emit) {
-    debugPrint('👟 [BAND BLOC] Pedometer update: ${event.pedometer.steps} steps, ${event.pedometer.calories} kcal, ${event.pedometer.distance} m');
     final current = state.lastSyncedVitals ?? repository.lastSyncedVitals;
+    if (current.steps == event.pedometer.steps &&
+        current.calories == event.pedometer.calories &&
+        current.distance == event.pedometer.distance) {
+      // Data unchanged, ignore redundant emission
+      return;
+    }
+    debugPrint('👟 [BAND BLOC] Pedometer update: ${event.pedometer.steps} steps, ${event.pedometer.calories} kcal, ${event.pedometer.distance} m');
     final updatedVitals = current.copyWith(
       steps: event.pedometer.steps,
       calories: event.pedometer.calories,
@@ -554,8 +577,24 @@ class BandBloc extends Bloc<BandEvent, BandState> {
   }
 
   void _onSyncedVitalsUpdated(SyncedVitalsUpdatedEvent event, Emitter<BandState> emit) {
-    debugPrint('📊 [BAND BLOC] Synced vitals stream emitted (steps: ${event.vitals.steps}, cal: ${event.vitals.calories})');
-    emit(state.copyWith(lastSyncedVitals: event.vitals));
+    if (state.lastSyncedVitals == event.vitals) {
+      // Data unchanged, ignore redundant emission
+      return;
+    }
+    int latestHr = event.vitals.latestHeartRate;
+    if (latestHr <= 0 && event.vitals.heartRateHistory.isNotEmpty) {
+      for (int i = event.vitals.heartRateHistory.length - 1; i >= 0; i--) {
+        if (event.vitals.heartRateHistory[i].bpm > 0) {
+          latestHr = event.vitals.heartRateHistory[i].bpm;
+          break;
+        }
+      }
+    }
+    debugPrint('📊 [BAND BLOC] Synced vitals stream emitted (steps: ${event.vitals.steps}, cal: ${event.vitals.calories}, latestHr: $latestHr)');
+    emit(state.copyWith(
+      lastSyncedVitals: event.vitals,
+      latestHeartRate: latestHr > 0 ? latestHr : state.latestHeartRate,
+    ));
     wellnessBloc?.add(SyncBandFullVitalsEvent(event.vitals));
   }
 

@@ -35,6 +35,9 @@ class NativeBandService implements BandService {
   Completer<bool>? _connectCompleter;
   BandConnectionStatus _status = BandConnectionStatus.disconnected;
   String? _lastConnectionError;
+  int _lastReportedSteps = -1;
+  int _lastReportedCalories = -1;
+  int _lastReportedDistance = -1;
 
   NativeBandService() {
     _initEventSubscription();
@@ -135,14 +138,20 @@ class NativeBandService implements BandService {
       case 'step_update':
         final steps = (event['steps'] as num?)?.toInt() ?? 0;
         final rawCal = (event['calories'] as num?)?.toInt() ?? 0;
-        final cal = rawCal > 10000 ? (rawCal / 1000).round() : (rawCal > 2000 ? (rawCal / 100).round() : rawCal);
+        final cal = BandSyncedVitals.sanitizeCalories(rawCal);
         final dist = (event['distance'] as num?)?.toInt() ?? 0;
-        debugPrint('👟 [BAND DATA - LIVE PEDOMETER] Steps: $steps | Calories: $cal kcal | Distance: $dist m');
-        _pedometerController.add(BandPedometerInfo(
-          steps: steps,
-          calories: cal,
-          distance: dist,
-        ));
+        // Deduplicate: only emit when user makes progress (steps, calories, or distance changes)
+        if (steps != _lastReportedSteps || cal != _lastReportedCalories || dist != _lastReportedDistance) {
+          _lastReportedSteps = steps;
+          _lastReportedCalories = cal;
+          _lastReportedDistance = dist;
+          debugPrint('👟 [BAND DATA - LIVE PEDOMETER] Steps: $steps | Calories: $cal kcal | Distance: $dist m');
+          _pedometerController.add(BandPedometerInfo(
+            steps: steps,
+            calories: cal,
+            distance: dist,
+          ));
+        }
         break;
 
       case 'connection_failed':
@@ -210,8 +219,13 @@ class NativeBandService implements BandService {
     final measTypeStr = event['measureType']?.toString() ?? '';
     final data = <String, dynamic>{};
 
-    // Extract measurement-specific fields
-    if (event['hr'] != null) data['hr'] = (event['hr'] as num).toInt();
+    if (event['hr'] != null) {
+      final hr = (event['hr'] as num).toInt();
+      data['hr'] = hr;
+      if (hr > 0) {
+        _liveHeartRateController.add(hr);
+      }
+    }
     if (event['sbp'] != null) data['sbp'] = (event['sbp'] as num).toInt();
     if (event['dbp'] != null) data['dbp'] = (event['dbp'] as num).toInt();
     if (event['spo2'] != null) data['spo2'] = (event['spo2'] as num).toDouble();
@@ -473,7 +487,7 @@ class NativeBandService implements BandService {
         debugPrint('   • Deep Sleep:         ${vitals.deepSleepMinutes} min');
         debugPrint('   • Blood Oxygen:       ${vitals.bloodOxygen}%');
         debugPrint('   • Blood Pressure:     ${vitals.systolicBP}/${vitals.diastolicBP} mmHg');
-        debugPrint('   • Skin Temperature:   ${vitals.skinTemperature}°C');
+        // debugPrint('   • Skin Temperature:   ${vitals.skinTemperature}°C');
         debugPrint('   • Stress Level:       ${vitals.stressLevel} / 100');
         debugPrint('   • HRV:                ${vitals.hrvMs} ms');
         debugPrint('   • Resting Heart Rate: ${vitals.restingHeartRate} bpm');

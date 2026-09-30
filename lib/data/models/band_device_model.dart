@@ -252,6 +252,7 @@ class BandSyncedVitals extends Equatable {
   final int stressLevel;
   final int hrvMs;
   final int restingHeartRate;
+  final int latestHeartRate;
   final double breathingRate;
   final List<BandSleepPhase> sleepPhases;
   final List<BandHeartRateEntry> heartRateHistory;
@@ -279,6 +280,7 @@ class BandSyncedVitals extends Equatable {
     this.stressLevel = 0,
     this.hrvMs = 0,
     this.restingHeartRate = 0,
+    this.latestHeartRate = 0,
     this.breathingRate = 0,
     this.sleepPhases = const [],
     this.heartRateHistory = const [],
@@ -308,23 +310,19 @@ class BandSyncedVitals extends Equatable {
     if (rawCal <= 0) return 0;
 
     int kcal;
-    if (rawCal > 50000) {
-      // Extremely high — raw small calories (cal). 50,000 cal = 50 kcal.
+    if (rawCal > 350000) {
+      // Extremely high — raw small calories in millicalories
       kcal = (rawCal / 1000).round();
-    } else if (rawCal > 5000) {
-      // Likely small calories or intermediate firmware unit.
-      // 5,000–50,000 range: divide by 100 gives 50–500 kcal.
-      kcal = (rawCal / 100).round();
     } else if (rawCal > 3500) {
-      // 3,500–5,000: likely cal×10 from certain firmware.
-      kcal = (rawCal / 10).round();
+      // QC Band standard step-calorie unit (e.g. 44,695 -> 447 kcal)
+      kcal = (rawCal / 100).round();
     } else {
-      // 1–3,500: already in kcal (reasonable daily range).
+      // 1–3,500: already in kcal (reasonable daily range)
       kcal = rawCal;
     }
 
-    // Final safety clamp: no human burns more than 10,000 kcal/day.
-    return kcal.clamp(0, 10000);
+    // Final safety clamp: physiologically realistic daily active burn
+    return kcal.clamp(0, 5000);
   }
 
   factory BandSyncedVitals.fromMap(Map<dynamic, dynamic> map) {
@@ -348,6 +346,20 @@ class BandSyncedVitals extends Equatable {
     int rawCal = (map['calories'] as num?)?.toInt() ?? 0;
     int normalizedCal = sanitizeCalories(rawCal);
 
+    int latestHr = (map['latestHeartRate'] as num?)?.toInt() ?? 0;
+    if (latestHr <= 0 && rawHr != null && rawHr.isNotEmpty) {
+      for (int i = rawHr.length - 1; i >= 0; i--) {
+        final item = rawHr[i];
+        if (item is Map) {
+          final b = (item['bpm'] as num?)?.toInt() ?? 0;
+          if (b > 0) {
+            latestHr = b;
+            break;
+          }
+        }
+      }
+    }
+
     return BandSyncedVitals(
       steps: (map['steps'] as num?)?.toInt() ?? 0,
       calories: normalizedCal,
@@ -361,6 +373,7 @@ class BandSyncedVitals extends Equatable {
       stressLevel: (map['stressLevel'] as num?)?.toInt() ?? 0,
       hrvMs: (map['hrvMs'] as num?)?.toInt() ?? 0,
       restingHeartRate: (map['restingHeartRate'] as num?)?.toInt() ?? 0,
+      latestHeartRate: latestHr,
       breathingRate: (map['breathingRate'] as num?)?.toDouble() ?? 0,
       sleepPhases: rawPhases
               ?.map((e) => BandSleepPhase.fromMap(e as Map<dynamic, dynamic>))
@@ -397,6 +410,7 @@ class BandSyncedVitals extends Equatable {
       'stressLevel': stressLevel,
       'hrvMs': hrvMs,
       'restingHeartRate': restingHeartRate,
+      'latestHeartRate': latestHeartRate,
       'breathingRate': breathingRate,
       'sleepPhases': sleepPhases.map((e) => e.toMap()).toList(),
       'heartRateHistory': heartRateHistory.map((e) => e.toMap()).toList(),
@@ -430,6 +444,7 @@ class BandSyncedVitals extends Equatable {
     int? stressLevel,
     int? hrvMs,
     int? restingHeartRate,
+    int? latestHeartRate,
     double? breathingRate,
     List<BandSleepPhase>? sleepPhases,
     List<BandHeartRateEntry>? heartRateHistory,
@@ -457,6 +472,7 @@ class BandSyncedVitals extends Equatable {
       stressLevel: stressLevel ?? this.stressLevel,
       hrvMs: hrvMs ?? this.hrvMs,
       restingHeartRate: restingHeartRate ?? this.restingHeartRate,
+      latestHeartRate: latestHeartRate ?? this.latestHeartRate,
       breathingRate: breathingRate ?? this.breathingRate,
       sleepPhases: sleepPhases ?? this.sleepPhases,
       heartRateHistory: heartRateHistory ?? this.heartRateHistory,
@@ -486,6 +502,7 @@ class BandSyncedVitals extends Equatable {
     'stressLevel': stressLevel,
     'hrvMs': hrvMs,
     'restingHeartRate': restingHeartRate,
+    'latestHeartRate': latestHeartRate,
     'breathingRate': breathingRate,
     'weeklyHeartRate': weeklyHeartRate,
     'weeklySleep': weeklySleep,
@@ -503,56 +520,72 @@ class BandSyncedVitals extends Equatable {
     int rawCal = (json['calories'] as num?)?.toInt() ?? 0;
     int normalizedCal = sanitizeCalories(rawCal);
 
+    int latestHr = (json['latestHeartRate'] as num?)?.toInt() ?? 0;
+    final rawHrList = json['heartRateHistory'] as List<dynamic>?;
+    if (latestHr <= 0 && rawHrList != null && rawHrList.isNotEmpty) {
+      for (int i = rawHrList.length - 1; i >= 0; i--) {
+        final item = rawHrList[i];
+        if (item is Map) {
+          final b = (item['bpm'] as num?)?.toInt() ?? 0;
+          if (b > 0) {
+            latestHr = b;
+            break;
+          }
+        }
+      }
+    }
+
     return BandSyncedVitals(
       steps: (json['steps'] as num?)?.toInt() ?? 0,
       calories: normalizedCal,
       distance: (json['distance'] as num?)?.toInt() ?? 0,
-    sleepMinutes: (json['sleepMinutes'] as num?)?.toInt() ?? 0,
-    deepSleepMinutes: (json['deepSleepMinutes'] as num?)?.toInt() ?? 0,
-    bloodOxygen: (json['bloodOxygen'] as num?)?.toDouble() ?? 0.0,
-    systolicBP: (json['systolicBP'] as num?)?.toInt() ?? 0,
-    diastolicBP: (json['diastolicBP'] as num?)?.toInt() ?? 0,
-    skinTemperature: (json['skinTemperature'] as num?)?.toDouble() ?? 0.0,
-    stressLevel: (json['stressLevel'] as num?)?.toInt() ?? 0,
-    hrvMs: (json['hrvMs'] as num?)?.toInt() ?? 0,
-    restingHeartRate: (json['restingHeartRate'] as num?)?.toInt() ?? 0,
-    breathingRate: (json['breathingRate'] as num?)?.toDouble() ?? 0.0,
-    weeklyHeartRate: (json['weeklyHeartRate'] as List<dynamic>?)
-            ?.map((e) => (e as num).toDouble())
-            .toList() ??
-        const [],
-    weeklySleep: (json['weeklySleep'] as List<dynamic>?)
-            ?.map((e) => (e as num).toDouble())
-            .toList() ??
-        const [],
-    weeklyHrv: (json['weeklyHrv'] as List<dynamic>?)
-            ?.map((e) => (e as num).toDouble())
-            .toList() ??
-        const [],
-    weeklyStress: (json['weeklyStress'] as List<dynamic>?)
-            ?.map((e) => (e as num).toDouble())
-            .toList() ??
-        const [],
-    weeklyOxygen: (json['weeklyOxygen'] as List<dynamic>?)
-            ?.map((e) => (e as num).toDouble())
-            .toList() ??
-        const [],
-    weeklyRestingHr: (json['weeklyRestingHr'] as List<dynamic>?)
-            ?.map((e) => (e as num).toDouble())
-            .toList() ??
-        const [],
-    weeklyBreathing: (json['weeklyBreathing'] as List<dynamic>?)
-            ?.map((e) => (e as num).toDouble())
-            .toList() ??
-        const [],
-    hourlySteps: (json['hourlySteps'] as List<dynamic>?)
-            ?.map((e) => (e as num).toInt())
-            .toList() ??
-        const [],
-    date: json['date']?.toString() ?? '',
-    dayIndex: (json['dayIndex'] as num?)?.toInt() ?? 0,
-  );
-}
+      sleepMinutes: (json['sleepMinutes'] as num?)?.toInt() ?? 0,
+      deepSleepMinutes: (json['deepSleepMinutes'] as num?)?.toInt() ?? 0,
+      bloodOxygen: (json['bloodOxygen'] as num?)?.toDouble() ?? 0.0,
+      systolicBP: (json['systolicBP'] as num?)?.toInt() ?? 0,
+      diastolicBP: (json['diastolicBP'] as num?)?.toInt() ?? 0,
+      skinTemperature: (json['skinTemperature'] as num?)?.toDouble() ?? 0.0,
+      stressLevel: (json['stressLevel'] as num?)?.toInt() ?? 0,
+      hrvMs: (json['hrvMs'] as num?)?.toInt() ?? 0,
+      restingHeartRate: (json['restingHeartRate'] as num?)?.toInt() ?? 0,
+      latestHeartRate: latestHr,
+      breathingRate: (json['breathingRate'] as num?)?.toDouble() ?? 0.0,
+      weeklyHeartRate: (json['weeklyHeartRate'] as List<dynamic>?)
+              ?.map((e) => (e as num).toDouble())
+              .toList() ??
+          const [],
+      weeklySleep: (json['weeklySleep'] as List<dynamic>?)
+              ?.map((e) => (e as num).toDouble())
+              .toList() ??
+          const [],
+      weeklyHrv: (json['weeklyHrv'] as List<dynamic>?)
+              ?.map((e) => (e as num).toDouble())
+              .toList() ??
+          const [],
+      weeklyStress: (json['weeklyStress'] as List<dynamic>?)
+              ?.map((e) => (e as num).toDouble())
+              .toList() ??
+          const [],
+      weeklyOxygen: (json['weeklyOxygen'] as List<dynamic>?)
+              ?.map((e) => (e as num).toDouble())
+              .toList() ??
+          const [],
+      weeklyRestingHr: (json['weeklyRestingHr'] as List<dynamic>?)
+              ?.map((e) => (e as num).toDouble())
+              .toList() ??
+          const [],
+      weeklyBreathing: (json['weeklyBreathing'] as List<dynamic>?)
+              ?.map((e) => (e as num).toDouble())
+              .toList() ??
+          const [],
+      hourlySteps: (json['hourlySteps'] as List<dynamic>?)
+              ?.map((e) => (e as num).toInt())
+              .toList() ??
+          const [],
+      date: json['date']?.toString() ?? '',
+      dayIndex: (json['dayIndex'] as num?)?.toInt() ?? 0,
+    );
+  }
 
   @override
   List<Object?> get props => [
@@ -568,6 +601,7 @@ class BandSyncedVitals extends Equatable {
         stressLevel,
         hrvMs,
         restingHeartRate,
+        latestHeartRate,
         breathingRate,
         sleepPhases,
         heartRateHistory,

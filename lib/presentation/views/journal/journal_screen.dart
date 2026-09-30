@@ -6,6 +6,8 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
 import '../../../data/models/journal_entry_model.dart';
 import '../../../data/repositories/wellness_repository.dart';
+import '../../blocs/wellness/wellness_bloc.dart';
+import '../../blocs/wellness/wellness_event.dart';
 import '../../widgets/common/screen_header.dart';
 import 'widgets/journal_check_in_card.dart';
 import 'widgets/journal_pattern_banner.dart';
@@ -104,7 +106,7 @@ class _JournalScreenState extends State<JournalScreen> {
                           title: 'Journal',
                           titleFontSize: 24.0,
                           showAvatar: true,
-                          showOnlineIndicator: true,
+                          showOnlineIndicator: false,
                         ),
                         Padding(
                           padding: const EdgeInsets.only(top: 16.0, bottom: 20.0),
@@ -156,9 +158,10 @@ class _JournalScreenState extends State<JournalScreen> {
                           _entriesNotifier.value = context
                               .read<WellnessRepository>()
                               .journalEntries;
+                          context.read<WellnessBloc>().add(const LoadWellnessDataEvent());
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Journal entry saved! +120 points'),
+                              content: Text('Journal entry saved!'),
                             ),
                           );
                         }

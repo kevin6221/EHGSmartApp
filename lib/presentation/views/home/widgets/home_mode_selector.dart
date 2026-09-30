@@ -74,7 +74,11 @@ class HomeModeSelector extends StatelessWidget {
 
             return Expanded(
               child: GestureDetector(
-                onTap: () => onModeChanged(mode),
+                onTap: () {
+                  if (mode != currentMode) {
+                    onModeChanged(mode);
+                  }
+                },
                 behavior: HitTestBehavior.opaque,
                 child: Container(
                   height: (r.height * 0.045).clamp(36.0, 44.0),
