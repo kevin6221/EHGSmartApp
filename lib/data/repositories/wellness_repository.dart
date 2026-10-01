@@ -1409,6 +1409,18 @@ class WellnessRepository {
     ).catchError((_) => 0);
   }
 
+  /// Removes a journal entry by its unique ID and updates persistent local storage.
+  Future<void> deleteJournalEntry(String id) async {
+    _journalEntries.removeWhere((e) => e.id == id);
+
+    await _secureStorage.write(
+      'cached_journal_entries_v1',
+      jsonEncode(_journalEntries.map((e) => e.toJson()).toList()),
+    ).catchError((_) {});
+
+    debugPrint('🗑️ [JOURNAL ENTRY DELETED] id: $id | Remaining entries: ${_journalEntries.length}');
+  }
+
   /// Retrieves saved user routines from Drift SQLite.
   Future<List<UserRoutine>> getUserRoutines() async {
     final userId = await _secureStorage.getActiveUserId();
@@ -1443,6 +1455,11 @@ class WellnessRepository {
         updatedAt: drift.Value(DateTime.now()),
       ),
     );
+  }
+
+  /// Deletes a saved custom user routine by its SQLite ID.
+  Future<int> deleteUserRoutine(int id) async {
+    return _db.healthDataDao.deleteUserRoutine(id);
   }
 
   /// Reloads 7-day historical arrays from Drift SQLite and populates day-wise metrics.

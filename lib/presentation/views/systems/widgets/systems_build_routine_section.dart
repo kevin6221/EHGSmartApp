@@ -11,6 +11,7 @@ import 'systems_routine_manager.dart';
 
 /// Interactive "Build your own routine" section on the Systems screen.
 class SystemsBuildRoutineSection extends StatelessWidget {
+  final GlobalKey<FormState>? formKey;
   final TextEditingController routineNameController;
   final ValueNotifier<int> selectedDurationNotifier;
   final ValueNotifier<Set<String>> selectedMovementsNotifier;
@@ -21,6 +22,7 @@ class SystemsBuildRoutineSection extends StatelessWidget {
 
   const SystemsBuildRoutineSection({
     super.key,
+    this.formKey,
     required this.routineNameController,
     required this.selectedDurationNotifier,
     required this.selectedMovementsNotifier,
@@ -64,65 +66,77 @@ class SystemsBuildRoutineSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Build your own routine',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: r.font(14.0),
-            fontWeight: FontWeight.w700,
-            color: context.textPrimary,
+    return Form(
+      key: formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Build your own routine',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: r.font(14.0),
+              fontWeight: FontWeight.w700,
+              color: context.textPrimary,
+            ),
           ),
-        ),
-        const SizedBox(height: 14.0),
+          const SizedBox(height: 14.0),
 
-        Container(
-          padding: const EdgeInsets.all(16.0),
-          decoration: BoxDecoration(
-            color: context.cardBackground,
-            borderRadius: BorderRadius.circular(16.0),
-            border: Border.all(color: context.cardBorder, width: 1.0),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.black.withValues(alpha: 0.02),
-                blurRadius: 8.0,
-                offset: const Offset(0.0, 2.0),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Routine Name Label
-              Text(
-                'Routine Name',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: r.font(12.0),
-                  fontWeight: FontWeight.w400,
-                  color: context.textSecondary,
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: context.cardBackground,
+              borderRadius: BorderRadius.circular(16.0),
+              border: Border.all(color: context.cardBorder, width: 1.0),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.black.withValues(alpha: 0.02),
+                  blurRadius: 8.0,
+                  offset: const Offset(0.0, 2.0),
                 ),
-              ),
-              const SizedBox(height: 8.0),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Routine Name Label
+                Text(
+                  'Routine Name *',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: r.font(12.0),
+                    fontWeight: FontWeight.w500,
+                    color: context.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8.0),
 
-              // Reusable AppTextFormField
-              AppTextFormField(
-                controller: routineNameController,
-                hintText: 'Enter here...',
-                fontSize: r.font(14.0),
-                fillColor: context.inputFill,
-                activeFillColor: context.inputFill,
-                borderColor: context.inputBorder,
-                activeBorderColor: AppColors.primary,
-                borderWidth: 0.8,
-                focusedBorderWidth: 1.0,
-                hintStyle: GoogleFonts.plusJakartaSans(
-                  color: context.textMuted,
-                  fontSize: r.font(13.0),
-                  fontWeight: FontWeight.w400,
+                // Reusable AppTextFormField with Mandatory Validation
+                AppTextFormField(
+                  controller: routineNameController,
+                  hintText: 'Enter routine name...',
+                  fontSize: r.font(14.0),
+                  fillColor: context.inputFill,
+                  activeFillColor: context.inputFill,
+                  borderColor: context.inputBorder,
+                  activeBorderColor: AppColors.primary,
+                  borderWidth: 0.8,
+                  focusedBorderWidth: 1.0,
+                  textInputAction: TextInputAction.done,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Routine name is required';
+                    }
+                    if (value.trim().length < 2) {
+                      return 'Routine name must be at least 2 characters';
+                    }
+                    return null;
+                  },
+                  hintStyle: GoogleFonts.plusJakartaSans(
+                    color: context.textMuted,
+                    fontSize: r.font(13.0),
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16.0),
+                const SizedBox(height: 16.0),
 
               // Run it for duration selector
               Text(
@@ -447,8 +461,9 @@ class SystemsBuildRoutineSection extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
 
   static Widget _buildCheckboxChip({
     required String label,

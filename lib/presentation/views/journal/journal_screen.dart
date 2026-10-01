@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -225,23 +226,14 @@ class _JournalScreenState extends State<JournalScreen> {
                           );
                         }
 
-                        const monthNames = [
-                          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-                        ];
-
                         return Column(
-                          children: entries.take(5).map((entry) {
-                            final dateStr =
-                                '${entry.date.day} ${monthNames[(entry.date.month - 1).clamp(0, 11)]} · ${entry.moodWord}';
-                            final energyStr =
-                                '${entry.sleepHours > 0 ? "${entry.sleepHours.toStringAsFixed(1)}h · " : ""}energy ${entry.energyLevel}/4';
+                          children: entries.map((entry) {
                             return Padding(
                               padding: const EdgeInsets.only(bottom: 12.0),
                               child: JournalRecentEntriesCard(
-                                dateText: dateStr,
-                                energyText: energyStr,
-                                noteText: entry.note,
+                                key: ValueKey(entry.id),
+                                entry: entry,
+                                onDelete: () => _deleteEntry(entry),
                               ),
                             );
                           }).toList(),
@@ -256,6 +248,25 @@ class _JournalScreenState extends State<JournalScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _deleteEntry(JournalEntryModel entry) async {
+    final wellnessRepo = context.read<WellnessRepository>();
+    await wellnessRepo.deleteJournalEntry(entry.id);
+
+    HapticFeedback.selectionClick();
+
+    if (mounted) {
+      _entriesNotifier.value = wellnessRepo.journalEntries;
+      context.read<WellnessBloc>().add(const LoadWellnessDataEvent());
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('Journal entry removed'),
+        ),
+      );
+    }
   }
 }
 

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/constants/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/responsive.dart';
 
-/// Section displaying unlocked programmes on the Systems screen.
+/// Section displaying programmes on the Systems screen with locked status.
 class SystemsProgrammesSection extends StatelessWidget {
   final Responsive r;
 
@@ -29,51 +30,56 @@ class SystemsProgrammesSection extends StatelessWidget {
                 color: context.textPrimary,
               ),
             ),
-            Text(
-              '2 UNLOCKED',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: r.font(10.0),
-                fontWeight: FontWeight.w600,
-                color: context.textSecondary,
-                letterSpacing: 0.5,
-              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppSvgIcon(
+                  AppIcons.lock,
+                  size: 11.0,
+                  color: context.textSecondary,
+                ),
+                const SizedBox(width: 4.0),
+                Text(
+                  'LOCKED',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: r.font(10.0),
+                    fontWeight: FontWeight.w600,
+                    color: context.textSecondary,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
             ),
           ],
         ),
         const SizedBox(height: 16.0),
-        _buildProgrammeCard(
+        _buildLockedProgrammeCard(
           context: context,
           title: '30–Day Pilates',
-          sessionsCount: '0/4 sessions',
-          category: 'Pilates',
+          category: '',
           sourcePiece: 'From your High Rise Flared Yoga Pants',
-          kcalRemaining: '371 kcal to go',
-          progressFraction: 0.15,
+          kcalRemaining: '',
           r: r,
         ),
         const SizedBox(height: 16.0),
-        _buildProgrammeCard(
+        _buildLockedProgrammeCard(
           context: context,
           title: 'Lower Body Challenge',
-          sessionsCount: '0/4 sessions',
-          category: 'Strength',
+          category: '',
           sourcePiece: 'From your High Rise Flared Yoga Pants',
-          kcalRemaining: '1,055 kcal to go',
-          progressFraction: 0.08,
+          kcalRemaining: '',
           r: r,
         ),
       ],
     );
   }
 
-  Widget _buildProgrammeCard({
+  Widget _buildLockedProgrammeCard({
     required BuildContext context,
     required String title,
-    required String sessionsCount,
     required String category,
     required String sourcePiece,
     required String kcalRemaining,
-    required double progressFraction,
     required Responsive r,
   }) {
     return Container(
@@ -92,7 +98,7 @@ class SystemsProgrammesSection extends StatelessWidget {
               Expanded(
                 child: Row(
                   children: [
-                    Flexible(
+                    Expanded(
                       child: Text(
                         title,
                         style: GoogleFonts.plusJakartaSans(
@@ -104,19 +110,16 @@ class SystemsProgrammesSection extends StatelessWidget {
                         maxLines: 1,
                       ),
                     ),
-                    const SizedBox(width: 6.0),
-                    Text(
-                      sessionsCount,
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: r.font(10.0),
-                        fontWeight: FontWeight.w400,
-                        color: context.textSecondary,
-                      ),
+                    // const SizedBox(width: 8.0),
+                    AppSvgIcon(
+                      AppIcons.lock,
+                      size: 13.0,
+                      color: context.textSecondary,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8.0),
+              // const SizedBox(width: 8.0),
               Text(
                 category,
                 style: GoogleFonts.plusJakartaSans(
@@ -127,17 +130,9 @@ class SystemsProgrammesSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12.0),
-          LinearProgressIndicator(
-            value: progressFraction,
-            minHeight: 2.0,
-            borderRadius: BorderRadius.circular(3.0),
-            backgroundColor: context.isDark ? AppColors.midnightBorder : AppColors.divider,
-            valueColor: const AlwaysStoppedAnimation<Color>(
-              AppColors.cyanLight,
-            ),
-          ),
-          const SizedBox(height: 8.0),
+          const SizedBox(height: 10.0),
+          _buildLockedProgressBar(context, r),
+          const SizedBox(height: 10.0),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -163,6 +158,43 @@ class SystemsProgrammesSection extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLockedProgressBar(BuildContext context, Responsive r) {
+    return Container(
+      height: 14.0,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: context.isDark
+            ? AppColors.midnightBackground
+            : AppColors.background,
+        borderRadius: BorderRadius.circular(7.0),
+        border: Border.all(
+          color: context.isDark ? AppColors.midnightBorder : AppColors.divider,
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AppSvgIcon(
+            AppIcons.lock,
+            size: 9.0,
+            color: context.textSecondary.withValues(alpha: 0.7),
+          ),
+          const SizedBox(width: 5.0),
+          Text(
+            'LOCKED',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: r.font(8.0),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.9,
+              color: context.textSecondary.withValues(alpha: 0.7),
+            ),
           ),
         ],
       ),

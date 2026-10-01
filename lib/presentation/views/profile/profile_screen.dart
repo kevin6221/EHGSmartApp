@@ -28,7 +28,6 @@ import 'widgets/profile_data_privacy_section.dart';
 import 'widgets/profile_membership_banner.dart';
 import 'widgets/profile_menu_listing_card.dart';
 import 'widgets/profile_picker_sheets.dart';
-import 'widgets/profile_rewards_card.dart';
 
 /// User profile and application settings screen (Figma Node 75:2756).
 class ProfileScreen extends StatefulWidget {
@@ -276,47 +275,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
 
                       // 2. "Keep your rewards safe" Card (Figma Node 75:2775)
-                      ProfileRewardsCard(
-                        emailController: _emailController,
-                        onCreateAccount: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                'One-time link sent to your email!',
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                      SizedBox(
-                        height: (screenHeight * 0.022).clamp(16.0, 20.0),
-                      ),
+                      // ProfileRewardsCard(
+                      //   emailController: _emailController,
+                      //   onCreateAccount: () {
+                      //     ScaffoldMessenger.of(context).showSnackBar(
+                      //       const SnackBar(
+                      //         content: Text(
+                      //           'One-time link sent to your email!',
+                      //         ),
+                      //       ),
+                      //     );
+                      //   },
+                      // ),
+                      // SizedBox(
+                      //   height: (screenHeight * 0.022).clamp(16.0, 20.0),
+                      // ),
 
                       // 3. Features & Settings Listing (Train, Systems, Rewards, Notifications)
-                      Text(
-                        'More Features',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: r.font(14.0),
-                          fontWeight: FontWeight.w600,
-                          color: context.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 12.0),
-                      const ProfileMenuListingCard(),
-                      SizedBox(
-                        height: (screenHeight * 0.022).clamp(16.0, 20.0),
-                      ),
 
                       // 4. Profile Details Section (Figma Node 75:2928)
-                      Text(
-                        'Profile',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: r.font(14.0),
-                          fontWeight: FontWeight.w600,
-                          color: context.textPrimary,
-                        ),
-                      ),
-                      const SizedBox(height: 12.0),
+                      // Text(
+                      //   'Profile',
+                      //   style: GoogleFonts.plusJakartaSans(
+                      //     fontSize: r.font(14.0),
+                      //     fontWeight: FontWeight.w600,
+                      //     color: context.textPrimary,
+                      //   ),
+                      // ),
+                      // const SizedBox(height: 12.0),
                       ProfileAccountCard(
                         usernameController: _usernameController,
                         age: data.age,
@@ -361,6 +347,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                         },
                       ),
+                      SizedBox(
+                        height: (screenHeight * 0.022).clamp(16.0, 20.0),
+                      ),
+
+                      Text(
+                        'More Features',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: r.font(14.0),
+                          fontWeight: FontWeight.w600,
+                          color: context.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 12.0),
+                      const ProfileMenuListingCard(),
                       SizedBox(
                         height: (screenHeight * 0.022).clamp(16.0, 20.0),
                       ),

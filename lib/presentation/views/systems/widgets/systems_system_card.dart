@@ -9,6 +9,7 @@ import '../../../../data/models/workout_model.dart';
 import '../../../blocs/training/training_bloc.dart';
 import '../../../blocs/training/training_event.dart';
 import '../../../widgets/common/dotted_divider.dart';
+import '../../details/hydration_detail_screen.dart';
 import '../../train/training_session_screen.dart';
 
 /// Model representing an actionable exercise item inside a system card.
@@ -478,6 +479,251 @@ class SystemsRecoverCard extends StatelessWidget {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => const TrainingSessionScreen(),
+      ),
+    );
+  }
+
+  static Widget _buildActionItemRow({
+    required BuildContext context,
+    required String title,
+    required Responsive r,
+    required VoidCallback onStart,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: r.font(12.0),
+                fontWeight: FontWeight.w400,
+                color: context.textPrimary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          GestureDetector(
+            onTap: onStart,
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(6.0),
+              ),
+              child: Text(
+                'START',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: r.font(11.0),
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Expandable Fuel system card with interactive lead status and actionable hydration items.
+class SystemsFuelCard extends StatelessWidget {
+  final ValueNotifier<String?> expandedSystemNotifier;
+  final bool leadsToday;
+  final Responsive r;
+
+  const SystemsFuelCard({
+    super.key,
+    required this.expandedSystemNotifier,
+    this.leadsToday = false,
+    required this.r,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<String?>(
+      valueListenable: expandedSystemNotifier,
+      builder: (context, expandedSection, _) {
+        final isExpanded = expandedSection == 'fuel';
+        return Container(
+          decoration: BoxDecoration(
+            color: isExpanded
+                ? (context.isDark ? AppColors.midnightSurface : null)
+                : context.cardBackground,
+            gradient: isExpanded
+                ? (context.isDark ? null : AppGradients.recoverCard)
+                : null,
+            borderRadius: BorderRadius.circular(16.0),
+            border: Border.all(
+              color: context.isDark ? context.cardBorder : AppColors.systemCardBorder,
+              width: 1.0,
+            ),
+            boxShadow: context.isDark
+                ? []
+                : [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.04),
+                      blurRadius: 10.0,
+                      offset: const Offset(0.0, 3.0),
+                    ),
+                  ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GestureDetector(
+                onTap: () => expandedSystemNotifier.value = isExpanded ? null : 'fuel',
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.all(14.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40.0,
+                        height: 40.0,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: context.isDark ? AppColors.midnightBackground : AppColors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const AppSvgIcon(
+                          AppIcons.singleDrop,
+                          size: 24.0,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 10.0),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'Fuel',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: r.font(14.0),
+                                    fontWeight: FontWeight.w600,
+                                    color: context.textPrimary,
+                                  ),
+                                ),
+                                if (leadsToday) ...[
+                                  const SizedBox(width: 8.0),
+                                  Container(
+                                    alignment: Alignment.center,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8.0,
+                                      vertical: 3.0,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.cyanLight,
+                                      borderRadius: BorderRadius.circular(4.0),
+                                    ),
+                                    child: Text(
+                                      'Leads today',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: r.font(10.0),
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.white,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 4.0),
+                            Text(
+                              'Hydration, food, habits',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: r.font(12.0),
+                                fontWeight: FontWeight.w400,
+                                color: context.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      RotatedBox(
+                        quarterTurns: isExpanded ? 1 : 0,
+                        child: const AppSvgIcon(
+                          AppIcons.chevronRight,
+                          color: AppColors.primary,
+                          size: 20.0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (isExpanded) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14.0),
+                  child: DottedDivider(
+                    color: context.cardBorder,
+                    dashWidth: 3.0,
+                    dashSpace: 3.0,
+                    thickness: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 4.0),
+                _buildActionItemRow(
+                  context: context,
+                  title: 'Drink water · Log fluid intake',
+                  r: r,
+                  onStart: () => _openHydrationDetail(context),
+                ),
+                _buildActionItemRow(
+                  context: context,
+                  title: 'Daily hydration goal · 2,500 ml',
+                  r: r,
+                  onStart: () => _openHydrationDetail(context),
+                ),
+                _buildActionItemRow(
+                  context: context,
+                  title: 'Log today’s fuel habits · Fluid check',
+                  r: r,
+                  onStart: () => _openHydrationDetail(context),
+                ),
+                const SizedBox(height: 4.0),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14.0),
+                  child: DottedDivider(
+                    color: context.cardBorder,
+                    dashWidth: 3.0,
+                    dashSpace: 3.0,
+                    thickness: 0.5,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14.0, 8.0, 14.0, 12.0),
+                  child: Text(
+                    'Your gear: Insulated Smart Bottle · EHG Smart Band',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: r.font(10.0),
+                      fontWeight: FontWeight.w500,
+                      color: context.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  static void _openHydrationDetail(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const HydrationDetailScreen(),
       ),
     );
   }

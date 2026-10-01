@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/constants/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/responsive.dart';
 
@@ -17,6 +18,8 @@ class SystemsJourneysSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final itemSpacing = (screenHeight * 0.012).clamp(10.0, 14.0);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -29,20 +32,16 @@ class SystemsJourneysSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14.0),
-        _buildJourneyCard(
+        _buildLockedJourneyCard(
           context: context,
           title: 'Morning Energy',
-          progressText: '9/21 days',
-          progressFraction: 9.0 / 21.0,
           gearText: 'Tank Top · Resistance Band · Smart Band',
           r: r,
         ),
-        SizedBox(height: (screenHeight * 0.012).clamp(10.0, 14.0)),
-        _buildJourneyCard(
+        SizedBox(height: itemSpacing),
+        _buildLockedJourneyCard(
           context: context,
           title: 'Better Sleep',
-          progressText: '3/14 days',
-          progressFraction: 3.0 / 14.0,
           gearText: 'Boxy Piping Tee · Eye Mask · Smart Band',
           r: r,
         ),
@@ -50,11 +49,9 @@ class SystemsJourneysSection extends StatelessWidget {
     );
   }
 
-  Widget _buildJourneyCard({
+  Widget _buildLockedJourneyCard({
     required BuildContext context,
     required String title,
-    required String progressText,
-    required double progressFraction,
     required String gearText,
     required Responsive r,
   }) {
@@ -84,33 +81,59 @@ class SystemsJourneysSection extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8.0),
-              Text(
-                progressText,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: r.font(12.0),
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.cyanLight,
-                ),
+              AppSvgIcon(
+                AppIcons.lock,
+                size: 14.0,
+                color: context.textSecondary,
               ),
             ],
           ),
-          const SizedBox(height: 8.0),
-          LinearProgressIndicator(
-            value: progressFraction,
-            minHeight: 2.0,
-            borderRadius: BorderRadius.circular(3.0),
-            backgroundColor: context.isDark ? AppColors.midnightBorder : AppColors.divider,
-            valueColor: const AlwaysStoppedAnimation<Color>(
-              AppColors.cyanLight,
-            ),
-          ),
-          const SizedBox(height: 8.0),
+          const SizedBox(height: 10.0),
+          _buildLockedProgressBar(context, r),
+          const SizedBox(height: 10.0),
           Text(
             gearText,
             style: GoogleFonts.plusJakartaSans(
               fontSize: r.font(10.0),
               fontWeight: FontWeight.w400,
               color: context.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLockedProgressBar(BuildContext context, Responsive r) {
+    return Container(
+      height: 14.0,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: context.isDark
+            ? AppColors.midnightBackground
+            : AppColors.background,
+        borderRadius: BorderRadius.circular(7.0),
+        border: Border.all(
+          color: context.isDark ? AppColors.midnightBorder : AppColors.divider,
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AppSvgIcon(
+            AppIcons.lock,
+            size: 9.0,
+            color: context.textSecondary.withValues(alpha: 0.7),
+          ),
+          const SizedBox(width: 5.0),
+          Text(
+            'LOCKED',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: r.font(8.0),
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.9,
+              color: context.textSecondary.withValues(alpha: 0.7),
             ),
           ),
         ],

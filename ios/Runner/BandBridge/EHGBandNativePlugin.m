@@ -230,16 +230,29 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     };
 
     [QCSDKManager shareInstance].hrMeasuring = ^(NSInteger hr) {
+        if (hr > 0) {
+            weakSelf.lastKnownHeartRate = hr;
+            [[NSUserDefaults standardUserDefaults] setInteger:hr forKey:@"last_known_heart_rate"];
+        }
         dispatch_async(dispatch_get_main_queue(), ^{
             [weakSelf sendEvent:@{
                 @"type": @"measurement_result",
                 @"measureType": @"heartRate",
                 @"hr": @(hr)
             }];
+            if (hr > 0) {
+                [weakSelf sendEvent:@{@"type": @"live_heart_rate", @"bpm": @(hr)}];
+            }
         });
     };
 
     [QCSDKManager shareInstance].bpMeasuring = ^(NSInteger sbp, NSInteger dbp) {
+        if (sbp > 0 && dbp > 0) {
+            weakSelf.lastKnownSbp = sbp;
+            weakSelf.lastKnownDbp = dbp;
+            [[NSUserDefaults standardUserDefaults] setInteger:sbp forKey:@"last_known_sbp"];
+            [[NSUserDefaults standardUserDefaults] setInteger:dbp forKey:@"last_known_dbp"];
+        }
         dispatch_async(dispatch_get_main_queue(), ^{
             [weakSelf sendEvent:@{
                 @"type": @"measurement_result",
@@ -251,6 +264,10 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     };
 
     [QCSDKManager shareInstance].boMeasuring = ^(CGFloat so2) {
+        if (so2 > 0) {
+            weakSelf.lastKnownBloodOxygen = so2;
+            [[NSUserDefaults standardUserDefaults] setFloat:so2 forKey:@"last_known_spo2"];
+        }
         dispatch_async(dispatch_get_main_queue(), ^{
             [weakSelf sendEvent:@{
                 @"type": @"measurement_result",
@@ -264,8 +281,10 @@ typedef void (^EHGBandWork)(EHGBandDone done);
         dispatch_async(dispatch_get_main_queue(), ^{
             [weakSelf sendEvent:@{
                 @"type": @"measurement_fail",
-                @"measureType": @"heartRate",
-                @"error": @"Measurement failed. Wear the band correctly and try again."
+                @"measureType": [weakSelf stringFromMeasuringType:weakSelf.activeMeasureType],
+                @"errorCode": @(-3),
+                @"notWorn": @(YES),
+                @"error": @"Please wear smart device properly"
             }];
         });
     };
@@ -725,10 +744,14 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     else if ([@"stopMeasuring" isEqualToString:call.method]) {
         QCMeasuringType type = [self measuringTypeFromString:call.arguments[@"type"]];
         [self enqueueCommand:^(EHGBandDone done) {
+            NSLog(@"[EHGBandNative] Stopping hardware measurement for type: %@ (code: %ld)", call.arguments[@"type"], (long)type);
             [[QCSDKManager shareInstance] stopToMeasuringWithOperateType:type completedHandle:^(BOOL isSuccess, NSError *error) {
                 result(@(isSuccess));
                 done();
             }];
+            if (type == QCMeasuringTypeHeartRate || type == QCMeasuringTypeOneKeyMeasure || type == QCMeasuringTypeOneKeyMeasureHeartRate) {
+                [QCSDKCmdCreator realTimeHeartRateWithCmd:QCBandRealTimeHeartRateCmdTypeEnd finished:nil];
+            }
         }];
     }
     else {
@@ -1518,13 +1541,23 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     self.activeMeasureType = type;
     __weak typeof(self) weakSelf = self;
     [self enqueueCommand:^(EHGBandDone done) {
+        NSLog(@"[EHGBandNative] Starting hardware measurement for type: %@ (code: %ld)", typeName, (long)type);
         [[QCSDKManager shareInstance] startToMeasuringWithOperateType:type timeout:90 measuringHandle:^(id resultObj) {
             [weakSelf emitMeasurementResult:type success:YES result:resultObj error:nil];
         } completedHandle:^(BOOL isSuccess, id resultObj, NSError *error) {
             [weakSelf emitMeasurementResult:type success:isSuccess result:resultObj error:error];
-            done();
         }];
+
+        // Also activate optical PPG pulse stream if measuring heart rate or all-in-one check
+        if (type == QCMeasuringTypeHeartRate || type == QCMeasuringTypeOneKeyMeasure || type == QCMeasuringTypeOneKeyMeasureHeartRate) {
+            [QCSDKCmdCreator realTimeHeartRateWithCmd:QCBandRealTimeHeartRateCmdTypeStart finished:nil];
+        }
+
         result(@(YES));
+        // Command packet has been handed off to SDK/BLE pipeline; release command queue after 250ms
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(250 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+            done();
+        });
     }];
 }
 
@@ -1533,10 +1566,18 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     event[@"type"] = success ? @"measurement_result" : @"measurement_fail";
     event[@"measureType"] = [self stringFromMeasuringType:type];
     if (!success) {
-        event[@"error"] = error.localizedDescription ?: @"Measurement failed";
+        NSInteger errCode = error ? error.code : -1;
+        BOOL isNotWorn = (errCode == -3);
+        event[@"errorCode"] = @(errCode);
+        event[@"notWorn"] = @(isNotWorn);
+        event[@"error"] = isNotWorn ? @"Please wear smart device properly" : (error.localizedDescription ?: @"Please wear smart device properly");
+        NSLog(@"[EHGBandNative] Measurement failed: errCode=%ld, notWorn=%d, error=%@", (long)errCode, isNotWorn, event[@"error"]);
         [self sendEvent:event];
         return;
     }
+
+    NSLog(@"[EHGBandNative] emitMeasurementResult: type=%ld, class=%@, obj=%@", (long)type, [resultObj class], resultObj);
+
     if ([resultObj isKindOfClass:[NSNumber class]]) {
         if (type == QCMeasuringTypeBloodOxygen) {
             event[@"spo2"] = resultObj;
@@ -1556,6 +1597,7 @@ typedef void (^EHGBandWork)(EHGBandDone done);
             if (hrVal > 0) {
                 self.lastKnownHeartRate = hrVal;
                 [[NSUserDefaults standardUserDefaults] setInteger:hrVal forKey:@"last_known_heart_rate"];
+                [self sendEvent:@{@"type": @"live_heart_rate", @"bpm": @(hrVal)}];
             }
         }
     } else if ([resultObj isKindOfClass:[QCHeartRateModel class]]) {
@@ -1564,7 +1606,37 @@ typedef void (^EHGBandWork)(EHGBandDone done);
         if (hrVal > 0) {
             self.lastKnownHeartRate = hrVal;
             [[NSUserDefaults standardUserDefaults] setInteger:hrVal forKey:@"last_known_heart_rate"];
+            [self sendEvent:@{@"type": @"live_heart_rate", @"bpm": @(hrVal)}];
         }
+    } else if ([resultObj isKindOfClass:[QCManualHeartRateModel class]]) {
+        QCManualHeartRateModel *model = (QCManualHeartRateModel *)resultObj;
+        NSNumber *lastHr = model.heartRates.lastObject;
+        if (lastHr != nil) {
+            NSInteger hrVal = [lastHr integerValue];
+            event[@"hr"] = @(hrVal);
+            if (hrVal > 0) {
+                self.lastKnownHeartRate = hrVal;
+                [[NSUserDefaults standardUserDefaults] setInteger:hrVal forKey:@"last_known_heart_rate"];
+                [self sendEvent:@{@"type": @"live_heart_rate", @"bpm": @(hrVal)}];
+            }
+        }
+    } else if ([resultObj isKindOfClass:[NSDictionary class]]) {
+        NSDictionary *dict = (NSDictionary *)resultObj;
+        if (dict[@"hr"]) {
+            NSInteger hrVal = [dict[@"hr"] integerValue];
+            event[@"hr"] = @(hrVal);
+            if (hrVal > 0) {
+                self.lastKnownHeartRate = hrVal;
+                [[NSUserDefaults standardUserDefaults] setInteger:hrVal forKey:@"last_known_heart_rate"];
+                [self sendEvent:@{@"type": @"live_heart_rate", @"bpm": @(hrVal)}];
+            }
+        }
+        if (dict[@"sbp"]) event[@"sbp"] = dict[@"sbp"];
+        if (dict[@"dbp"]) event[@"dbp"] = dict[@"dbp"];
+        if (dict[@"spo2"]) event[@"spo2"] = dict[@"spo2"];
+        if (dict[@"temp"]) event[@"temperature"] = dict[@"temp"];
+        if (dict[@"stress"]) event[@"stress"] = dict[@"stress"];
+        if (dict[@"hrv"]) event[@"hrv"] = dict[@"hrv"];
     } else if ([resultObj isKindOfClass:[QCBloodPressureModel class]]) {
         QCBloodPressureModel *model = (QCBloodPressureModel *)resultObj;
         event[@"sbp"] = @(model.systolicPressure);
@@ -1591,6 +1663,7 @@ typedef void (^EHGBandWork)(EHGBandDone done);
         if (hrVal > 0) {
             self.lastKnownHeartRate = hrVal;
             [[NSUserDefaults standardUserDefaults] setInteger:hrVal forKey:@"last_known_heart_rate"];
+            [self sendEvent:@{@"type": @"live_heart_rate", @"bpm": @(hrVal)}];
         }
         event[@"hrv"] = @(((QCRealOneKeyMeasureHeartRateModel *)resultObj).heartRateHRV);
         event[@"stress"] = @(((QCRealOneKeyMeasureHeartRateModel *)resultObj).stress);

@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/constants/app_icons.dart';
+import '../../../core/database/app_database.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
 import '../../../data/models/wellness_data_model.dart';
@@ -14,6 +16,7 @@ import '../../widgets/common/screen_header.dart';
 import 'widgets/systems_build_routine_section.dart';
 import 'widgets/systems_journeys_section.dart';
 import 'widgets/systems_programmes_section.dart';
+import 'widgets/systems_saved_routines_section.dart';
 import 'widgets/systems_system_card.dart';
 
 /// Systems screen matching Figma Node 143:2187 ("Four systems, one wardrobe").
@@ -35,12 +38,14 @@ class SystemsScreen extends StatefulWidget {
 }
 
 class _SystemsScreenState extends State<SystemsScreen> {
+  final _routineFormKey = GlobalKey<FormState>();
   late final TextEditingController _routineNameController;
   late final ValueNotifier<int> _selectedDurationNotifier;
   late final ValueNotifier<Set<String>> _selectedMovementsNotifier;
   late final ValueNotifier<Set<String>> _selectedWellnessNotifier;
   late final ValueNotifier<List<Map<String, String>>> _activeRoutineNotifier;
   late final ValueNotifier<String?> _expandedSystemNotifier;
+  late final ValueNotifier<List<UserRoutine>> _savedRoutinesNotifier;
 
   @override
   void initState() {
@@ -49,6 +54,7 @@ class _SystemsScreenState extends State<SystemsScreen> {
     _selectedDurationNotifier = ValueNotifier<int>(14);
     _selectedMovementsNotifier = ValueNotifier<Set<String>>({'Yga'});
     _selectedWellnessNotifier = ValueNotifier<Set<String>>({'Mobile Flow'});
+    _savedRoutinesNotifier = ValueNotifier<List<UserRoutine>>([]);
 
     final String initialSection = widget.initialExpandedSection ??
         switch (widget.initialMode) {
@@ -76,9 +82,14 @@ class _SystemsScreenState extends State<SystemsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       try {
-        final savedRoutine = await context
-            .read<WellnessRepository>()
-            .getLatestActiveUserRoutine();
+        final wellnessRepo = context.read<WellnessRepository>();
+        final savedRoutine = await wellnessRepo.getLatestActiveUserRoutine();
+        final allRoutines = await wellnessRepo.getUserRoutines();
+
+        if (mounted) {
+          _savedRoutinesNotifier.value = allRoutines;
+        }
+
         if (savedRoutine != null && mounted) {
           _routineNameController.text = savedRoutine.routineName;
           _selectedDurationNotifier.value = savedRoutine.durationDays;
@@ -120,6 +131,7 @@ class _SystemsScreenState extends State<SystemsScreen> {
     _selectedWellnessNotifier.dispose();
     _expandedSystemNotifier.dispose();
     _activeRoutineNotifier.dispose();
+    _savedRoutinesNotifier.dispose();
     super.dispose();
   }
 
@@ -287,17 +299,8 @@ class _SystemsScreenState extends State<SystemsScreen> {
                   ),
                   const SizedBox(height: 16.0),
 
-                  SystemsCardTemplate(
-                    icon: AppIcons.singleDrop,
-                    title: 'Fuel',
-                    subtitle: 'Hydration, food, habits',
-                    sectionKey: 'fuel',
+                  SystemsFuelCard(
                     expandedSystemNotifier: _expandedSystemNotifier,
-                    details: const [
-                      'Drink water · 250 ml',
-                      'Plan your next meal',
-                      'Log today’s fuel habits',
-                    ],
                     r: r,
                   ),
                   SizedBox(height: (screenHeight * 0.026).clamp(20.0, 28.0)),
@@ -312,6 +315,7 @@ class _SystemsScreenState extends State<SystemsScreen> {
 
                   // 6. Build Your Own Routine Section
                   SystemsBuildRoutineSection(
+                    formKey: _routineFormKey,
                     routineNameController: _routineNameController,
                     selectedDurationNotifier: _selectedDurationNotifier,
                     selectedMovementsNotifier: _selectedMovementsNotifier,
@@ -319,6 +323,14 @@ class _SystemsScreenState extends State<SystemsScreen> {
                     activeRoutineNotifier: _activeRoutineNotifier,
                     r: r,
                     onSaveRoutine: _saveRoutine,
+                  ),
+                  SizedBox(height: (screenHeight * 0.026).clamp(20.0, 28.0)),
+
+                  // 7. Saved Routines Section (displays newly saved routines below the builder)
+                  SystemsSavedRoutinesSection(
+                    savedRoutinesNotifier: _savedRoutinesNotifier,
+                    r: r,
+                    onDeleteRoutine: _deleteRoutine,
                   ),
                   SizedBox(height: (screenHeight * 0.025).clamp(18.0, 24.0)),
                 ],
@@ -331,14 +343,21 @@ class _SystemsScreenState extends State<SystemsScreen> {
   }
 
   Future<void> _saveRoutine() async {
-    final name = _routineNameController.text.trim();
-    final routineName = name.isNotEmpty ? name : 'My Daily Routine';
+    // Form Validation: Routine Name is mandatory
+    if (_routineFormKey.currentState?.validate() != true) {
+      HapticFeedback.vibrate();
+      return;
+    }
+
+    final routineName = _routineNameController.text.trim();
     final duration = _selectedDurationNotifier.value;
     final movements = _selectedMovementsNotifier.value;
     final wellness = _selectedWellnessNotifier.value;
     final items = _activeRoutineNotifier.value;
 
-    await context.read<WellnessRepository>().saveUserRoutine(
+    final wellnessRepo = context.read<WellnessRepository>();
+
+    await wellnessRepo.saveUserRoutine(
       routineName: routineName,
       durationDays: duration,
       movements: movements,
@@ -346,10 +365,49 @@ class _SystemsScreenState extends State<SystemsScreen> {
       routineItems: items,
     );
 
+    // Haptic feedback & effect
+    HapticFeedback.mediumImpact();
+
     if (mounted) {
+      // Reload routines list to immediately render below the builder
+      final updatedRoutines = await wellnessRepo.getUserRoutines();
+      if (!mounted) return;
+      _savedRoutinesNotifier.value = updatedRoutines;
+
+      // Reset text field
+      _routineNameController.clear();
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Routine "$routineName" saved to your health profile!'),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.primary,
+          content: Text(
+            'Routine "$routineName" saved to your health profile!',
+            style: GoogleFonts.plusJakartaSans(
+              color: AppColors.white,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteRoutine(UserRoutine routine) async {
+    final wellnessRepo = context.read<WellnessRepository>();
+    await wellnessRepo.deleteUserRoutine(routine.id);
+
+    HapticFeedback.selectionClick();
+
+    if (mounted) {
+      final updatedRoutines = await wellnessRepo.getUserRoutines();
+      if (!mounted) return;
+      _savedRoutinesNotifier.value = updatedRoutines;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('Routine "${routine.routineName}" removed'),
         ),
       );
     }

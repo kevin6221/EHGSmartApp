@@ -728,13 +728,24 @@ class BandMeasurementResult extends Equatable {
   final bool success;
   final Map<String, dynamic> data;
   final String? error;
+  final bool notWorn;
 
   const BandMeasurementResult({
     required this.type,
     required this.success,
     this.data = const {},
     this.error,
+    this.notWorn = false,
   });
+
+  /// Indicates whether the measurement failed because the user did not wear the band properly.
+  bool get isNotWorn =>
+      notWorn ||
+      (error != null &&
+          (error!.toLowerCase().contains('wear') ||
+              error!.toLowerCase().contains('wrist') ||
+              error!.toLowerCase().contains('properly') ||
+              error!.toLowerCase().contains('smart device')));
 
   /// Convenience getter for heart rate value in BPM if present.
   int? get heartRate =>
@@ -751,6 +762,6 @@ class BandMeasurementResult extends Equatable {
       (data['systolic'] as num?);
 
   @override
-  List<Object?> get props => [type, success, data, error];
+  List<Object?> get props => [type, success, data, error, notWorn];
 }
 

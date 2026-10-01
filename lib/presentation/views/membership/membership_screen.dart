@@ -6,7 +6,6 @@ import '../../../core/theme/responsive.dart';
 import '../../widgets/common/screen_header.dart';
 import 'widgets/membership_benefits_section.dart';
 import 'widgets/membership_route_one_card.dart';
-import 'widgets/membership_route_two_card.dart';
 
 /// EHG Membership screen (Figma Node 133:774).
 /// Modular architecture with zero setState.
@@ -97,8 +96,8 @@ class _MembershipScreenState extends State<MembershipScreen> {
                   SizedBox(height: (screenHeight * 0.018).clamp(14.0, 18.0)),
 
                   // 4. Route two Card
-                  const MembershipRouteTwoCard(),
-                  SizedBox(height: (screenHeight * 0.030).clamp(22.0, 28.0)),
+                  // const MembershipRouteTwoCard(),
+                  // SizedBox(height: (screenHeight * 0.030).clamp(22.0, 28.0)),
 
                   // 5. Benefits Comparison & Features Section
                   MembershipBenefitsSection(

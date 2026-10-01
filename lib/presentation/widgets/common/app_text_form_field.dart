@@ -195,8 +195,25 @@ class AppTextFormField extends StatelessWidget {
         hintText: hintText,
         labelText: labelText,
         hintStyle: effectiveHintStyle,
-        prefixIcon: prefixIcon,
-        suffixIcon: suffixIcon,
+        errorBorder: OutlineInputBorder(
+          borderRadius: effectiveRadius,
+          borderSide: const BorderSide(
+            color: AppColors.systemRed,
+            width: 1.0,
+          ),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: effectiveRadius,
+          borderSide: const BorderSide(
+            color: AppColors.systemRed,
+            width: 1.2,
+          ),
+        ),
+        errorStyle: GoogleFonts.plusJakartaSans(
+          color: AppColors.systemRed,
+          fontSize: 11.0,
+          fontWeight: FontWeight.w500,
+        ),
         enabledBorder: effectiveEnabledBorder,
         focusedBorder: effectiveFocusedBorder,
         border: effectiveBorder,

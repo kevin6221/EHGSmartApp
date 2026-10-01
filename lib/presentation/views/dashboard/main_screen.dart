@@ -17,7 +17,6 @@ import '../journal/journal_screen.dart';
 import '../systems/systems_screen.dart';
 import '../train/train_screen.dart';
 import '../vitals/vitals_screen.dart';
-import '../wardrobe/unlock_wardrobe_screen.dart';
 
 /// Root shell screen maintaining persistent state for all bottom navigation tabs.
 class MainScreen extends StatelessWidget {
@@ -28,7 +27,7 @@ class MainScreen extends StatelessWidget {
     VitalsScreen(),
     TrainScreen(isTab: true),
     SystemsScreen(isTab: true),
-    UnlockWardrobeScreen(),
+    // UnlockWardrobeScreen(),
     JournalScreen(),
   ];
 

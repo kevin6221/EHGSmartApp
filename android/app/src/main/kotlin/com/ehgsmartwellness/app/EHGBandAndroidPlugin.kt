@@ -1630,7 +1630,9 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                             sendEvent(mapOf(
                                 "type" to "measurement_fail",
                                 "measureType" to (activeMeasuringType ?: "heartRate"),
-                                "error" to "Band reported measurement error code $byte2. Please wear band snugly."
+                                "errorCode" to byte2,
+                                "notWorn" to true,
+                                "error" to "Please wear smart device properly"
                             ))
                         }
                     }
@@ -2495,7 +2497,8 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
                 sendEvent(mapOf(
                     "type" to "measurement_fail",
                     "measureType" to activeMeasuringType,
-                    "error" to "Measurement timed out. Ensure the band is worn snugly."
+                    "notWorn" to true,
+                    "error" to "Please wear smart device properly"
                 ))
                 activeMeasuringType = null
             }

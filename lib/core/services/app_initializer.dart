@@ -49,7 +49,11 @@ abstract final class AppInitializer {
       debugPrint('⚠️ [APP INIT] Firebase initialization warning: $e\n$st');
     }
 
-    // 3. Defer non-critical first-install cleanup without blocking initial frame
-    unawaited(SecureStorageService().ensureFreshInstallState());
+    // 3. Ensure stale Keychain items from previous uninstalled installations are wiped synchronously
+    try {
+      await SecureStorageService().ensureFreshInstallState();
+    } catch (e) {
+      debugPrint('⚠️ [APP INIT] Error checking fresh install state: $e');
+    }
   }
 }

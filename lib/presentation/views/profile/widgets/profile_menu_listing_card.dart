@@ -12,15 +12,13 @@ import '../../../widgets/common/app_card.dart';
 class _ProfileMenuItem {
   final String title;
   final String subtitle;
-  final String? svgPath;
-  final IconData? iconData;
+  final String svgPath;
   final String route;
 
   const _ProfileMenuItem({
     required this.title,
     required this.subtitle,
-    this.svgPath,
-    this.iconData,
+    required this.svgPath,
     required this.route,
   });
 }
@@ -37,12 +35,12 @@ class ProfileMenuListingCard extends StatelessWidget {
       svgPath: AppIcons.rewards,
       route: AppRoutes.rewards,
     ),
-    _ProfileMenuItem(
-      title: 'Notifications',
-      subtitle: 'Plan reminders, hydration & alerts',
-      iconData: Icons.notifications_none_rounded,
-      route: AppRoutes.notifications,
-    ),
+    // _ProfileMenuItem(
+    //   title: 'Notifications',
+    //   subtitle: 'Plan reminders, hydration & alerts',
+    //   iconData: Icons.notifications_none_rounded,
+    //   route: AppRoutes.notifications,
+    // ),
   ];
 
   @override
@@ -95,17 +93,11 @@ class ProfileMenuListingCard extends StatelessWidget {
                               width: 1.0,
                             ),
                           ),
-                          child: item.svgPath != null
-                              ? AppSvgIcon(
-                                  item.svgPath!,
-                                  size: 22.0,
-                                  color: AppColors.primary,
-                                )
-                              : Icon(
-                                  item.iconData,
-                                  size: 22.0,
-                                  color: AppColors.primary,
-                                ),
+                          child: AppSvgIcon(
+                            item.svgPath,
+                            size: 22.0,
+                            color: AppColors.primary,
+                          ),
                         ),
                         const SizedBox(width: 12.0),
                         Expanded(

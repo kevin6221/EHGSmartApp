@@ -22,16 +22,52 @@ class OnboardingScreen5 extends StatefulWidget {
 
 class _OnboardingScreen5State extends State<OnboardingScreen5> {
   late final ValueNotifier<String> _selectedPlan;
+  late final ValueNotifier<String> _userNameNotifier;
 
   @override
   void initState() {
     super.initState();
     _selectedPlan = ValueNotifier<String>('');
+
+    // Priority 1: OnboardingCubit
+    String initialName = '';
+    try {
+      final cubit = context.read<OnboardingCubit>();
+      if (cubit.state.userName.trim().isNotEmpty) {
+        initialName = cubit.state.userName.trim();
+      }
+    } catch (_) {}
+
+    // Priority 2: ProfileBloc
+    if (initialName.isEmpty) {
+      try {
+        final profileName =
+            context.read<ProfileBloc>().state.data?.username.trim();
+        if (profileName != null && profileName.isNotEmpty) {
+          initialName = profileName;
+        }
+      } catch (_) {}
+    }
+
+    _userNameNotifier = ValueNotifier<String>(initialName);
+
+    // Priority 3: Fallback async query to SecureStorageService if still empty
+    if (initialName.isEmpty) {
+      SecureStorageService().getUserName().then((saved) {
+        if (mounted && saved != null && saved.trim().isNotEmpty) {
+          _userNameNotifier.value = saved.trim();
+          try {
+            context.read<OnboardingCubit>().setUserName(saved.trim());
+          } catch (_) {}
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
     _selectedPlan.dispose();
+    _userNameNotifier.dispose();
     super.dispose();
   }
 
@@ -40,7 +76,9 @@ class _OnboardingScreen5State extends State<OnboardingScreen5> {
     try {
       final cubit = context.read<OnboardingCubit>();
       cubit.setSelectedPlan(plan);
-      final enteredName = cubit.state.userName.trim();
+      final enteredName = _userNameNotifier.value.trim().isNotEmpty
+          ? _userNameNotifier.value.trim()
+          : cubit.state.userName.trim();
       final enteredAge = cubit.state.userAge;
       final secureStorage = SecureStorageService();
       if (enteredName.isNotEmpty) {
@@ -70,15 +108,6 @@ class _OnboardingScreen5State extends State<OnboardingScreen5> {
   Widget build(BuildContext context) {
     final r = context.responsive;
     final screenWidth = r.width;
-
-    // Retrieve user name from cubit for personalized greeting
-    String userName = 'John';
-    try {
-      final cubit = context.read<OnboardingCubit>();
-      if (cubit.state.userName.trim().isNotEmpty) {
-        userName = cubit.state.userName.trim().split(' ').first;
-      }
-    } catch (_) {}
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -112,16 +141,29 @@ class _OnboardingScreen5State extends State<OnboardingScreen5> {
                           40.0,
                         ),
                       ),
-                      Text(
-                        'How do you want to use EHG, $userName?',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: (screenWidth * 0.08).clamp(24.0, 30.0),
-                          fontWeight: FontWeight.w700,
-                          height: 38.0 / 30.0,
-                          letterSpacing: -0.39,
-                          color: AppColors.textPrimary,
-                        ),
-                        textAlign: TextAlign.center,
+                      ValueListenableBuilder<String>(
+                        valueListenable: _userNameNotifier,
+                        builder: (context, name, _) {
+                          final clean = name.trim();
+                          final firstName = clean.isNotEmpty
+                              ? clean.split(' ').first
+                              : '';
+                          final headingText = firstName.isNotEmpty
+                              ? 'How do you want to use EHG, $firstName?'
+                              : 'How do you want to use EHG?';
+
+                          return Text(
+                            headingText,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: (screenWidth * 0.08).clamp(24.0, 30.0),
+                              fontWeight: FontWeight.w700,
+                              height: 38.0 / 30.0,
+                              letterSpacing: -0.39,
+                              color: AppColors.textPrimary,
+                            ),
+                            textAlign: TextAlign.center,
+                          );
+                        },
                       ),
 
                       const SizedBox(height: 16.0),

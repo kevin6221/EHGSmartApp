@@ -16,6 +16,7 @@ import '../../blocs/wellness/wellness_event.dart';
 import '../../blocs/wellness/wellness_state.dart';
 import '../../helpers/vitals_card_calculator.dart';
 import '../../widgets/common/app_card.dart';
+import '../../widgets/common/app_snackbar.dart';
 import '../../widgets/common/detail_screen_app_bar.dart';
 import '../../widgets/common/screen_header.dart';
 import '../../widgets/painters/heart_rate_chart_painter.dart';
@@ -97,7 +98,7 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
     super.dispose();
   }
 
-  Future<void> _toggleHeartRateMeasurement(BuildContext context) async {
+  Future<void> _toggleHeartRateMeasurement() async {
     final messenger = ScaffoldMessenger.of(context);
     final repo = _bandRepo ?? context.read<BandRepository>();
     final bloc = _bandBloc ?? context.read<BandBloc>();
@@ -145,12 +146,31 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
       }
     });
 
-    // 2. Listen to completed on-demand measurement packet
+    // 2. Listen to completed on-demand measurement packet or failure
     _measuringSub = repo.measurementResultStream.listen((result) {
-      final int hr = result.heartRate ?? 0;
-      if (result.type == MeasurementType.heartRate && hr > 0) {
-        _latestSampledHrNotifier.value = hr;
-        _finalizeMeasurement(repo, bloc, wellnessBloc, hr);
+      if (result.type == MeasurementType.heartRate || result.type == MeasurementType.oneKey) {
+        if (!result.success || result.isNotWorn || (result.error != null && result.error!.isNotEmpty)) {
+          _stopMeasurement(
+            repo,
+            bloc,
+            wellnessBloc,
+            reason: 'Please wear smart device properly',
+          );
+          if (mounted) {
+            AppSnackbar.showWearDeviceProperly(context);
+          }
+          return;
+        }
+
+        final int hr = result.heartRate ?? 0;
+        if (hr > 0) {
+          _latestSampledHrNotifier.value = hr;
+          bloc.add(LiveHeartRateUpdatedEvent(hr));
+          _measuringStatusNotifier.value = 'Live PPG pulse: $hr bpm · Sampling arterial wave...';
+        } else {
+          // Intermediate frame while optical LEDs calibrate against skin reflectivity
+          _measuringStatusNotifier.value = 'Sampling arterial pulse wave... Keep wrist still';
+        }
       }
     });
 
@@ -162,6 +182,22 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
       _secondsRemainingNotifier.value = remaining;
       _measuringProgressNotifier.value = (elapsed / 30.0).clamp(0.0, 1.0);
 
+      // QWatch Pro off-wrist check: If after 20 seconds of continuous optical sampling
+      // no pulse wave has been detected by the PPG optical sensor on real hardware, abort and alert user.
+      if (elapsed >= 20 && (_latestSampledHrNotifier.value == null || _latestSampledHrNotifier.value! <= 0)) {
+        timer.cancel();
+        _stopMeasurement(
+          repo,
+          bloc,
+          wellnessBloc,
+          reason: 'Please wear smart device properly',
+        );
+        if (mounted) {
+          AppSnackbar.showWearDeviceProperly(context);
+        }
+        return;
+      }
+
       if (elapsed >= 30) {
         timer.cancel();
         final finalHr = _latestSampledHrNotifier.value ?? bloc.state.liveHeartRate;
@@ -172,13 +208,15 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
             repo,
             bloc,
             wellnessBloc,
-            reason: 'Sampling window completed. Ensure band is worn snugly on wrist.',
+            reason: 'Please wear smart device properly',
           );
+          if (mounted) {
+            AppSnackbar.showWearDeviceProperly(context);
+          }
         }
       }
     });
 
-    bloc.add(StartLiveHeartRateEvent());
     final success = await repo.startMeasuring(MeasurementType.heartRate);
     if (!success && mounted) {
       await _stopMeasurement(
@@ -392,7 +430,7 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
                                   secondsRemainingNotifier: _secondsRemainingNotifier,
                                   latestSampledHrNotifier: _latestSampledHrNotifier,
                                   pulseScale: _pulseScale,
-                                  onMeasureTap: () => _toggleHeartRateMeasurement(context),
+                                  onMeasureTap: _toggleHeartRateMeasurement,
                                 ),
                                 SizedBox(height: itemSpacing),
 

@@ -38,7 +38,8 @@ class _OnboardingScreen3State extends State<OnboardingScreen3> {
     _nameController = TextEditingController(text: initialName);
     _nameController.addListener(() {
       try {
-        context.read<OnboardingCubit>().setUserName(_nameController.text);
+        final text = _nameController.text.trim();
+        context.read<OnboardingCubit>().setUserName(text);
       } catch (_) {}
     });
 
@@ -47,13 +48,17 @@ class _OnboardingScreen3State extends State<OnboardingScreen3> {
         if (mounted &&
             savedName != null &&
             savedName.trim().isNotEmpty &&
-            _nameController.text.isEmpty) {
+            _nameController.text.trim().isEmpty) {
           _nameController.text = savedName.trim();
           try {
             context.read<OnboardingCubit>().setUserName(savedName.trim());
           } catch (_) {}
         }
       });
+    } else {
+      try {
+        context.read<OnboardingCubit>().setUserName(initialName);
+      } catch (_) {}
     }
   }
 
@@ -66,6 +71,9 @@ class _OnboardingScreen3State extends State<OnboardingScreen3> {
   void _onNextPressed() {
     final enteredName = _nameController.text.trim();
     if (enteredName.isNotEmpty) {
+      try {
+        context.read<OnboardingCubit>().setUserName(enteredName);
+      } catch (_) {}
       SecureStorageService().saveUserName(enteredName);
       context.read<ProfileBloc>().add(UpdateUsernameEvent(enteredName));
     }

@@ -16,6 +16,7 @@ import '../../../blocs/vitals/vitals_event.dart';
 import '../../../blocs/wellness/wellness_bloc.dart';
 import '../../../blocs/wellness/wellness_event.dart';
 import '../../../widgets/common/app_card.dart';
+import '../../../widgets/common/app_snackbar.dart';
 
 /// Interactive card that lets the user take an on-demand live reading on the spot:
 /// Heart Rate (bpm), Blood Pressure estimate (mmHg), and Blood Oxygen (SpO2 %).
@@ -46,6 +47,7 @@ class _HomeLiveCheckCardState extends State<HomeLiveCheckCard>
   Timer? _countdownTimer;
   Timer? _activationFallbackTimer;
   late final AnimationController _pulseController;
+  bool _isSimulatedSession = false;
 
   static const int _totalMeasurementDuration = 25; // seconds
 
@@ -89,7 +91,8 @@ class _HomeLiveCheckCardState extends State<HomeLiveCheckCard>
     super.dispose();
   }
 
-  Future<void> _startLiveCheck(BuildContext context, {bool simulated = false}) async {
+  Future<void> _startLiveCheck({bool simulated = false}) async {
+    _isSimulatedSession = simulated;
     final bandRepo = context.read<BandRepository>();
     final bandBloc = context.read<BandBloc>();
 
@@ -133,6 +136,19 @@ class _HomeLiveCheckCardState extends State<HomeLiveCheckCard>
         _secondsRemainingNotifier.value = remaining;
         _progressNotifier.value = (elapsed / _totalMeasurementDuration.toDouble()).clamp(0.0, 1.0);
 
+        // QWatch Pro off-wrist check: If after 20 seconds of continuous sampling
+        // no valid pulse wave has been detected by the PPG optical sensor on real hardware, abort and alert user.
+        if (isConnected && !simulated && elapsed >= 20 && (_liveHrNotifier.value == null || _liveHrNotifier.value! <= 0)) {
+          timer.cancel();
+          _cancelMeasurement(
+            reason: 'Please wear smart device properly',
+          );
+          if (mounted) {
+            AppSnackbar.showWearDeviceProperly(context);
+          }
+          return;
+        }
+
         if (simulated) {
           if (elapsed == 4) {
             _liveHrNotifier.value = 72;
@@ -159,7 +175,7 @@ class _HomeLiveCheckCardState extends State<HomeLiveCheckCard>
 
         if (elapsed >= _totalMeasurementDuration) {
           timer.cancel();
-          _finalizeMeasurement(context);
+          _finalizeMeasurement();
         }
       });
     }
@@ -175,9 +191,21 @@ class _HomeLiveCheckCardState extends State<HomeLiveCheckCard>
         }
       });
 
-      // 2. Listen for measurement completion packets
+      // 2. Listen for measurement completion packets or failures
       _measuringSub = bandRepo.measurementResultStream.listen((result) {
-        if (result.success && result.data.isNotEmpty && _isMeasuringNotifier.value) {
+        if (!_isMeasuringNotifier.value) return;
+
+        if (!result.success || result.isNotWorn || (result.error != null && result.error!.isNotEmpty)) {
+          _cancelMeasurement(
+            reason: 'Please wear smart device properly',
+          );
+          if (mounted) {
+            AppSnackbar.showWearDeviceProperly(context);
+          }
+          return;
+        }
+
+        if (result.data.isNotEmpty) {
           final data = result.data;
           final hr = result.heartRate ?? (data['hr'] as num?)?.toInt();
           final sbp = (data['sbp'] as num?)?.toInt();
@@ -188,6 +216,8 @@ class _HomeLiveCheckCardState extends State<HomeLiveCheckCard>
             _liveHrNotifier.value = hr;
             _statusTextNotifier.value = 'Live PPG pulse: $hr bpm · Sampling arterial wave...';
             startIndicatorAndCountdown();
+          } else {
+            _statusTextNotifier.value = 'Sampling arterial pulse wave... Keep wrist still';
           }
           if (sbp != null && dbp != null && sbp > 0) {
             _liveBpNotifier.value = '$sbp/$dbp';
@@ -201,7 +231,6 @@ class _HomeLiveCheckCardState extends State<HomeLiveCheckCard>
       });
 
       // Trigger hardware measurement asynchronously without blocking Dart thread
-      bandBloc.add(StartLiveHeartRateEvent());
       unawaited(
         bandRepo.startMeasuring(MeasurementType.oneKey).catchError((_) {
           return bandRepo.startMeasuring(MeasurementType.heartRate);
@@ -227,7 +256,7 @@ class _HomeLiveCheckCardState extends State<HomeLiveCheckCard>
     }
   }
 
-  Future<void> _cancelMeasurement() async {
+  Future<void> _cancelMeasurement({String? reason}) async {
     _countdownTimer?.cancel();
     _activationFallbackTimer?.cancel();
     _liveHrSub?.cancel();
@@ -244,10 +273,10 @@ class _HomeLiveCheckCardState extends State<HomeLiveCheckCard>
     bandBloc.add(StopLiveHeartRateEvent());
 
     _isMeasuringNotifier.value = false;
-    _statusTextNotifier.value = 'Measurement cancelled.';
+    _statusTextNotifier.value = reason ?? 'Measurement cancelled.';
   }
 
-  Future<void> _finalizeMeasurement(BuildContext context) async {
+  Future<void> _finalizeMeasurement() async {
     _countdownTimer?.cancel();
     _activationFallbackTimer?.cancel();
     _liveHrSub?.cancel();
@@ -260,7 +289,17 @@ class _HomeLiveCheckCardState extends State<HomeLiveCheckCard>
     final wellnessBloc = context.read<WellnessBloc>();
     final vitalsBloc = context.read<VitalsBloc>();
 
-    final hr = _liveHrNotifier.value ?? 72;
+    final isConnected = bandBloc.state.status == BandConnectionStatus.connected;
+    final hr = _liveHrNotifier.value ?? (_isSimulatedSession ? 72 : 0);
+    if (isConnected && !_isSimulatedSession && hr <= 0) {
+      await _cancelMeasurement(
+        reason: 'Please wear smart device properly',
+      );
+      if (mounted) {
+        AppSnackbar.showWearDeviceProperly(context);
+      }
+      return;
+    }
     final bp = _liveBpNotifier.value ?? '118/76';
     final spo2 = _liveSpo2Notifier.value ?? 98;
 
@@ -353,7 +392,7 @@ class _HomeLiveCheckCardState extends State<HomeLiveCheckCard>
             ),
             onPressed: () {
               Navigator.of(dialogCtx).pop();
-              _startLiveCheck(context, simulated: true);
+              _startLiveCheck(simulated: true);
             },
             child: Text(
               'Run Live Simulation',
@@ -755,7 +794,7 @@ class _HomeLiveCheckCardState extends State<HomeLiveCheckCard>
             ),
             InkWell(
               borderRadius: BorderRadius.circular(8.0),
-              onTap: () => _startLiveCheck(context),
+              onTap: () => _startLiveCheck(),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
                 child: Row(
@@ -803,7 +842,7 @@ class _HomeLiveCheckCardState extends State<HomeLiveCheckCard>
 
         // Take reading button with primary gradient
         InkWell(
-          onTap: () => _startLiveCheck(context),
+          onTap: () => _startLiveCheck(),
           borderRadius: BorderRadius.circular(14.0),
           child: Container(
             width: double.infinity,

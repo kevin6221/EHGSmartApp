@@ -126,12 +126,18 @@ class NativeBandService implements BandService {
 
       case 'measurement_fail':
         final measTypeStr = event['measureType']?.toString() ?? '';
-        final errorMsg = event['error']?.toString() ?? 'Measurement failed';
-        debugPrint('⚠️ [BAND DATA - MEASUREMENT FAILED] Type: $measTypeStr | Error: $errorMsg');
+        final errorMsg = event['error']?.toString() ?? 'Please wear smart device properly';
+        final bool isNotWorn = event['notWorn'] == true ||
+            (event['errorCode'] == -3) ||
+            errorMsg.toLowerCase().contains('wear') ||
+            errorMsg.toLowerCase().contains('properly') ||
+            errorMsg.toLowerCase().contains('wrist');
+        debugPrint('⚠️ [BAND DATA - MEASUREMENT FAILED] Type: $measTypeStr | Error: $errorMsg | NotWorn: $isNotWorn');
         _measurementResultController.add(BandMeasurementResult(
           type: _parseMeasurementType(measTypeStr),
           success: false,
-          error: errorMsg,
+          notWorn: isNotWorn,
+          error: isNotWorn ? 'Please wear smart device properly' : errorMsg,
         ));
         break;
 

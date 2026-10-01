@@ -36,9 +36,11 @@ class _OnboardingScreen4State extends State<OnboardingScreen4> {
     super.initState();
     final cubitAge = context.read<OnboardingCubit>().state.userAge;
     final profileAge = context.read<ProfileBloc>().state.data?.age;
-    final initialAge = (cubitAge > 0 && cubitAge != _defaultAge)
+    final initialAge = (cubitAge >= _minAge && cubitAge <= _maxAge)
         ? cubitAge
-        : (profileAge != null && profileAge > 0 ? profileAge : _defaultAge);
+        : (profileAge != null && profileAge >= _minAge && profileAge <= _maxAge
+            ? profileAge
+            : _defaultAge);
 
     _selectedAge = ValueNotifier<int>(initialAge);
     _scrollController = FixedExtentScrollController(
