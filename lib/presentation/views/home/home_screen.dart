@@ -11,7 +11,6 @@ import '../../../data/models/wellness_data_model.dart';
 import '../../../data/repositories/band_repository.dart';
 import '../../../data/repositories/wellness_repository.dart';
 import '../../blocs/band/band_bloc.dart';
-import '../../blocs/band/band_event.dart';
 import '../../blocs/band/band_state.dart';
 import '../../blocs/profile/profile_bloc.dart';
 import '../../blocs/profile/profile_state.dart';
@@ -98,18 +97,14 @@ class _HomeScreenState extends State<HomeScreen>
                     final syncMgr = context.read<HealthSyncManager>();
                     final bandRepo = context.read<BandRepository>();
                     final wellnessRepo = context.read<WellnessRepository>();
-                    final bandBloc = context.read<BandBloc>();
                     final wellnessBloc = context.read<WellnessBloc>();
                     final vitalsBloc = context.read<VitalsBloc>();
 
-                    try {
-                      await syncMgr.performManualSync(
-                        bandRepo: bandRepo,
-                        wellnessRepo: wellnessRepo,
-                      );
-                    } catch (_) {
-                      bandBloc.add(SyncVitalsEvent());
-                    }
+                    await syncMgr.performManualSync(
+                      bandRepo: bandRepo,
+                      wellnessRepo: wellnessRepo,
+                      force: true,
+                    );
                     if (mounted) {
                       wellnessBloc.add(const LoadWellnessDataEvent());
                       vitalsBloc.add(LoadVitalsEvent());
@@ -138,7 +133,7 @@ class _HomeScreenState extends State<HomeScreen>
                           );
                         },
                       ),
-                      SizedBox(height: itemSpacing),
+                      SizedBox(height: itemSpacing * 0.7),
 
                       // Wellness Score Banner Card
                       HomeWellnessScoreCard(
@@ -146,9 +141,11 @@ class _HomeScreenState extends State<HomeScreen>
                         moveScore: data.moveScore,
                         recoverScore: data.recoverScore,
                         mindScore: data.mindScore,
-                        fuelScore: data.fuelScore,
-                        scoreChange: '${data.scoreDiff.abs()}',
+                        scoreChange: data.hasYesterdayData
+                            ? '${data.scoreDiff.abs()}'
+                            : (data.scoreDiff != 0 ? '${data.scoreDiff.abs()}' : ''),
                         isNegativeChange: data.scoreDiff < 0,
+                        isNeutralChange: data.scoreDiff == 0,
                       ),
                       SizedBox(height: itemSpacing),
 
@@ -174,21 +171,22 @@ class _HomeScreenState extends State<HomeScreen>
                       BlocBuilder<BandBloc, BandState>(
                         builder: (context, bandState) {
                           final int liveHr = bandState.liveHeartRate;
-                          final bool isLive = bandState.isConnected && liveHr > 0;
 
-                          // Prioritize the latest recorded reading:
-                          // 1. Actively streaming real-time heart rate (if measuring)
-                          // 2. BandState latestHeartRate (recorded from spot checks or stream)
+                          // Prioritize the latest recorded reading (per Qwatch Pro, WHOOP, Garmin methodology):
+                          // 1. BandState latestHeartRate (recorded from on-demand spot checks / live checks)
+                          // 2. WellnessBloc currentHeartRate (synced latest spot check)
                           // 3. Synced vitals latestHeartRate
                           // 4. Most recent non-zero sample in heartRateHistory
-                          // 5. WellnessBloc currentHeartRate
+                          // 5. Active streaming live heart rate
                           int latestHr = 0;
-                          if (isLive) {
-                            latestHr = liveHr;
-                          } else if (bandState.latestHeartRate > 0) {
+                          if (bandState.latestHeartRate > 0) {
                             latestHr = bandState.latestHeartRate;
+                          } else if (data.currentHeartRate > 0) {
+                            latestHr = data.currentHeartRate;
                           } else if (bandState.lastSyncedVitals != null && bandState.lastSyncedVitals!.latestHeartRate > 0) {
                             latestHr = bandState.lastSyncedVitals!.latestHeartRate;
+                          } else if (liveHr > 0) {
+                            latestHr = liveHr;
                           } else {
                             final hrList = bandState.lastSyncedVitals?.heartRateHistory;
                             if (hrList != null && hrList.isNotEmpty) {
@@ -201,10 +199,6 @@ class _HomeScreenState extends State<HomeScreen>
                             }
                           }
 
-                          if (latestHr <= 0 && data.currentHeartRate > 0) {
-                            latestHr = data.currentHeartRate;
-                          }
-
                           final effectiveWeeklyHr = (bandState.lastSyncedVitals?.weeklyHeartRate.isNotEmpty == true &&
                                   bandState.lastSyncedVitals!.weeklyHeartRate.any((v) => v > 0))
                               ? bandState.lastSyncedVitals!.weeklyHeartRate
@@ -212,7 +206,7 @@ class _HomeScreenState extends State<HomeScreen>
 
                           return HomeVitalsSummaryRow(
                             heartRate: latestHr,
-                            isLive: isLive,
+                            isLive: false,
                             restingRate: data.restHr,
                             weeklyHeartRate: effectiveWeeklyHr,
                             sleepHours: data.sleepHours,
@@ -283,22 +277,23 @@ class _HomeScreenState extends State<HomeScreen>
                       // Energy Burned Card
                       BlocBuilder<BandBloc, BandState>(
                         builder: (context, bandState) {
-                          final rawBandCal = bandState.lastSyncedVitals?.calories ?? 0;
-                          final bandCalories = BandSyncedVitals.sanitizeCalories(rawBandCal);
-                          final int effectiveEnergy;
-                          if (bandCalories > 0) {
-                            effectiveEnergy = switch (data.activeMode) {
-                              WellnessMode.recover => (bandCalories * 0.70).round().clamp(250, 450),
-                              WellnessMode.steady => bandCalories,
-                              WellnessMode.push => (bandCalories * 1.45).round().clamp(750, 1100),
-                            };
-                          } else {
-                            effectiveEnergy = BandSyncedVitals.sanitizeCalories(data.energyBurned);
-                          }
-
                           final steps = (bandState.lastSyncedVitals?.steps ?? 0) > 0
                               ? bandState.lastSyncedVitals!.steps
                               : data.steps;
+                          final rawBandCal = bandState.lastSyncedVitals?.calories ?? 0;
+                          final bandCalories = BandSyncedVitals.sanitizeCalories(rawBandCal, steps: steps);
+                          final int effectiveEnergy;
+                          if (bandCalories > 0) {
+                            effectiveEnergy = bandCalories < 50
+                                ? bandCalories
+                                : switch (data.activeMode) {
+                                    WellnessMode.recover => (bandCalories * 0.70).round().clamp(250, 450),
+                                    WellnessMode.steady => bandCalories,
+                                    WellnessMode.push => (bandCalories * 1.45).round().clamp(750, 1100),
+                                  };
+                          } else {
+                            effectiveEnergy = BandSyncedVitals.sanitizeCalories(data.energyBurned, steps: steps);
+                          }
 
                           final int todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
                           List<double> chartValues = List<double>.from(

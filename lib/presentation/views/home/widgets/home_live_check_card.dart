@@ -314,27 +314,26 @@ class _HomeLiveCheckCardState extends State<HomeLiveCheckCard>
     final sbp = parts.isNotEmpty ? (int.tryParse(parts[0]) ?? 118) : 118;
     final dbp = parts.length > 1 ? (int.tryParse(parts[1]) ?? 76) : 76;
 
-    // 1. Dispatch to BandRepository & BandBloc
+    // 1. Stop hardware optical measuring
+    try {
+      await bandRepo.stopMeasuring(MeasurementType.oneKey);
+      await bandRepo.stopMeasuring(MeasurementType.heartRate);
+    } catch (_) {}
+
+    // 2. Dispatch to BandRepository & BandBloc
     await bandRepo.recordHeartRateMeasurement(hr);
     bandBloc.add(LiveHeartRateUpdatedEvent(hr));
     bandBloc.add(StopLiveHeartRateEvent());
 
-    // 2. Dispatch to WellnessBloc to synchronize daily vitals
+    // 3. Dispatch to WellnessBloc to synchronize daily vitals
     wellnessBloc.add(
       SyncBandVitalsEvent(
         liveHeartRate: hr,
         systolicBP: sbp,
         diastolicBP: dbp,
         bloodOxygen: spo2.toDouble(),
-        restingHeartRate: hr,
       ),
     );
-
-    // 3. Persist to BandRepository cache and SQLite
-    try {
-      await bandRepo.stopMeasuring(MeasurementType.oneKey);
-      await bandRepo.stopMeasuring(MeasurementType.heartRate);
-    } catch (_) {}
 
     // 4. Reload vitals & wellness blocs
     if (mounted) {

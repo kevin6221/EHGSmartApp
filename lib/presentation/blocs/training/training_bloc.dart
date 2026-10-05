@@ -1,6 +1,7 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import '../../../core/engine/heart_rate_zone_calculator.dart';
 import '../../../data/models/band_device_model.dart';
 import '../../../data/repositories/band_repository.dart';
 import '../../../data/repositories/wellness_repository.dart';
@@ -11,8 +12,11 @@ import 'training_state.dart';
 class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
   final WellnessRepository repository;
   final BandRepository? bandRepository;
+  final HeartRateZoneCalculator _zoneCalculator;
+
   StreamSubscription<int>? _hrSubscription;
   StreamSubscription<BandSyncedVitals>? _vitalsSubscription;
+  StreamSubscription<BandPedometerInfo>? _pedometerSubscription;
 
   /// Calculates physiologically accurate energy expenditure (kcal/min)
   /// combining standard Compendium of Physical Activities METs with Keytel HR expenditure equations.
@@ -70,8 +74,14 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
     return blendedRate.round().clamp(2, 30);
   }
 
-  TrainingBloc({required this.repository, this.bandRepository}) : super(const TrainingState()) {
-    on<LoadTrainingDataEvent>((event, emit) {
+  TrainingBloc({
+    required this.repository,
+    this.bandRepository,
+    HeartRateZoneCalculator? zoneCalculator,
+  })  : _zoneCalculator = zoneCalculator ?? HeartRateZoneCalculator(),
+        super(const TrainingState()) {
+
+    on<LoadTrainingDataEvent>((event, emit) async {
       emit(state.copyWith(status: TrainingStatus.loading));
       try {
         final data = repository.getWorkoutData();
@@ -82,7 +92,30 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
         );
         final syncedData = data.copyWith(estimatedKcalPerMin: calculatedRate);
         repository.updateWorkoutData(syncedData);
-        emit(state.copyWith(status: TrainingStatus.loaded, data: syncedData));
+
+        // Load SQLite backed recent workout sessions history
+        final recent = await repository.getRecentWorkoutSessions(limit: 10);
+        var displayData = syncedData;
+        if (recent.isNotEmpty) {
+          final latest = recent.first;
+          final h = latest.durationSeconds ~/ 3600;
+          final m = (latest.durationSeconds % 3600) ~/ 60;
+          final s = latest.durationSeconds % 60;
+          final durStr = '${h.toString().padLeft(2, '0')}hr ${m.toString().padLeft(2, '0')}min ${s.toString().padLeft(2, '0')}sec';
+          displayData = syncedData.copyWith(
+            recentSessionTitle: latest.title,
+            recentSessionDuration: durStr,
+            recentPeakHr: latest.peakHeartRate,
+            recentAvgHr: latest.avgHeartRate,
+          );
+          repository.updateWorkoutData(displayData);
+        }
+
+        emit(state.copyWith(
+          status: TrainingStatus.loaded,
+          data: displayData,
+          recentSessions: recent,
+        ));
       } catch (e) {
         emit(
           state.copyWith(
@@ -167,17 +200,52 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
       }
     });
 
-    on<StartWorkoutEvent>((event, emit) {
+    on<SelectTargetZoneEvent>((event, emit) {
+      // User tapped a specific zone card manually: honor selection without snapping back
+      emit(state.copyWith(
+        currentZone: event.zone.clamp(1, 5),
+        isManualZone: true,
+      ));
+    });
+
+    on<StartWorkoutEvent>((event, emit) async {
+      // 1. Activate hardware optical PPG on band
+      try {
+        await bandRepository?.startRealtimeHeartRate();
+      } catch (e) {
+        debugPrint('⚠️ [TRAINING BLOC] startRealtimeHeartRate: $e');
+      }
+
+      // 2. Read baseline pedometer counters from band to calculate session deltas
+      final currentVitals = bandRepository?.lastSyncedVitals;
+      final startSteps = currentVitals?.steps ?? 0;
+      final startDist = currentVitals?.distance ?? 0;
+      final initialHr = currentVitals?.latestHeartRate ?? 0;
+      final initialZone = initialHr > 0 ? _zoneCalculator.calculateZone(initialHr) : 1;
+
       emit(
         state.copyWith(
           sessionStatus: TrainingSessionStatus.running,
           elapsedSeconds: 0,
           burnedCalories: 0,
-          peakHeartRate: 0,
-          avgHeartRate: 0,
-          heartRateSum: 0,
-          heartRateCount: 0,
-          liveHeartRate: 0,
+          peakHeartRate: initialHr,
+          avgHeartRate: initialHr,
+          heartRateSum: initialHr > 0 ? initialHr : 0,
+          heartRateCount: initialHr > 0 ? 1 : 0,
+          liveHeartRate: initialHr,
+          currentZone: initialZone,
+          isManualZone: false,
+          distanceMeters: 0.0,
+          currentSpeedKmh: 0.0,
+          currentPaceSec: 0,
+          sessionSteps: 0,
+          initialSteps: startSteps,
+          initialDistance: startDist,
+          zone1Seconds: 0,
+          zone2Seconds: 0,
+          zone3Seconds: 0,
+          zone4Seconds: 0,
+          zone5Seconds: 0,
         ),
       );
     });
@@ -193,18 +261,41 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
     on<TickWorkoutEvent>((event, emit) {
       if (state.sessionStatus == TrainingSessionStatus.running) {
         final newSec = state.elapsedSeconds + 1;
-        int calories = state.burnedCalories;
         final weightKg = state.data?.selectedWeightKg ?? 70;
         final category = state.data?.selectedCategory ?? WorkoutType.run;
         final effectiveHr = state.liveHeartRate > 0 ? state.liveHeartRate : state.avgHeartRate;
 
+        // 1. Time in Zone accumulation
+        int z1 = state.zone1Seconds;
+        int z2 = state.zone2Seconds;
+        int z3 = state.zone3Seconds;
+        int z4 = state.zone4Seconds;
+        int z5 = state.zone5Seconds;
+
+        switch (state.currentZone) {
+          case 1:
+            z1++;
+            break;
+          case 2:
+            z2++;
+            break;
+          case 3:
+            z3++;
+            break;
+          case 4:
+            z4++;
+            break;
+          case 5:
+          default:
+            z5++;
+            break;
+        }
+
+        // 2. High-precision metabolic calorie calculation
         double kcalPerMin;
         if (effectiveHr > 60) {
-          // Proven Keytel heart-rate based expenditure equation (Journal of Sports Sciences)
-          // Men/General: (-55.0969 + (0.6309 * HR) + (0.1988 * weight) + (0.2017 * age=30)) / 4.184
           final keytelKcal = ((-55.0969 + (0.6309 * effectiveHr) + (0.1988 * weightKg) + (0.2017 * 30)) / 4.184);
 
-          // Sport-specific factor for mechanical difference between modes
           double sportFactor = 1.0;
           if (category == WorkoutType.run) sportFactor = 1.05;
           if (category == WorkoutType.hit) sportFactor = 1.10;
@@ -214,56 +305,104 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
 
           kcalPerMin = (keytelKcal * sportFactor).clamp(2.5, 25.0);
         } else {
-          // Baseline workout category estimation with intensity zone multiplier
           final baseKcal = (state.data?.estimatedKcalPerMin ?? 10).toDouble();
           double hrMultiplier = 1.0;
-          if (state.currentZone == 3) hrMultiplier = 1.2;
+          if (state.currentZone == 2) hrMultiplier = 1.1;
+          if (state.currentZone == 3) hrMultiplier = 1.25;
           if (state.currentZone == 4) hrMultiplier = 1.5;
           if (state.currentZone >= 5) hrMultiplier = 1.8;
           kcalPerMin = baseKcal * hrMultiplier;
         }
 
-        final dynamicCalories = ((newSec / 60.0) * kcalPerMin).round();
-        if (dynamicCalories > calories) {
-          calories = dynamicCalories;
+        // Smooth energy accumulation: registers calories accurately from the start
+        final dynamicCalories = ((newSec / 60.0) * kcalPerMin).ceil();
+        final calories = dynamicCalories > state.burnedCalories ? dynamicCalories : state.burnedCalories;
+
+        // 3. Speed & Pace calculation for distance activities
+        double currentSpeed = state.currentSpeedKmh;
+        int currentPace = state.currentPaceSec;
+        if (state.distanceMeters >= 5.0 && newSec >= 3) {
+          final km = state.distanceMeters / 1000.0;
+          final hours = newSec / 3600.0;
+          currentSpeed = (km / hours).clamp(0.0, 70.0);
+          final secPerKm = (newSec / km).round();
+          currentPace = secPerKm.clamp(120, 1800); // 2:00/km to 30:00/km realistic bounds
         }
+
         emit(
           state.copyWith(
             elapsedSeconds: newSec,
             burnedCalories: calories,
+            currentSpeedKmh: currentSpeed,
+            currentPaceSec: currentPace,
+            zone1Seconds: z1,
+            zone2Seconds: z2,
+            zone3Seconds: z3,
+            zone4Seconds: z4,
+            zone5Seconds: z5,
           ),
         );
       }
     });
 
     on<UpdateLiveTrainingCaloriesEvent>((event, emit) {
-      // Only allow idle pedometer calibration, never overwrite an active or finished workout session
       if (state.sessionStatus == TrainingSessionStatus.idle) {
         emit(state.copyWith(burnedCalories: event.calories));
       }
     });
 
+    on<UpdateLivePedometerEvent>((event, emit) {
+      if (state.sessionStatus == TrainingSessionStatus.running) {
+        final currentSteps = event.steps;
+        int initialSteps = state.initialSteps;
+        int initialDist = state.initialDistance;
+
+        // Auto-anchor on first positive hardware reading if initial was uninitialized (0)
+        if (initialSteps <= 0 && currentSteps > 0 && state.sessionSteps == 0) {
+          initialSteps = currentSteps;
+          initialDist = event.distanceMeters;
+        }
+
+        final diffSteps = (currentSteps - initialSteps).clamp(0, 150000);
+        final currentDist = event.distanceMeters;
+        final diffDist = (currentDist - initialDist).clamp(0, 1000000).toDouble();
+
+        // Stride estimation fallback if hardware distance is not advancing:
+        final effectiveDist = diffDist > 5.0 ? diffDist : (diffSteps * 0.76);
+
+        // Instantly recalculate pace & speed when new band steps arrive
+        double currentSpeed = state.currentSpeedKmh;
+        int currentPace = state.currentPaceSec;
+        if (effectiveDist >= 5.0 && state.elapsedSeconds >= 3) {
+          final km = effectiveDist / 1000.0;
+          final hours = state.elapsedSeconds / 3600.0;
+          currentSpeed = (km / hours).clamp(0.0, 70.0);
+          final secPerKm = (state.elapsedSeconds / km).round();
+          currentPace = secPerKm.clamp(120, 1800);
+        }
+
+        emit(state.copyWith(
+          initialSteps: initialSteps,
+          initialDistance: initialDist,
+          sessionSteps: diffSteps,
+          distanceMeters: effectiveDist,
+          currentSpeedKmh: currentSpeed,
+          currentPaceSec: currentPace,
+        ));
+      }
+    });
+
     on<UpdateLiveTrainingHeartRateEvent>((event, emit) {
       if (event.bpm > 0) {
-        int zone = 1;
-        if (event.bpm >= 170) {
-          zone = 5;
-        } else if (event.bpm >= 150) {
-          zone = 4;
-        } else if (event.bpm >= 130) {
-          zone = 3;
-        } else if (event.bpm >= 110) {
-          zone = 2;
-        } else {
-          zone = 1;
-        }
+        // Compute heart rate zone deterministically via domain calculator
+        final calculatedZone = _zoneCalculator.calculateZone(event.bpm);
 
         final newPeak = event.bpm > state.peakHeartRate ? event.bpm : state.peakHeartRate;
         final newSum = state.heartRateSum + event.bpm;
         final newCount = state.heartRateCount + 1;
         final newAvg = (newSum / newCount).round();
 
-        // Dynamically update the calorie estimate on the active training card with the live HR reading
+        // Update the calorie estimate baseline with the latest live HR reading
         WorkoutModel? updatedData = state.data;
         if (updatedData != null) {
           final liveRate = calculateEstimatedKcalPerMin(
@@ -277,10 +416,16 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
           }
         }
 
+        // Only update currentZone automatically from HR if user hasn't explicitly locked a target zone,
+        // or if live heart rate is actively moving through elevated zones
+        final int activeZone = (state.isManualZone && event.bpm < 100)
+            ? state.currentZone
+            : calculatedZone;
+
         emit(state.copyWith(
           data: updatedData,
           liveHeartRate: event.bpm,
-          currentZone: zone,
+          currentZone: activeZone,
           peakHeartRate: newPeak,
           avgHeartRate: newAvg,
           heartRateSum: newSum,
@@ -290,20 +435,37 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
     });
 
     on<FinishWorkoutEvent>((event, emit) async {
+      // Prevent duplicate saves if triggered multiple times
+      if (state.sessionStatus != TrainingSessionStatus.running &&
+          state.sessionStatus != TrainingSessionStatus.paused) {
+        return;
+      }
+
+      try {
+        await bandRepository?.stopRealtimeHeartRate();
+      } catch (_) {}
+
       final duration = state.elapsedSeconds;
       final peakHr = state.peakHeartRate;
       final avgHr = state.avgHeartRate;
       final calories = state.burnedCalories;
-      final title = state.data?.title ?? 'Outdoor run';
+      final baseTitle = state.data?.title ?? 'Outdoor run';
       final category = state.data?.selectedCategory ?? WorkoutType.run;
 
-      // Only persist genuine sessions (duration >= 15s with actual burn/HR or >= 60s)
-      if (duration >= 15 && (calories > 0 || avgHr > 0 || duration >= 60)) {
+      // Include tracked distance in session title when applicable
+      String finalTitle = baseTitle;
+      if (state.distanceMeters > 50) {
+        final distKm = (state.distanceMeters / 1000.0).toStringAsFixed(2);
+        finalTitle = '$baseTitle · $distKm km';
+      }
+
+      // Persist completed workout to SQLite
+      if (duration >= 5 && (calories > 0 || avgHr > 0 || duration >= 15)) {
         final now = DateTime.now();
         final startTime = now.subtract(Duration(seconds: duration));
 
         await repository.saveWorkoutSession(
-          title: title,
+          title: finalTitle,
           category: category,
           durationSeconds: duration,
           burnedCalories: calories,
@@ -314,13 +476,63 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
         );
       }
 
-      final updatedData = repository.getWorkoutData();
+      // Reload fresh SQLite history
+      final recent = await repository.getRecentWorkoutSessions(limit: 10);
+      var updatedData = repository.getWorkoutData();
+      if (recent.isNotEmpty) {
+        final latest = recent.first;
+        final h = latest.durationSeconds ~/ 3600;
+        final m = (latest.durationSeconds % 3600) ~/ 60;
+        final s = latest.durationSeconds % 60;
+        final durStr = '${h.toString().padLeft(2, '0')}hr ${m.toString().padLeft(2, '0')}min ${s.toString().padLeft(2, '0')}sec';
+        updatedData = updatedData.copyWith(
+          recentSessionTitle: latest.title,
+          recentSessionDuration: durStr,
+          recentPeakHr: latest.peakHeartRate,
+          recentAvgHr: latest.avgHeartRate,
+        );
+        repository.updateWorkoutData(updatedData);
+      }
+
       emit(state.copyWith(
         sessionStatus: TrainingSessionStatus.completed,
         data: updatedData,
+        recentSessions: recent,
       ));
     });
 
+    on<DeleteWorkoutSessionEvent>((event, emit) async {
+      await repository.deleteWorkoutSession(event.sessionId);
+      final recent = await repository.getRecentWorkoutSessions(limit: 10);
+      var updatedData = repository.getWorkoutData();
+      if (recent.isNotEmpty) {
+        final latest = recent.first;
+        final h = latest.durationSeconds ~/ 3600;
+        final m = (latest.durationSeconds % 3600) ~/ 60;
+        final s = latest.durationSeconds % 60;
+        final durStr = '${h.toString().padLeft(2, '0')}hr ${m.toString().padLeft(2, '0')}min ${s.toString().padLeft(2, '0')}sec';
+        updatedData = updatedData.copyWith(
+          recentSessionTitle: latest.title,
+          recentSessionDuration: durStr,
+          recentPeakHr: latest.peakHeartRate,
+          recentAvgHr: latest.avgHeartRate,
+        );
+      } else {
+        updatedData = updatedData.copyWith(
+          recentSessionTitle: 'Outdoor run',
+          recentSessionDuration: '--',
+          recentPeakHr: 0,
+          recentAvgHr: 0,
+        );
+      }
+      repository.updateWorkoutData(updatedData);
+      emit(state.copyWith(
+        data: updatedData,
+        recentSessions: recent,
+      ));
+    });
+
+    // ── Streams Subscription from Wearable Repository ─────────────
     if (bandRepository != null) {
       final initialHr = bandRepository!.lastSyncedVitals.latestHeartRate;
       if (initialHr > 0) {
@@ -330,8 +542,16 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
       _hrSubscription = bandRepository!.liveHeartRateStream.listen((bpm) {
         add(UpdateLiveTrainingHeartRateEvent(bpm));
       });
+
       _vitalsSubscription = bandRepository!.syncedVitalsStream.listen((vitals) {
         add(UpdateLiveTrainingCaloriesEvent(vitals.calories));
+      });
+
+      _pedometerSubscription = bandRepository!.pedometerStream.listen((pedometer) {
+        add(UpdateLivePedometerEvent(
+          steps: pedometer.steps,
+          distanceMeters: pedometer.distance,
+        ));
       });
     }
   }
@@ -340,8 +560,7 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
   Future<void> close() {
     _hrSubscription?.cancel();
     _vitalsSubscription?.cancel();
+    _pedometerSubscription?.cancel();
     return super.close();
   }
 }
-
-

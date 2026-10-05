@@ -34,11 +34,15 @@ class HealthSyncPolicy {
 
   // ── Global sync thresholds ─────────────────────────────────────────────
 
-  /// Threshold beyond which a cold start sync is deemed necessary.
-  static const Duration coldStartSyncThreshold = Duration(minutes: 15);
+  /// Threshold beyond which an app resume or cold start sync is deemed necessary.
+  /// Set to 2 minutes (matching Garmin / WHOOP foreground sync patterns).
+  static const Duration coldStartSyncThreshold = Duration(minutes: 2);
+
+  /// Threshold for onResume synchronization when app comes to foreground.
+  static const Duration resumeSyncThreshold = Duration(minutes: 2);
 
   /// Minimum delay before retrying a failed synchronization.
-  static const Duration failedSyncRetryDelay = Duration(minutes: 2);
+  static const Duration failedSyncRetryDelay = Duration(minutes: 1);
 
   // ── Helper: generic freshness check ────────────────────────────────────
 

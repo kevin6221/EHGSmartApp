@@ -2467,20 +2467,22 @@ class EHGBandAndroidPlugin(private val activity: Activity, messenger: BinaryMess
             override fun run() {
                 val gatt = connectedGatt
                 if (gatt != null && qcTxCharacteristic != null) {
-                    if (gattQueue.isEmpty() && !gattBusy && !isSyncInProgress && activeMeasuringType == null && !isLiveHeartRateActive) {
+                    if (gattQueue.isEmpty() && !gattBusy && !isSyncInProgress && activeMeasuringType == null) {
                         enqueueGattOp(OpType.CHAR_WRITE, "poll-sport-48") {
                             val packet = buildQcPacket("48")
                             writeQcPacketDirect(packet)
                         }
                     }
-                    mainHandler.postDelayed(this, 15_000L)
+                    val interval = if (isLiveHeartRateActive) 4_000L else 12_000L
+                    mainHandler.postDelayed(this, interval)
                 } else {
                     stopStepPolling()
                 }
             }
         }
         stepPollRunnable = pollTask
-        mainHandler.postDelayed(pollTask, 15_000L)
+        val initialDelay = if (isLiveHeartRateActive) 2_000L else 12_000L
+        mainHandler.postDelayed(pollTask, initialDelay)
     }
 
     private fun stopStepPolling() {

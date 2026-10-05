@@ -966,7 +966,7 @@ typedef void (^EHGBandWork)(EHGBandDone done);
 - (void)startStepPolling {
     [self.stepPollTimer invalidate];
     __weak typeof(self) weakSelf = self;
-    self.stepPollTimer = [NSTimer scheduledTimerWithTimeInterval:10.0 repeats:YES block:^(NSTimer * _Nonnull timer) {
+    self.stepPollTimer = [NSTimer scheduledTimerWithTimeInterval:4.0 repeats:YES block:^(NSTimer * _Nonnull timer) {
         __strong typeof(weakSelf) strongSelf = weakSelf;
         if (!strongSelf) return;
         if ([QCCentralManager shared].deviceState != QCStateConnected) {
@@ -1213,12 +1213,20 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     [QCSDKCmdCreator getSchedualHeartRateDataWithDayIndexs:@[@(dayIndex)] success:^(NSArray<QCSchedualHeartRateModel *> *models) {
         NSMutableArray *history = [NSMutableArray array];
         NSInteger latest = 0;
+        NSInteger minHr = 999;
+        NSInteger maxHr = 0;
+        NSInteger sumHr = 0;
+        NSInteger countHr = 0;
         for (QCSchedualHeartRateModel *model in models) {
             NSInteger index = 0;
             for (NSNumber *hr in model.heartRates) {
                 NSInteger bpm = hr.integerValue;
                 if (bpm > 0) {
                     latest = bpm;
+                    sumHr += bpm;
+                    countHr += 1;
+                    if (bpm < minHr) minHr = bpm;
+                    if (bpm > maxHr) maxHr = bpm;
                     [history addObject:@{
                         @"bpm": @(bpm),
                         @"timestamp": [NSString stringWithFormat:@"%@#%ld", model.date ?: @"", (long)index]
@@ -1229,6 +1237,12 @@ typedef void (^EHGBandWork)(EHGBandDone done);
         }
         if (latest > 0) {
             syncData[@"latestHeartRate"] = @(latest);
+        }
+        if (countHr > 0) {
+            syncData[@"avgHeartRate"] = @((NSInteger)(sumHr / countHr));
+            syncData[@"minHeartRate"] = @(minHr);
+            syncData[@"maxHeartRate"] = @(maxHr);
+            syncData[@"restingHeartRate"] = @(minHr);
         }
         syncData[@"heartRateHistory"] = history;
         finish();

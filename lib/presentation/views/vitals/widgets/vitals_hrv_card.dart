@@ -18,11 +18,14 @@ class VitalsHrvCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onHeaderActionTap;
 
+  final bool isLoading;
+
   const VitalsHrvCard({
     super.key,
     required this.hrvMs,
     this.status = 'Below your usual',
     required this.weeklyHrv,
+    this.isLoading = false,
     this.isExpandedNotifier,
     this.onExpandChanged,
     this.onTap,
@@ -33,13 +36,16 @@ class VitalsHrvCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final rec = RecommendationEngine.getHrvRecommendation(hrvMs, weeklyHrv);
 
+    final displayValue = hrvMs > 0 ? '$hrvMs' : (isLoading ? '...' : '--');
+    final displayStatus = hrvMs > 0 ? rec.status : (isLoading ? 'Syncing...' : '--');
+
     return VitalsExpandableMetricCard(
       svgIcon: AppIcons.heartPulse,
       iconColor: AppColors.primary,
       title: 'Heart Rate Variability',
-      value: hrvMs > 0 ? '$hrvMs' : '--',
+      value: displayValue,
       unit: 'ms',
-      status: hrvMs > 0 ? rec.status : '--',
+      status: displayStatus,
       isExpandedNotifier: isExpandedNotifier,
       onExpandChanged: onExpandChanged,
       onTap: onTap,

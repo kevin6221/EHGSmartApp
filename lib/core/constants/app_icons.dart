@@ -34,8 +34,8 @@ class AppIcons {
   static const String lotusFlower = 'assets/icons/lotus_flower.svg';
   static const String bloodDroplets = 'assets/icons/blood_droplets.svg';
   static const String stressVital = 'assets/icons/stress_vital.svg';
-  static const String upArrowBlue = 'assets/icons/down_arrow_blue.svg';
-  static const String downArrowBlue = 'assets/icons/up_arrow_blue.svg';
+  static const String upArrowBlue = 'assets/icons/up_arrow_blue.svg';
+  static const String downArrowBlue = 'assets/icons/down_arrow_blue.svg';
   static const String targetDart = 'assets/icons/target_dart.svg';
   static const String watchDevice = 'assets/icons/watch_device.svg';
   static const String layersFolded = 'assets/icons/layers_folded.svg';

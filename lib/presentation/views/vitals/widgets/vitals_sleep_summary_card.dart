@@ -27,6 +27,7 @@ class VitalsSleepSummaryCard extends StatefulWidget {
   final String? whatItIs;
   final String? yourReading;
   final String? doThis;
+  final bool isLoading;
 
   const VitalsSleepSummaryCard({
     super.key,
@@ -40,6 +41,7 @@ class VitalsSleepSummaryCard extends StatefulWidget {
     this.whatItIs,
     this.yourReading,
     this.doThis,
+    this.isLoading = false,
   });
 
   @override
@@ -135,6 +137,11 @@ class _VitalsSleepSummaryCardState extends State<VitalsSleepSummaryCard>
     String effectiveTotalSleep = widget.totalSleep;
     String effectiveSleepWindow = widget.sleepWindow;
     List<SleepInterval> effectiveIntervals = widget.sleepIntervals;
+
+    if (widget.isLoading && (effectiveTotalSleep == '--' || effectiveTotalSleep.trim().isEmpty)) {
+      effectiveTotalSleep = 'Syncing...';
+      effectiveSleepWindow = 'Retrieving sleep data...';
+    }
 
     // 1. If totalSleep is missing or '--', but intervals exist, compute from intervals
     if ((effectiveTotalSleep == '--' || effectiveTotalSleep.trim().isEmpty) &&

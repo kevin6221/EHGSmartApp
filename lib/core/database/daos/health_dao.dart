@@ -55,9 +55,14 @@ class HealthDataDao extends DatabaseAccessor<AppDatabase> with _$HealthDataDaoMi
         .write(merged);
   }
 
-  Future<DailyHealthSummary?> getDailySummary(String userId, String date) {
-    return (select(dailyHealthSummariesTable)
+  Future<DailyHealthSummary?> getDailySummary(String userId, String date) async {
+    final direct = await (select(dailyHealthSummariesTable)
           ..where((tbl) => tbl.userId.equals(userId) & tbl.date.equals(date)))
+        .getSingleOrNull();
+    if (direct != null) return direct;
+    return (select(dailyHealthSummariesTable)
+          ..where((tbl) => tbl.date.equals(date))
+          ..limit(1))
         .getSingleOrNull();
   }
 
@@ -96,6 +101,12 @@ class HealthDataDao extends DatabaseAccessor<AppDatabase> with _$HealthDataDaoMi
         .getSingleOrNull();
   }
 
+  Future<int> purgeSummariesBeforeDate(String userId, String beforeDate) {
+    return (delete(dailyHealthSummariesTable)
+          ..where((tbl) => tbl.userId.equals(userId) & tbl.date.isSmallerThanValue(beforeDate)))
+        .go();
+  }
+
   // Heart Rate Samples
   Future<void> insertHeartRateSamples(List<HeartRateSamplesTableCompanion> samples) async {
     await batch((batch) {
@@ -106,7 +117,7 @@ class HealthDataDao extends DatabaseAccessor<AppDatabase> with _$HealthDataDaoMi
   Future<List<HeartRateSample>> getHeartRateSamples(String deviceId, DateTime start, DateTime end) {
     return (select(heartRateSamplesTable)
           ..where((tbl) =>
-              tbl.deviceId.equals(deviceId) &
+              (tbl.deviceId.equals(deviceId) | tbl.deviceId.equals('default_band')) &
               tbl.timestamp.isBiggerOrEqualValue(start) &
               tbl.timestamp.isSmallerOrEqualValue(end))
           ..orderBy([(t) => OrderingTerm.asc(t.timestamp)]))
@@ -238,7 +249,7 @@ class HealthDataDao extends DatabaseAccessor<AppDatabase> with _$HealthDataDaoMi
   ) {
     return (select(vitalsRecordsTable)
           ..where((tbl) =>
-              tbl.deviceId.equals(deviceId) &
+              (tbl.deviceId.equals(deviceId) | tbl.deviceId.equals('default_band')) &
               tbl.vitalType.equals(vitalType) &
               tbl.timestamp.isBiggerOrEqualValue(start) &
               tbl.timestamp.isSmallerOrEqualValue(end))
@@ -268,17 +279,21 @@ class HealthDataDao extends DatabaseAccessor<AppDatabase> with _$HealthDataDaoMi
     return (query..orderBy([(t) => OrderingTerm.desc(t.date)])).get();
   }
 
-  // Workout Sessions
   Future<int> insertWorkoutSession(WorkoutSessionsTableCompanion session) {
     return into(workoutSessionsTable).insert(session);
   }
 
-  /// Deletes junk or broken test workout sessions (e.g. 1 sec duration or 0 HR and 0 cals with short duration)
+  /// Deletes a specific completed workout session by ID.
+  Future<int> deleteWorkoutSession(int id) {
+    return (delete(workoutSessionsTable)..where((tbl) => tbl.id.equals(id))).go();
+  }
+
+  /// Deletes junk or broken test workout sessions (e.g. sub-5 sec duration or 0 HR and 0 cals with short duration)
   Future<int> deleteInvalidWorkoutSessions([String? userId]) {
     var q = delete(workoutSessionsTable)
       ..where((tbl) =>
-          tbl.durationSeconds.isSmallerThanValue(15) |
-          (tbl.durationSeconds.isSmallerThanValue(60) &
+          tbl.durationSeconds.isSmallerThanValue(5) |
+          (tbl.durationSeconds.isSmallerThanValue(15) &
               tbl.avgHeartRate.equals(0) &
               tbl.burnedCalories.equals(0)));
     if (userId != null && userId.isNotEmpty) {
@@ -290,10 +305,10 @@ class HealthDataDao extends DatabaseAccessor<AppDatabase> with _$HealthDataDaoMi
   Future<WorkoutSession?> getLatestWorkoutSession([String? userId]) {
     var query = select(workoutSessionsTable)
       ..where((tbl) =>
-          tbl.durationSeconds.isBiggerOrEqualValue(15) &
+          tbl.durationSeconds.isBiggerOrEqualValue(5) &
           (tbl.burnedCalories.isBiggerThanValue(0) |
               tbl.avgHeartRate.isBiggerThanValue(0) |
-              tbl.durationSeconds.isBiggerOrEqualValue(60)));
+              tbl.durationSeconds.isBiggerOrEqualValue(15)));
     if (userId != null && userId.isNotEmpty) {
       query.where((tbl) => tbl.userId.equals(userId));
     }
@@ -306,10 +321,10 @@ class HealthDataDao extends DatabaseAccessor<AppDatabase> with _$HealthDataDaoMi
   Future<List<WorkoutSession>> getRecentWorkoutSessions({String? userId, int limit = 10}) {
     var query = select(workoutSessionsTable)
       ..where((tbl) =>
-          tbl.durationSeconds.isBiggerOrEqualValue(15) &
+          tbl.durationSeconds.isBiggerOrEqualValue(5) &
           (tbl.burnedCalories.isBiggerThanValue(0) |
               tbl.avgHeartRate.isBiggerThanValue(0) |
-              tbl.durationSeconds.isBiggerOrEqualValue(60)));
+              tbl.durationSeconds.isBiggerOrEqualValue(15)));
     if (userId != null && userId.isNotEmpty) {
       query.where((tbl) => tbl.userId.equals(userId));
     }
@@ -322,10 +337,10 @@ class HealthDataDao extends DatabaseAccessor<AppDatabase> with _$HealthDataDaoMi
   Stream<List<WorkoutSession>> watchRecentWorkoutSessions({String? userId, int limit = 10}) {
     var query = select(workoutSessionsTable)
       ..where((tbl) =>
-          tbl.durationSeconds.isBiggerOrEqualValue(15) &
+          tbl.durationSeconds.isBiggerOrEqualValue(5) &
           (tbl.burnedCalories.isBiggerThanValue(0) |
               tbl.avgHeartRate.isBiggerThanValue(0) |
-              tbl.durationSeconds.isBiggerOrEqualValue(60)));
+              tbl.durationSeconds.isBiggerOrEqualValue(15)));
     if (userId != null && userId.isNotEmpty) {
       query.where((tbl) => tbl.userId.equals(userId));
     }

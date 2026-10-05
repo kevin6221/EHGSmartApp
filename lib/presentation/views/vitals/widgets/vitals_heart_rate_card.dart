@@ -25,6 +25,7 @@ class VitalsHeartRateCard extends StatefulWidget {
   final String? whatItIs;
   final String? yourReading;
   final String? doThis;
+  final bool isLoading;
 
   const VitalsHeartRateCard({
     super.key,
@@ -37,6 +38,7 @@ class VitalsHeartRateCard extends StatefulWidget {
     this.whatItIs,
     this.yourReading,
     this.doThis,
+    this.isLoading = false,
   });
 
   @override
@@ -265,16 +267,32 @@ class _VitalsHeartRateCardState extends State<VitalsHeartRateCard>
                             ValueListenableBuilder<int>(
                               valueListenable: _activeScrubIndexNotifier,
                               builder: (context, activeIndex, _) {
-                                final displayRate = activeIndex < widget.weeklyHeartRate.length
-                                    ? widget.weeklyHeartRate[activeIndex].round()
-                                    : widget.currentHeartRate;
+                                final int displayRate;
+                                if (widget.isLoading && widget.currentHeartRate <= 0) {
+                                  displayRate = -1;
+                                } else if (widget.period == VitalsTimePeriod.day) {
+                                  if (widget.currentHeartRate > 0) {
+                                    displayRate = widget.currentHeartRate;
+                                  } else if (activeIndex < widget.weeklyHeartRate.length &&
+                                      widget.weeklyHeartRate[activeIndex] > 0) {
+                                    displayRate = widget.weeklyHeartRate[activeIndex].round();
+                                  } else {
+                                    displayRate = 0;
+                                  }
+                                } else {
+                                  displayRate = activeIndex < widget.weeklyHeartRate.length
+                                      ? widget.weeklyHeartRate[activeIndex].round()
+                                      : widget.currentHeartRate;
+                                }
 
                                 return Row(
                                   crossAxisAlignment: CrossAxisAlignment.baseline,
                                   textBaseline: TextBaseline.alphabetic,
                                   children: [
                                     Text(
-                                      displayRate > 0 ? '$displayRate' : '--',
+                                      displayRate == -1
+                                          ? '...'
+                                          : (displayRate > 0 ? '$displayRate' : '--'),
                                       style: GoogleFonts.plusJakartaSans(
                                         fontSize: dims.valueFontSize,
                                         fontWeight: FontWeight.w700,

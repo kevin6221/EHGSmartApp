@@ -63,10 +63,14 @@ class WellnessDataModel extends Equatable {
   final int recoverScore;
   final int mindScore;
   final int fuelScore;
+  final int yesterdayScore;
+
+  bool get hasYesterdayData => yesterdayScore > 0;
 
   const WellnessDataModel({
     required this.wellnessScore,
     required this.scoreDiff,
+    this.yesterdayScore = 0,
     required this.activeMode,
     required this.dayChartPoints,
     required this.currentHeartRate,
@@ -96,6 +100,7 @@ class WellnessDataModel extends Equatable {
   WellnessDataModel copyWith({
     int? wellnessScore,
     int? scoreDiff,
+    int? yesterdayScore,
     WellnessMode? activeMode,
     List<DayChartPoint>? dayChartPoints,
     int? currentHeartRate,
@@ -124,6 +129,7 @@ class WellnessDataModel extends Equatable {
     return WellnessDataModel(
       wellnessScore: wellnessScore ?? this.wellnessScore,
       scoreDiff: scoreDiff ?? this.scoreDiff,
+      yesterdayScore: yesterdayScore ?? this.yesterdayScore,
       activeMode: activeMode ?? this.activeMode,
       dayChartPoints: dayChartPoints ?? this.dayChartPoints,
       currentHeartRate: currentHeartRate ?? this.currentHeartRate,
@@ -154,6 +160,7 @@ class WellnessDataModel extends Equatable {
   Map<String, dynamic> toJson() => {
     'wellnessScore': wellnessScore,
     'scoreDiff': scoreDiff,
+    'yesterdayScore': yesterdayScore,
     'activeMode': activeMode.name,
     'dayChartPoints': dayChartPoints.map((p) => p.toJson()).toList(),
     'currentHeartRate': currentHeartRate,
@@ -192,6 +199,7 @@ class WellnessDataModel extends Equatable {
     return WellnessDataModel(
       wellnessScore: (json['wellnessScore'] as num?)?.toInt() ?? 0,
       scoreDiff: (json['scoreDiff'] as num?)?.toInt() ?? 0,
+      yesterdayScore: (json['yesterdayScore'] as num?)?.toInt() ?? 0,
       activeMode: WellnessMode.values.firstWhere(
         (m) => m.name == json['activeMode'],
         orElse: () => WellnessMode.steady,

@@ -47,6 +47,14 @@ class FinishWorkoutEvent extends TrainingEvent {
   const FinishWorkoutEvent();
 }
 
+class SelectTargetZoneEvent extends TrainingEvent {
+  final int zone;
+  const SelectTargetZoneEvent(this.zone);
+
+  @override
+  List<Object?> get props => [zone];
+}
+
 class UpdateLiveTrainingHeartRateEvent extends TrainingEvent {
   final int bpm;
   const UpdateLiveTrainingHeartRateEvent(this.bpm);
@@ -63,3 +71,19 @@ class UpdateLiveTrainingCaloriesEvent extends TrainingEvent {
   List<Object?> get props => [calories];
 }
 
+class UpdateLivePedometerEvent extends TrainingEvent {
+  final int steps;
+  final int distanceMeters;
+  const UpdateLivePedometerEvent({required this.steps, required this.distanceMeters});
+
+  @override
+  List<Object?> get props => [steps, distanceMeters];
+}
+
+class DeleteWorkoutSessionEvent extends TrainingEvent {
+  final int sessionId;
+  const DeleteWorkoutSessionEvent(this.sessionId);
+
+  @override
+  List<Object?> get props => [sessionId];
+}

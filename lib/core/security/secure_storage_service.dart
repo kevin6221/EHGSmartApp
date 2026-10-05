@@ -65,6 +65,16 @@ class SecureStorageService {
     await delete(_keyBondedMac);
   }
 
+  static const String _keyDevicePairingDatePrefix = 'device_pairing_date_';
+
+  Future<void> saveDevicePairingDate(String mac, String date) async {
+    await write('$_keyDevicePairingDatePrefix$mac', date);
+  }
+
+  Future<String?> getDevicePairingDate(String mac) async {
+    return await read('$_keyDevicePairingDatePrefix$mac');
+  }
+
   Future<void> saveBandAuthKey(String mac, String authKey) async {
     await write('$_keyBandAuthPrefix$mac', authKey);
   }

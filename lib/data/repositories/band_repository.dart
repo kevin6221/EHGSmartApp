@@ -66,6 +66,7 @@ class BandRepository {
         _autoReconnectTimer?.cancel();
         _autoReconnectTimer = null;
         _isAutoReconnecting = false;
+        _service.syncTime().catchError((_) => false);
         _service.getBattery().then((b) {
           if (b.percentage > 0) {
             _battery = b;
@@ -75,7 +76,6 @@ class BandRepository {
             }
           }
         });
-        // Health synchronization is handled by HealthSyncManager (cold start / pull-to-refresh policy)
       } else if (status == BandConnectionStatus.disconnected) {
         _connectedDevice = null;
         if (!_isExplicitDisconnect && _lastPairedDevice != null) {
@@ -135,7 +135,7 @@ class BandRepository {
           stressLevel: (d['stress'] as num?)?.toInt(),
           hrvMs: (d['hrv'] as num?)?.toInt(),
           latestHeartRate: (hr != null && hr > 0) ? hr : _lastSyncedVitals.latestHeartRate,
-          restingHeartRate: (hr != null && hr > 0) ? hr : _lastSyncedVitals.restingHeartRate,
+          restingHeartRate: _lastSyncedVitals.restingHeartRate,
           heartRateHistory: updatedHrHistory,
           weeklyHeartRate: updatedWeeklyHr,
         );
@@ -291,7 +291,45 @@ class BandRepository {
       final today = now.toIso8601String().substring(0, 10);
       final effectiveDate = targetDate ?? (vitals.date.isNotEmpty ? vitals.date : today);
       final devId = _connectedDevice?.macAddress ?? _lastPairedDevice?.mac ?? 'default_band';
+      final pairingDate = await _secureStorage.getDevicePairingDate(devId);
+      if (pairingDate != null && effectiveDate.compareTo(pairingDate) < 0) {
+        debugPrint('🛡️ [BAND REPO] Discarding pre-pairing vitals record for $effectiveDate (paired on $pairingDate)');
+        return;
+      }
       final userId = await _secureStorage.getActiveUserId();
+
+      final parsedEffectiveDate = DateTime.tryParse(effectiveDate) ?? now;
+      final effectiveRecordTimestamp = (effectiveDate == today)
+          ? now
+          : DateTime(parsedEffectiveDate.year, parsedEffectiveDate.month, parsedEffectiveDate.day, 12, 0, 0);
+
+      // Compute heart rate aggregates from history or latest/resting
+      int? calculatedAvgHr;
+      int? calculatedMinHr;
+      int? calculatedMaxHr;
+      int? calculatedRestingHr;
+
+      final validBpmList = vitals.heartRateHistory
+          .where((h) => h.bpm > 0)
+          .map((h) => h.bpm)
+          .toList();
+
+      if (validBpmList.isNotEmpty) {
+        calculatedAvgHr = (validBpmList.reduce((a, b) => a + b) / validBpmList.length).round();
+        calculatedMinHr = validBpmList.reduce(math.min);
+        calculatedMaxHr = validBpmList.reduce(math.max);
+        calculatedRestingHr = vitals.restingHeartRate > 0 ? vitals.restingHeartRate : calculatedMinHr;
+      } else if (vitals.latestHeartRate > 0) {
+        calculatedAvgHr = vitals.latestHeartRate;
+        calculatedMinHr = vitals.latestHeartRate;
+        calculatedMaxHr = vitals.latestHeartRate;
+        calculatedRestingHr = vitals.restingHeartRate > 0 ? vitals.restingHeartRate : vitals.latestHeartRate;
+      } else if (vitals.restingHeartRate > 0) {
+        calculatedAvgHr = vitals.restingHeartRate;
+        calculatedMinHr = vitals.restingHeartRate;
+        calculatedMaxHr = vitals.restingHeartRate;
+        calculatedRestingHr = vitals.restingHeartRate;
+      }
 
       // 0. Persist JSON to Secure Storage for instant hydration on restart (for today)
       if (effectiveDate == today) {
@@ -305,10 +343,12 @@ class BandRepository {
           deviceId: drift.Value(devId),
           date: drift.Value(effectiveDate),
           steps: drift.Value(vitals.steps),
-          caloriesBurned: drift.Value(BandSyncedVitals.sanitizeCalories(vitals.calories).toDouble()),
+          caloriesBurned: drift.Value(BandSyncedVitals.sanitizeCalories(vitals.calories, steps: vitals.steps).toDouble()),
           distanceMeters: drift.Value(vitals.distance.toDouble()),
-          restingHeartRate: drift.Value(vitals.restingHeartRate > 0 ? vitals.restingHeartRate : null),
-          avgHeartRate: drift.Value(vitals.restingHeartRate > 0 ? vitals.restingHeartRate : null),
+          restingHeartRate: drift.Value(calculatedRestingHr),
+          avgHeartRate: drift.Value(calculatedAvgHr),
+          minHeartRate: drift.Value(calculatedMinHr),
+          maxHeartRate: drift.Value(calculatedMaxHr),
           avgSpo2: drift.Value(vitals.bloodOxygen > 0 ? vitals.bloodOxygen : null),
           sleepDurationMinutes: drift.Value(vitals.sleepMinutes),
           deepSleepMinutes: drift.Value(vitals.deepSleepMinutes),
@@ -316,7 +356,7 @@ class BandRepository {
         ),
       );
 
-      // 2. Persist discrete vitals records
+      // 2. Persist discrete vitals records with effective historical timestamp
       final List<VitalsRecordsTableCompanion> vitalsBatch = [];
       if (vitals.bloodOxygen > 0) {
         vitalsBatch.add(
@@ -325,7 +365,7 @@ class BandRepository {
             vitalType: const drift.Value('spo2'),
             valueNumeric: drift.Value(vitals.bloodOxygen),
             unit: const drift.Value('%'),
-            timestamp: drift.Value(now),
+            timestamp: drift.Value(effectiveRecordTimestamp),
           ),
         );
       }
@@ -337,22 +377,10 @@ class BandRepository {
             valueNumeric: drift.Value(vitals.systolicBP.toDouble()),
             secondaryNumeric: drift.Value(vitals.diastolicBP.toDouble()),
             unit: const drift.Value('mmHg'),
-            timestamp: drift.Value(now),
+            timestamp: drift.Value(effectiveRecordTimestamp),
           ),
         );
       }
-      // Skin temperature not supported by hardware - commented out
-      // if (vitals.skinTemperature > 0) {
-      //   vitalsBatch.add(
-      //     VitalsRecordsTableCompanion(
-      //       deviceId: drift.Value(devId),
-      //       vitalType: const drift.Value('temperature'),
-      //       valueNumeric: drift.Value(vitals.skinTemperature),
-      //       unit: const drift.Value('°C'),
-      //       timestamp: drift.Value(now),
-      //     ),
-      //   );
-      // }
       if (vitals.stressLevel > 0) {
         vitalsBatch.add(
           VitalsRecordsTableCompanion(
@@ -360,7 +388,7 @@ class BandRepository {
             vitalType: const drift.Value('stress'),
             valueNumeric: drift.Value(vitals.stressLevel.toDouble()),
             unit: const drift.Value('/100'),
-            timestamp: drift.Value(now),
+            timestamp: drift.Value(effectiveRecordTimestamp),
           ),
         );
       }
@@ -371,18 +399,19 @@ class BandRepository {
             vitalType: const drift.Value('hrv'),
             valueNumeric: drift.Value(vitals.hrvMs.toDouble()),
             unit: const drift.Value('ms'),
-            timestamp: drift.Value(now),
+            timestamp: drift.Value(effectiveRecordTimestamp),
           ),
         );
       }
-      if (vitals.latestHeartRate > 0) {
+      final hrForRecord = vitals.latestHeartRate > 0 ? vitals.latestHeartRate : (calculatedAvgHr ?? 0);
+      if (hrForRecord > 0) {
         vitalsBatch.add(
           VitalsRecordsTableCompanion(
             deviceId: drift.Value(devId),
             vitalType: const drift.Value('heart_rate'),
-            valueNumeric: drift.Value(vitals.latestHeartRate.toDouble()),
+            valueNumeric: drift.Value(hrForRecord.toDouble()),
             unit: const drift.Value('bpm'),
-            timestamp: drift.Value(now),
+            timestamp: drift.Value(effectiveRecordTimestamp),
           ),
         );
       }
@@ -391,15 +420,24 @@ class BandRepository {
         await _db.healthDataDao.insertVitalsBatch(vitalsBatch);
       }
 
-      // 3. Persist heart rate samples
+      // 3. Persist heart rate samples accurately mapped to historical timestamps
       if (vitals.heartRateHistory.isNotEmpty) {
         final samples = vitals.heartRateHistory.map((hr) {
-          final t = DateTime.tryParse(hr.timestamp) ?? now;
+          DateTime sampleTime;
+          if (hr.timestamp.contains('#')) {
+            final parts = hr.timestamp.split('#');
+            final baseDate = DateTime.tryParse(parts[0]) ?? parsedEffectiveDate;
+            final idx = int.tryParse(parts[1]) ?? 0;
+            // QCSDK intervals are 5 minutes (288 slots) spanning 00:00 to 23:55
+            sampleTime = DateTime(baseDate.year, baseDate.month, baseDate.day).add(Duration(minutes: idx * 5));
+          } else {
+            sampleTime = DateTime.tryParse(hr.timestamp) ?? parsedEffectiveDate;
+          }
           return HeartRateSamplesTableCompanion(
             deviceId: drift.Value(devId),
-            timestamp: drift.Value(t),
+            timestamp: drift.Value(sampleTime),
             bpm: drift.Value(hr.bpm),
-            isResting: drift.Value(hr.bpm == vitals.restingHeartRate),
+            isResting: drift.Value(calculatedRestingHr != null && hr.bpm == calculatedRestingHr),
           );
         }).toList();
         await _db.healthDataDao.insertHeartRateSamples(samples);
@@ -407,10 +445,14 @@ class BandRepository {
 
       // 4. Persist sleep session and sleep phases
       if (vitals.sleepMinutes > 0) {
+        final sleepEnd = (effectiveDate == today)
+            ? now
+            : DateTime(parsedEffectiveDate.year, parsedEffectiveDate.month, parsedEffectiveDate.day, 7, 0, 0);
+        final sleepStart = sleepEnd.subtract(Duration(minutes: vitals.sleepMinutes));
         final sessionCompanion = SleepSessionsTableCompanion(
           deviceId: drift.Value(devId),
-          startTime: drift.Value(now.subtract(Duration(minutes: vitals.sleepMinutes))),
-          endTime: drift.Value(now),
+          startTime: drift.Value(sleepStart),
+          endTime: drift.Value(sleepEnd),
           totalDurationMinutes: drift.Value(vitals.sleepMinutes),
           deepMinutes: drift.Value(vitals.deepSleepMinutes),
           lightMinutes: drift.Value((vitals.sleepMinutes - vitals.deepSleepMinutes).clamp(0, vitals.sleepMinutes)),
@@ -418,8 +460,8 @@ class BandRepository {
           syncedAt: drift.Value(now),
         );
         final phasesList = vitals.sleepPhases.map((p) {
-          final start = DateTime.tryParse(p.startTime) ?? now.subtract(Duration(minutes: p.durationMinutes));
-          final end = DateTime.tryParse(p.endTime) ?? now;
+          final start = DateTime.tryParse(p.startTime) ?? sleepEnd.subtract(Duration(minutes: p.durationMinutes));
+          final end = DateTime.tryParse(p.endTime) ?? sleepEnd;
           return SleepPhasesTableCompanion(
             phaseType: drift.Value(p.type),
             startTime: drift.Value(start),
@@ -484,7 +526,9 @@ class BandRepository {
   Stream<String> get connectionErrorStream => _service.connectionErrorStream;
   bool get isConnected => _currentStatus == BandConnectionStatus.connected;
   BandConnectionStatus get connectionStatus => _currentStatus;
+  BandService get service => _service;
   Future<bool> reconnect() => tryAutoReconnect();
+  Future<bool> syncTime() => _service.syncTime();
 
   /// Waits for SQLite cache restoration to finish on app startup / hot restart.
   Future<void> ensureInitialized() => _initCompleter.future;
@@ -553,6 +597,15 @@ class BandRepository {
         macAddress: device.mac.isNotEmpty ? device.mac : info.macAddress,
       );
       _battery = await _service.getBattery();
+
+      // Manage pairing date baseline (WHOOP / Garmin standard)
+      final devMac = device.mac.isNotEmpty ? device.mac : device.id;
+      final existingPairingDate = await _secureStorage.getDevicePairingDate(devMac);
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      if (existingPairingDate == null) {
+        debugPrint('🆕 [BAND REPO] First connection to band $devMac on $today. Establishing pairing baseline.');
+        await _secureStorage.saveDevicePairingDate(devMac, today);
+      }
     } catch (_) {
       // Non-fatal handshake errors
     }
@@ -576,6 +629,7 @@ class BandRepository {
       debugPrint('⚡️ [BAND RECONNECT] Band is already connected natively! Reusing existing connection.');
       _currentStatus = BandConnectionStatus.connected;
       _reconnectAttempts = 0;
+      _service.syncTime().catchError((_) => false);
       _service.getBattery().then((b) {
         if (b.percentage > 0) {
           _battery = b;
@@ -599,6 +653,7 @@ class BandRepository {
       if (ok || _currentStatus == BandConnectionStatus.connected) {
         debugPrint('⚡️ [BAND RECONNECT] Direct connect succeeded!');
         _reconnectAttempts = 0;
+        _service.syncTime().catchError((_) => false);
         return true;
       }
       return false;
@@ -767,7 +822,7 @@ class BandRepository {
           dayIndex: 0,
         );
         _lastSyncedVitals = vitals;
-        _persistVitals(vitals, targetDate: today);
+        await _persistVitals(vitals, targetDate: today);
         _syncedVitalsController.add(vitals);
         return vitals;
       } finally {
@@ -784,6 +839,8 @@ class BandRepository {
     final now = DateTime.now();
     final targetDate = now.subtract(Duration(days: dayIndex));
     final dateStr = "${targetDate.year.toString().padLeft(4, '0')}-${targetDate.month.toString().padLeft(2, '0')}-${targetDate.day.toString().padLeft(2, '0')}";
+
+
 
     final raw = await _service.syncHistoricalDay(dayIndex);
     int dayLatest = raw.latestHeartRate;

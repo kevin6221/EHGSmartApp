@@ -19,6 +19,7 @@ class HomeWellnessScoreCard extends StatefulWidget {
   final int fuelScore;
   final String scoreChange;
   final bool isNegativeChange;
+  final bool isNeutralChange;
   final ValueNotifier<bool>? isExpandedNotifier;
   final VoidCallback? onTap;
 
@@ -29,8 +30,9 @@ class HomeWellnessScoreCard extends StatefulWidget {
     this.recoverScore = 73,
     this.mindScore = 30,
     this.fuelScore = 31,
-    this.scoreChange = '3',
+    this.scoreChange = '',
     this.isNegativeChange = false,
+    this.isNeutralChange = false,
     this.isExpandedNotifier,
     this.onTap,
   });
@@ -176,37 +178,40 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
                       color: context.textPrimary,
                     ),
                   ),
-                  if (widget.score > 0) ...[
+                  if (widget.score > 0 && widget.scoreChange.isNotEmpty) ...[
                     const SizedBox(width: 6.0),
-                    Icon(
-                      widget.isNegativeChange
-                          ? Icons.arrow_downward_outlined
-                          : Icons.arrow_upward_outlined,
-                      size: 10.0,
-                      color: widget.isNegativeChange
-                          ? AppColors.scoreDownRed
-                          : AppColors.primary,
-                    ),
+                    if (!widget.isNeutralChange) ...[
+                      Icon(
+                        widget.isNegativeChange
+                            ? Icons.arrow_downward_rounded
+                            : Icons.arrow_upward_rounded,
+                        size: r.font(13.0),
+                        color: widget.isNegativeChange
+                            ? AppColors.scoreDownRed
+                            : AppColors.primary,
+                      ),
+                      const SizedBox(width: 2.0),
+                    ],
                     Text(
                       widget.scoreChange,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: r.font(12.0),
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                         color: widget.isNegativeChange
                             ? AppColors.scoreDownRed
                             : AppColors.primary,
                       ),
                     ),
-                  ],
-                  const SizedBox(width: 4.0),
-                  Text(
-                    'from yesterday',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: r.font(10.0),
-                      fontWeight: FontWeight.w500,
-                      color: context.textSecondary,
+                    const SizedBox(width: 3.5),
+                    Text(
+                      'from yesterday',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: r.font(10.0),
+                        fontWeight: FontWeight.w500,
+                        color: context.textSecondary,
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
               const SizedBox(height: 8.0),

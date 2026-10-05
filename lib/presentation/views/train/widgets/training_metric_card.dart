@@ -7,7 +7,8 @@ import '../../../../core/theme/responsive.dart';
 
 /// Reusable metric card (e.g. Heart Rate, Calories) for active workout session.
 class TrainingMetricCard extends StatelessWidget {
-  final String icon;
+  final String? icon;
+  final IconData? iconData;
   final String label;
   final String value;
   final Color color;
@@ -15,12 +16,13 @@ class TrainingMetricCard extends StatelessWidget {
 
   const TrainingMetricCard({
     super.key,
-    required this.icon,
+    this.icon,
+    this.iconData,
     required this.label,
     required this.color,
     required this.value,
     required this.unit,
-  });
+  }) : assert(icon != null || iconData != null, 'Either icon or iconData must be provided');
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +55,10 @@ class TrainingMetricCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              AppSvgIcon(icon, size: 16, color: color),
+              if (icon != null)
+                AppSvgIcon(icon!, size: 16, color: color)
+              else if (iconData != null)
+                Icon(iconData, size: 16, color: color),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(

@@ -144,7 +144,7 @@ class NativeBandService implements BandService {
       case 'step_update':
         final steps = (event['steps'] as num?)?.toInt() ?? 0;
         final rawCal = (event['calories'] as num?)?.toInt() ?? 0;
-        final cal = BandSyncedVitals.sanitizeCalories(rawCal);
+        final cal = BandSyncedVitals.sanitizeCalories(rawCal, steps: steps);
         final dist = (event['distance'] as num?)?.toInt() ?? 0;
         // Deduplicate: only emit when user makes progress (steps, calories, or distance changes)
         if (steps != _lastReportedSteps || cal != _lastReportedCalories || dist != _lastReportedDistance) {

@@ -299,26 +299,48 @@ class BandSyncedVitals extends Equatable {
   /// Normalizes raw calories from QC hardware firmware to daily kcal.
   ///
   /// The QC SDK reports calories inconsistently across firmware versions:
-  /// - Some report in small calories (cal), yielding values like 44,695
-  /// - Some report in kcal directly (200–600 range for a normal day)
-  /// - Some report in cal×10 (2,000–5,000 range)
+  /// - Small calories (cal): e.g. 48 steps * ~28 cal/step = 1,356 cal (1.36 kcal)
+  /// - Centi-kcal (cal / 100): e.g. 48 steps -> 135 (1.35 kcal)
+  /// - Direct kcal (reasonable daily range 50–3,500 kcal)
   ///
-  /// This normalizer converts all variants to kcal and clamps the result
-  /// to a physiologically realistic daily maximum (elite athletes peak
-  /// around 8,000–10,000 kcal/day; a normal user is 1,500–3,500 kcal/day).
-  static int sanitizeCalories(int rawCal) {
+  /// This method performs physiological sanity checks:
+  /// Normal human active burn is 0.035–0.050 kcal/step. Even high-intensity running
+  /// is at most ~0.08–0.10 kcal/step.
+  static int sanitizeCalories(int rawCal, {int steps = 0}) {
     if (rawCal <= 0) return 0;
 
     int kcal;
     if (rawCal > 350000) {
-      // Extremely high — raw small calories in millicalories
+      // Raw millicalories / high small calories
       kcal = (rawCal / 1000).round();
-    } else if (rawCal > 3500) {
-      // QC Band standard step-calorie unit (e.g. 44,695 -> 447 kcal)
-      kcal = (rawCal / 100).round();
+    } else if (steps > 0) {
+      final ratio = rawCal / steps;
+      if (ratio > 10.0) {
+        // Raw value is in small calories (cal) (e.g. 1356 cal for 48 steps -> ratio 28.25)
+        kcal = (rawCal / 1000).round();
+      } else if (ratio > 2.0 && rawCal > 500) {
+        // Centi-kcal unit
+        kcal = (rawCal / 100).round();
+      } else {
+        kcal = rawCal;
+      }
+
+      // Upper bound check: active burn cannot exceed 0.08 kcal/step + baseline allowance
+      final maxRealisticKcal = (steps * 0.08).ceil() + 15;
+      if (kcal > maxRealisticKcal) {
+        // Firmware sent anomalous or uncalibrated active calories, fall back to physiological estimation
+        kcal = (steps * 0.042).round();
+      }
     } else {
-      // 1–3,500: already in kcal (reasonable daily range)
-      kcal = rawCal;
+      // 0 steps reported
+      if (rawCal > 3500) {
+        kcal = (rawCal / 100).round();
+      } else if (rawCal > 500) {
+        // e.g. 1356 with 0 steps is small calories
+        kcal = (rawCal / 1000).round();
+      } else {
+        kcal = rawCal;
+      }
     }
 
     // Final safety clamp: physiologically realistic daily active burn
@@ -343,8 +365,9 @@ class BandSyncedVitals extends Equatable {
       return const [];
     }
 
+    final rawSteps = (map['steps'] as num?)?.toInt() ?? 0;
     int rawCal = (map['calories'] as num?)?.toInt() ?? 0;
-    int normalizedCal = sanitizeCalories(rawCal);
+    int normalizedCal = sanitizeCalories(rawCal, steps: rawSteps);
 
     int latestHr = (map['latestHeartRate'] as num?)?.toInt() ?? 0;
     if (latestHr <= 0 && rawHr != null && rawHr.isNotEmpty) {
@@ -459,9 +482,10 @@ class BandSyncedVitals extends Equatable {
     String? date,
     int? dayIndex,
   }) {
+    final newSteps = steps ?? this.steps;
     return BandSyncedVitals(
-      steps: steps ?? this.steps,
-      calories: calories != null ? sanitizeCalories(calories) : this.calories,
+      steps: newSteps,
+      calories: calories != null ? sanitizeCalories(calories, steps: newSteps) : this.calories,
       distance: distance ?? this.distance,
       sleepMinutes: sleepMinutes ?? this.sleepMinutes,
       deepSleepMinutes: deepSleepMinutes ?? this.deepSleepMinutes,
@@ -517,8 +541,9 @@ class BandSyncedVitals extends Equatable {
   };
 
   factory BandSyncedVitals.fromJson(Map<String, dynamic> json) {
+    final steps = (json['steps'] as num?)?.toInt() ?? 0;
     int rawCal = (json['calories'] as num?)?.toInt() ?? 0;
-    int normalizedCal = sanitizeCalories(rawCal);
+    int normalizedCal = sanitizeCalories(rawCal, steps: steps);
 
     int latestHr = (json['latestHeartRate'] as num?)?.toInt() ?? 0;
     final rawHrList = json['heartRateHistory'] as List<dynamic>?;

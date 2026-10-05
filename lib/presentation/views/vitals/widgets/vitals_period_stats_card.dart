@@ -10,10 +10,12 @@ import '../../../widgets/common/app_card.dart';
 /// "Relax / Normal / Medium / High" percentage distribution from QWatch Pro / Garmin.
 class VitalsPeriodStatsCard extends StatelessWidget {
   final VitalsPeriodStats stats;
+  final bool isLoading;
 
   const VitalsPeriodStatsCard({
     super.key,
     required this.stats,
+    this.isLoading = false,
   });
 
   @override
@@ -48,11 +50,13 @@ class VitalsPeriodStatsCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12.0),
                 ),
                 child: Text(
-                  stats.period == VitalsTimePeriod.day
-                      ? 'Hourly Granularity'
-                      : stats.period == VitalsTimePeriod.week
-                          ? 'Daily Rollup'
-                          : 'Monthly Trend',
+                  isLoading
+                      ? 'Syncing...'
+                      : (stats.period == VitalsTimePeriod.day
+                          ? 'Hourly Granularity'
+                          : stats.period == VitalsTimePeriod.week
+                              ? 'Daily Rollup'
+                              : 'Monthly Trend'),
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(11.0),
                     fontWeight: FontWeight.w600,
@@ -70,8 +74,8 @@ class VitalsPeriodStatsCard extends StatelessWidget {
               _buildStatBadge(
                 context,
                 label: 'Average',
-                value: stats.average > 0 ? '${stats.average.round()}' : '--',
-                unit: stats.average > 0 ? stats.unit : '',
+                value: isLoading ? '...' : (stats.average > 0 ? '${stats.average.round()}' : '--'),
+                unit: (!isLoading && stats.average > 0) ? stats.unit : '',
                 color: AppColors.primary,
                 r: r,
               ),
@@ -79,8 +83,8 @@ class VitalsPeriodStatsCard extends StatelessWidget {
               _buildStatBadge(
                 context,
                 label: 'Minimum',
-                value: stats.minimum > 0 ? '${stats.minimum.round()}' : '--',
-                unit: stats.minimum > 0 ? stats.unit : '',
+                value: isLoading ? '...' : (stats.minimum > 0 ? '${stats.minimum.round()}' : '--'),
+                unit: (!isLoading && stats.minimum > 0) ? stats.unit : '',
                 color: AppColors.cyanAccent,
                 r: r,
               ),
@@ -88,8 +92,8 @@ class VitalsPeriodStatsCard extends StatelessWidget {
               _buildStatBadge(
                 context,
                 label: 'Maximum',
-                value: stats.maximum > 0 ? '${stats.maximum.round()}' : '--',
-                unit: stats.maximum > 0 ? stats.unit : '',
+                value: isLoading ? '...' : (stats.maximum > 0 ? '${stats.maximum.round()}' : '--'),
+                unit: (!isLoading && stats.maximum > 0) ? stats.unit : '',
                 color: AppColors.orangeMetric,
                 r: r,
               ),

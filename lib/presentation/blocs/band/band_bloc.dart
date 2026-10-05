@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/sync/health_sync_manager.dart';
 import '../../../data/models/band_device_model.dart';
 import '../../../data/repositories/band_repository.dart';
 import '../wellness/wellness_bloc.dart';
@@ -12,6 +13,7 @@ import 'band_state.dart';
 class BandBloc extends Bloc<BandEvent, BandState> {
   final BandRepository repository;
   final WellnessBloc? wellnessBloc;
+  final HealthSyncManager? syncManager;
 
   StreamSubscription<BandConnectionStatus>? _statusSubscription;
   StreamSubscription<List<DiscoveredBandDevice>>? _devicesSubscription;
@@ -22,8 +24,11 @@ class BandBloc extends Bloc<BandEvent, BandState> {
   StreamSubscription<BandSyncedVitals>? _syncedVitalsSubscription;
   StreamSubscription<String>? _errorSubscription;
 
-  BandBloc({required this.repository, this.wellnessBloc})
-      : super(BandState(
+  BandBloc({
+    required this.repository,
+    this.wellnessBloc,
+    this.syncManager,
+  }) : super(BandState(
           lastSyncedVitals: repository.lastSyncedVitals,
           boundDevice: repository.boundDevice,
           connectedDevice: repository.currentConnectedDevice,
@@ -531,7 +536,18 @@ class BandBloc extends Bloc<BandEvent, BandState> {
     emit(state.copyWith(isSyncingVitals: true));
     try {
       debugPrint('🔄 [BAND BLOC] Starting full health data sync from band...');
-      final vitals = await repository.syncFullHealthData();
+      if (syncManager != null && wellnessBloc != null) {
+        await syncManager!.performManualSync(
+          bandRepo: repository,
+          wellnessRepo: wellnessBloc!.repository,
+          force: true,
+        );
+      } else {
+        final vitals = await repository.syncFullHealthData();
+        wellnessBloc?.add(SyncBandFullVitalsEvent(vitals));
+      }
+
+      final vitals = repository.lastSyncedVitals;
       debugPrint('✅ [BAND BLOC] Health data sync complete! Synced:');
       debugPrint('   • Steps: ${vitals.steps}, Calories: ${vitals.calories} kcal, Distance: ${vitals.distance} m');
       debugPrint('   • Sleep: ${vitals.sleepMinutes} min (Deep: ${vitals.deepSleepMinutes} min)');
@@ -552,7 +568,6 @@ class BandBloc extends Bloc<BandEvent, BandState> {
         lastSyncedVitals: vitals,
         latestHeartRate: latestHr > 0 ? latestHr : state.latestHeartRate,
       ));
-      wellnessBloc?.add(SyncBandFullVitalsEvent(vitals));
     } finally {
       emit(state.copyWith(isSyncingVitals: false));
     }

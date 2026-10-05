@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 
 import '../../data/repositories/band_repository.dart';
 import '../../data/repositories/wellness_repository.dart';
@@ -8,19 +9,76 @@ import 'health_sync_policy.dart';
 
 enum HealthSyncStatus { idle, syncing, completed, error }
 
-/// Production-grade sync manager for wearable health data.
+/// Detailed phase of the synchronization pipeline matching Garmin Connect / WHOOP architecture.
+enum HealthSyncPhase {
+  idle,
+  connecting,
+  handshake,
+  syncingToday,
+  backfillingHistory,
+  calculatingScores,
+  completed,
+  error,
+}
+
+/// Immutable snapshot representing current synchronization progress and metadata.
+class HealthSyncSnapshot {
+  final HealthSyncPhase phase;
+  final DateTime? lastSyncedAt;
+  final String? lastError;
+  final String statusMessage;
+
+  const HealthSyncSnapshot({
+    this.phase = HealthSyncPhase.idle,
+    this.lastSyncedAt,
+    this.lastError,
+    this.statusMessage = '',
+  });
+
+  bool get isSyncing =>
+      phase == HealthSyncPhase.connecting ||
+      phase == HealthSyncPhase.handshake ||
+      phase == HealthSyncPhase.syncingToday ||
+      phase == HealthSyncPhase.backfillingHistory ||
+      phase == HealthSyncPhase.calculatingScores;
+
+  bool get isCompleted => phase == HealthSyncPhase.completed;
+  bool get hasError => phase == HealthSyncPhase.error;
+
+  String get formattedSyncTime {
+    if (lastSyncedAt == null) return 'Never synced';
+    final now = DateTime.now();
+    final diff = now.difference(lastSyncedAt!);
+    if (diff.inSeconds < 45) return 'Synced just now';
+    if (diff.inMinutes < 60) return 'Synced ${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return 'Synced ${diff.inHours}h ago';
+    return 'Synced ${DateFormat('MMM d, h:mm a').format(lastSyncedAt!)}';
+  }
+
+  HealthSyncSnapshot copyWith({
+    HealthSyncPhase? phase,
+    DateTime? lastSyncedAt,
+    String? lastError,
+    String? statusMessage,
+    bool clearError = false,
+  }) {
+    return HealthSyncSnapshot(
+      phase: phase ?? this.phase,
+      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+      lastError: clearError ? null : (lastError ?? this.lastError),
+      statusMessage: statusMessage ?? this.statusMessage,
+    );
+  }
+}
+
+/// Production-grade synchronization coordinator for wearable health data.
 ///
-/// **Manual-only architecture** — data is refreshed exclusively via:
-///   1. Cold-start sync on app launch (if stale / day changed).
-///   2. User-initiated pull-to-refresh on Home or Vitals screens.
-///
-/// Per-vital freshness thresholds (matching QWatch Pro):
-///   • Heart Rate      — 5 min
-///   • HRV / SpO₂      — 1 hr
-///   • Stress           — 30 min
-///   • Blood Pressure   — 2 hr
-///
-/// No periodic Timer, no automatic background polling.
+/// Implements a multi-stage sync pipeline (matching WHOOP, Garmin Connect, and QWatch Pro):
+///   1. **Handshake Phase**: Verify BLE link, synchronize band RTC time, refresh battery & device info.
+///   2. **Today (Day 0) Phase**: Fetch comprehensive vitals, steps, sleep, and PPG records from band.
+///   3. **Historical Backfill Phase**: Backfill missing days (yesterday & day 2) to eliminate chart gaps.
+///   4. **Persistence & Recalculate Phase**: Await Drift SQLite writes, compute rolling baseline, reload weekly arrays.
+///   5. **Reactive Propagation**: Update all listening BLoCs and UI widgets reactively via [snapshot].
 class HealthSyncManager {
   final SecureStorageService _secureStorage;
 
@@ -36,6 +94,10 @@ class HealthSyncManager {
   String? _lastError;
 
   Future<bool>? _ongoingSync;
+  Timer? _idleResetTimer;
+
+  final ValueNotifier<HealthSyncSnapshot> _snapshotNotifier =
+      ValueNotifier<HealthSyncSnapshot>(const HealthSyncSnapshot());
 
   // Secure storage keys
   static const String _keyLastFullSync = 'sync_last_health_sync_at';
@@ -57,6 +119,24 @@ class HealthSyncManager {
   bool get isSyncing => _status == HealthSyncStatus.syncing;
   String? get lastError => _lastError;
 
+  /// Reactive listenable for UI widgets to observe sync progress without setState.
+  ValueListenable<HealthSyncSnapshot> get snapshot => _snapshotNotifier;
+
+  void _updateSnapshot({
+    required HealthSyncPhase phase,
+    String? statusMessage,
+    String? lastError,
+    bool clearError = false,
+  }) {
+    _snapshotNotifier.value = _snapshotNotifier.value.copyWith(
+      phase: phase,
+      statusMessage: statusMessage,
+      lastError: lastError,
+      clearError: clearError,
+      lastSyncedAt: _lastFullSyncAt,
+    );
+  }
+
   // ── Timestamp persistence ──────────────────────────────────────────────
 
   Future<void> _loadStoredTimestamps() async {
@@ -67,6 +147,11 @@ class HealthSyncManager {
       _lastSpO2SyncAt = await _readTimestamp(_keyLastSpO2Sync);
       _lastStressSyncAt = await _readTimestamp(_keyLastStressSync);
       _lastBloodPressureSyncAt = await _readTimestamp(_keyLastBpSync);
+
+      _snapshotNotifier.value = HealthSyncSnapshot(
+        phase: HealthSyncPhase.idle,
+        lastSyncedAt: _lastFullSyncAt,
+      );
     } catch (_) {}
   }
 
@@ -101,7 +186,7 @@ class HealthSyncManager {
     ]);
   }
 
-  // ── Cold-start sync ────────────────────────────────────────────────────
+  // ── Cold-start & resume sync ───────────────────────────────────────────
 
   /// Triggers a cold-start synchronization if policy determines it is due.
   Future<bool> performColdStartSync({
@@ -120,46 +205,154 @@ class HealthSyncManager {
     );
   }
 
-  // ── Manual pull-to-refresh sync ────────────────────────────────────────
+  // ── Multi-stage synchronization pipeline ───────────────────────────────
 
   /// Performs a controlled, deduplicated synchronization of health data.
   ///
-  /// Called **only** by user pull-to-refresh or cold start — never automatically.
-  /// Fetches full health data from the band, updates the WellnessRepository,
-  /// reloads weekly DB data, and records per-vital timestamps.
+  /// Orchestrates all 5 stages of synchronization:
+  /// 1. Connection check & Time Synchronization handshake
+  /// 2. Day 0 (Today) complete health data fetch & SQLite persistence
+  /// 3. Backfilling missing historical days (Day 1 / yesterday)
+  /// 4. WellnessRepository metrics reload from SQLite
+  /// 5. Recalibration of baseline scores & reactive UI notification
   Future<bool> performManualSync({
     required BandRepository bandRepo,
     required WellnessRepository wellnessRepo,
     bool isColdStart = false,
+    bool force = false,
   }) async {
-    // Deduplicate concurrent sync requests
+    // 1. Deduplicate concurrent sync requests
     if (_ongoingSync != null) {
       debugPrint(
           'ℹ️ [SYNC MGR] Sync already in flight, joining ongoing operation...');
       return _ongoingSync!;
     }
 
+    // 2. Debounce if recently synced (< 5 seconds) and not forced
+    if (!force && _lastFullSyncAt != null) {
+      final elapsed = DateTime.now().difference(_lastFullSyncAt!);
+      if (elapsed < const Duration(seconds: 5)) {
+        debugPrint(
+            'ℹ️ [SYNC MGR] Sync skipped: completed ${elapsed.inSeconds}s ago.');
+        return true;
+      }
+    }
+
     _status = HealthSyncStatus.syncing;
+    _idleResetTimer?.cancel();
+
     _ongoingSync = () async {
       try {
         debugPrint(
-            '🔄 [SYNC MGR] Starting manual sync (coldStart=$isColdStart)...');
-
-        // Log which vitals are actually stale (useful for debugging)
+            '🔄 [SYNC MGR] Starting synchronized health pipeline (coldStart=$isColdStart, force=$force)...');
         _logStaleness();
 
+        // ── Phase 1: Connection & Time Handshake ────────────────────────
+        _updateSnapshot(
+          phase: HealthSyncPhase.handshake,
+          statusMessage: 'Syncing device time and battery...',
+          clearError: true,
+        );
+
+        if (!bandRepo.isConnected && bandRepo.boundDevice != null) {
+          _updateSnapshot(
+            phase: HealthSyncPhase.connecting,
+            statusMessage: 'Reconnecting to band...',
+          );
+          final reconnected = await bandRepo.reconnect();
+          if (!reconnected && !bandRepo.isConnected) {
+            throw Exception('Smart band is not connected. Please check Bluetooth.');
+          }
+        }
+
+        // Send time sync to band RTC so timestamp records match phone clock
+        try {
+          await bandRepo.service.syncTime().timeout(
+            const Duration(seconds: 3),
+            onTimeout: () => false,
+          );
+        } catch (_) {}
+
+        // ── Phase 2: Today (Day 0) Complete Sync ────────────────────────
+        _updateSnapshot(
+          phase: HealthSyncPhase.syncingToday,
+          statusMessage: 'Reading health vitals from band...',
+        );
+
         final vitals = await bandRepo.syncFullHealthData();
+
+        // ── Phase 3: Historical Backfill (Yesterday / Day 1) ─────────────
+        _updateSnapshot(
+          phase: HealthSyncPhase.backfillingHistory,
+          statusMessage: 'Syncing weekly trends...',
+        );
+
+        // Fetch yesterday's finalized records (dayIndex: 1) ONLY if band was paired before today.
+        // For a brand new band out of the box, yesterday's flash memory contains factory QA test data.
+        final devMac = await _secureStorage.getBondedDeviceMac() ?? 'default_band';
+        final pairingDate = await _secureStorage.getDevicePairingDate(devMac);
+        final todayStr = DateTime.now().toIso8601String().substring(0, 10);
+
+        if (pairingDate != null && pairingDate.compareTo(todayStr) < 0) {
+          try {
+            await bandRepo.syncHistoricalDay(1).timeout(
+              const Duration(seconds: 8),
+              onTimeout: () => vitals,
+            );
+          } catch (e) {
+            debugPrint('ℹ️ [SYNC MGR] Historical day 1 backfill skipped: $e');
+          }
+        } else {
+          debugPrint('🛡️ [SYNC MGR] Fresh pairing detected ($pairingDate). Suppressing day 1 backfill to prevent factory test data ingestion.');
+        }
+
+        // ── Phase 4: Compute Wellness & Reload DB ───────────────────────
+        _updateSnapshot(
+          phase: HealthSyncPhase.calculatingScores,
+          statusMessage: 'Calculating wellness scores...',
+        );
+
         wellnessRepo.updateFromBandVitals(vitals, updateMode: true);
         await wellnessRepo.reloadWeeklyDataFromDatabase();
         await _recordFullSyncSuccess();
 
+        // ── Phase 5: Completed ─────────────────────────────────────────
+        _updateSnapshot(
+          phase: HealthSyncPhase.completed,
+          statusMessage: 'Sync completed successfully',
+          clearError: true,
+        );
+
         debugPrint(
-            '✅ [SYNC MGR] Manual sync completed successfully at $_lastFullSyncAt');
+            '✅ [SYNC MGR] Full synchronization pipeline completed successfully at $_lastFullSyncAt');
+
+        // Gracefully reset snapshot phase to idle after brief completion notice
+        _idleResetTimer = Timer(const Duration(seconds: 2), () {
+          _updateSnapshot(
+            phase: HealthSyncPhase.idle,
+            statusMessage: '',
+          );
+        });
+
         return true;
       } catch (e) {
         _status = HealthSyncStatus.error;
         _lastError = e.toString();
-        debugPrint('⚠️ [SYNC MGR] Manual sync failed: $e');
+        debugPrint('⚠️ [SYNC MGR] Health sync pipeline failed: $e');
+
+        _updateSnapshot(
+          phase: HealthSyncPhase.error,
+          lastError: e.toString(),
+          statusMessage: 'Sync failed: $e',
+        );
+
+        _idleResetTimer = Timer(const Duration(seconds: 4), () {
+          _updateSnapshot(
+            phase: HealthSyncPhase.idle,
+            statusMessage: '',
+          );
+        });
+
         return false;
       } finally {
         _status = HealthSyncStatus.idle;
@@ -170,11 +363,9 @@ class HealthSyncManager {
     return _ongoingSync!;
   }
 
-  // ── On-demand HR sample (used for cold start only) ─────────────────────
+  // ── On-demand HR sample (used for quick check) ─────────────────────────
 
   /// Fetches latest HR sample if stale per 5-minute policy.
-  ///
-  /// Only called by cold-start; **NOT** on a periodic timer.
   Future<bool> syncHeartRateIfDue({
     required BandRepository bandRepo,
     required WellnessRepository wellnessRepo,
@@ -226,6 +417,13 @@ class HealthSyncManager {
         debugPrint('⚠️ [SYNC MGR] syncPastDays failed for day $day: $e');
       }
     }
+  }
+
+  // ── Cleanup ────────────────────────────────────────────────────────────
+
+  void dispose() {
+    _idleResetTimer?.cancel();
+    _snapshotNotifier.dispose();
   }
 
   // ── Debug helper ───────────────────────────────────────────────────────

@@ -8,6 +8,7 @@ import 'core/di/app_dependencies.dart';
 import 'core/routes/app_router.dart';
 import 'core/sync/background_sync_service.dart';
 import 'core/sync/health_sync_manager.dart';
+import 'core/sync/health_sync_policy.dart';
 import 'core/theme/app_theme.dart';
 import 'data/models/band_device_model.dart';
 import 'data/models/user_profile_model.dart';
@@ -56,6 +57,7 @@ class _EHGWellnessAppState extends State<EHGWellnessApp> {
     _bandBloc = BandBloc(
       repository: _dependencies.bandRepository,
       wellnessBloc: _wellnessBloc,
+      syncManager: _dependencies.healthSyncManager,
     )..add(AutoReconnectBandEvent());
 
     // 2. React to band connection for cold-start health data sync
@@ -83,18 +85,26 @@ class _EHGWellnessAppState extends State<EHGWellnessApp> {
     _lifecycleListener = AppLifecycleListener(
       onResume: () {
         debugPrint(
-          '📱 [APP LIFECYCLE] App resumed - checking band connection...',
+          '📱 [APP LIFECYCLE] App resumed - checking band connection & freshness...',
         );
         if (_bandBloc.state.status != BandConnectionStatus.connected) {
           _bandBloc.add(AutoReconnectBandEvent());
         } else {
-          _dependencies.backgroundSyncService
-              .performBackgroundSync()
-              .then((synced) {
-                if (synced && mounted) {
-                  _wellnessBloc.add(const LoadWellnessDataEvent());
-                }
-              });
+          if (HealthSyncPolicy.shouldColdStartSync(
+            _dependencies.healthSyncManager.lastHealthSyncAt,
+          )) {
+            _dependencies.healthSyncManager
+                .performManualSync(
+                  bandRepo: _dependencies.bandRepository,
+                  wellnessRepo: _dependencies.wellnessRepository,
+                  isColdStart: false,
+                )
+                .then((synced) {
+                  if (synced && mounted) {
+                    _wellnessBloc.add(const LoadWellnessDataEvent());
+                  }
+                });
+          }
         }
       },
     );
