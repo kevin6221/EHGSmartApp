@@ -1,6 +1,26 @@
 import 'package:equatable/equatable.dart';
 
-enum WorkoutType { run, walk, cycling, strength, hit }
+enum WorkoutType {
+  run,
+  walk,
+  cycling,
+  strength,
+  hit,
+  mobility,
+  breathing,
+  meditation;
+
+  String get defaultTitle => switch (this) {
+    WorkoutType.run => 'Outdoor run',
+    WorkoutType.walk => 'Outdoor walking',
+    WorkoutType.cycling => 'Outdoor biking',
+    WorkoutType.strength => 'Full body strength',
+    WorkoutType.hit => 'HIIT intervals',
+    WorkoutType.mobility => 'Full mobility flow',
+    WorkoutType.breathing => 'Breathing reset',
+    WorkoutType.meditation => 'Guided meditation',
+  };
+}
 
 class WorkoutModel extends Equatable {
   final WorkoutType selectedCategory;

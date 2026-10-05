@@ -246,7 +246,7 @@ class _SystemsScreenState extends State<SystemsScreen> {
                           ),
                           SystemExerciseItem(
                             title: 'Low-intensity mobility pace · 20 min',
-                            workoutType: WorkoutType.walk,
+                            workoutType: WorkoutType.mobility,
                           ),
                         ],
                     };
@@ -284,17 +284,8 @@ class _SystemsScreenState extends State<SystemsScreen> {
                   }(),
                   const SizedBox(height: 16.0),
 
-                  SystemsCardTemplate(
-                    icon: AppIcons.mindBreath,
-                    title: 'Mind',
-                    subtitle: 'Breath, mood, meditation',
-                    sectionKey: 'mind',
+                  SystemsMindCard(
                     expandedSystemNotifier: _expandedSystemNotifier,
-                    details: const [
-                      'Guided meditation · 10 min',
-                      'Breathwork reset · 5 min',
-                      'Check in with your mood',
-                    ],
                     r: r,
                   ),
                   const SizedBox(height: 16.0),

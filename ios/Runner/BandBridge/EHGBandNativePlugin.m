@@ -213,6 +213,9 @@ typedef void (^EHGBandWork)(EHGBandDone done);
     };
 
     [QCSDKManager shareInstance].currentStepInfo = ^(NSInteger step, NSInteger calorie, NSInteger distance) {
+        if (step == weakSelf.lastKnownSteps && calorie == weakSelf.lastKnownCalories && distance == weakSelf.lastKnownDistance) {
+            return;
+        }
         weakSelf.lastKnownSteps = step;
         weakSelf.lastKnownCalories = calorie;
         weakSelf.lastKnownDistance = distance;
@@ -977,6 +980,12 @@ typedef void (^EHGBandWork)(EHGBandDone done);
             [strongSelf enqueueCommand:^(EHGBandDone done) {
                 [QCSDKCmdCreator getCurrentSportSucess:^(QCSportModel *sport) {
                     if (sport) {
+                        if (sport.totalStepCount == strongSelf.lastKnownSteps &&
+                            (int)sport.calories == strongSelf.lastKnownCalories &&
+                            sport.distance == strongSelf.lastKnownDistance) {
+                            done();
+                            return;
+                        }
                         NSLog(@"[EHGBandNative] Dynamic step update: %ld steps, %d kcal, %ld m", (long)sport.totalStepCount, (int)sport.calories, (long)sport.distance);
                         strongSelf.lastKnownSteps = sport.totalStepCount;
                         strongSelf.lastKnownCalories = (int)sport.calories;

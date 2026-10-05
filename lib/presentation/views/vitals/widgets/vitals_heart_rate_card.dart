@@ -267,22 +267,21 @@ class _VitalsHeartRateCardState extends State<VitalsHeartRateCard>
                             ValueListenableBuilder<int>(
                               valueListenable: _activeScrubIndexNotifier,
                               builder: (context, activeIndex, _) {
+                                final int todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
                                 final int displayRate;
                                 if (widget.isLoading && widget.currentHeartRate <= 0) {
                                   displayRate = -1;
-                                } else if (widget.period == VitalsTimePeriod.day) {
-                                  if (widget.currentHeartRate > 0) {
+                                } else if (activeIndex >= 0 && activeIndex < widget.weeklyHeartRate.length) {
+                                  final int rateAtDay = widget.weeklyHeartRate[activeIndex].round();
+                                  if (rateAtDay > 0) {
+                                    displayRate = rateAtDay;
+                                  } else if (activeIndex == todayIdx && widget.currentHeartRate > 0) {
                                     displayRate = widget.currentHeartRate;
-                                  } else if (activeIndex < widget.weeklyHeartRate.length &&
-                                      widget.weeklyHeartRate[activeIndex] > 0) {
-                                    displayRate = widget.weeklyHeartRate[activeIndex].round();
                                   } else {
                                     displayRate = 0;
                                   }
                                 } else {
-                                  displayRate = activeIndex < widget.weeklyHeartRate.length
-                                      ? widget.weeklyHeartRate[activeIndex].round()
-                                      : widget.currentHeartRate;
+                                  displayRate = widget.currentHeartRate;
                                 }
 
                                 return Row(
@@ -292,7 +291,7 @@ class _VitalsHeartRateCardState extends State<VitalsHeartRateCard>
                                     Text(
                                       displayRate == -1
                                           ? '...'
-                                          : (displayRate > 0 ? '$displayRate' : '--'),
+                                          : '$displayRate',
                                       style: GoogleFonts.plusJakartaSans(
                                         fontSize: dims.valueFontSize,
                                         fontWeight: FontWeight.w700,
@@ -350,9 +349,20 @@ class _VitalsHeartRateCardState extends State<VitalsHeartRateCard>
                                     final safeActiveIdx = activeIndex.clamp(0, totalSlots - 1);
                                     final double activeX = totalSlots > 1 ? (safeActiveIdx / (totalSlots - 1)) * chartWidth : chartWidth * 0.5;
 
-                                    final currentBpm = safeActiveIdx < widget.weeklyHeartRate.length
-                                        ? widget.weeklyHeartRate[safeActiveIdx].round()
-                                        : widget.currentHeartRate;
+                                    final int todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
+                                    final int currentBpm;
+                                    if (safeActiveIdx < widget.weeklyHeartRate.length) {
+                                      final r = widget.weeklyHeartRate[safeActiveIdx].round();
+                                      if (r > 0) {
+                                        currentBpm = r;
+                                      } else if (safeActiveIdx == todayIdx && widget.currentHeartRate > 0) {
+                                        currentBpm = widget.currentHeartRate;
+                                      } else {
+                                        currentBpm = 0;
+                                      }
+                                    } else {
+                                      currentBpm = widget.currentHeartRate;
+                                    }
                                     final double val = currentBpm > 0 ? currentBpm.toDouble() : 0.0;
                                     final double normalized = maxVal > 0 ? (val / maxVal).clamp(0.0, 1.0) : 0.0;
                                     final double activeY = chartHeight - bottomPadding - (normalized * usableHeight);
@@ -393,7 +403,7 @@ class _VitalsHeartRateCardState extends State<VitalsHeartRateCard>
                                           ),
 
                                         // Floating Callout Bubble with Heart Rate Value
-                                        if (widget.weeklyHeartRate.any((v) => v > 0) && currentBpm > 0)
+                                        if (widget.weeklyHeartRate.any((v) => v > 0))
                                           Positioned(
                                             left: bubbleLeft,
                                             top: bubbleTop,

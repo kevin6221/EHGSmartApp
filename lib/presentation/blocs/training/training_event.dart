@@ -15,11 +15,12 @@ class LoadTrainingDataEvent extends TrainingEvent {
 
 class SelectWorkoutCategoryEvent extends TrainingEvent {
   final WorkoutType category;
+  final String? customTitle;
 
-  const SelectWorkoutCategoryEvent(this.category);
+  const SelectWorkoutCategoryEvent(this.category, {this.customTitle});
 
   @override
-  List<Object?> get props => [category];
+  List<Object?> get props => [category, customTitle];
 }
 
 class SelectWeightEvent extends TrainingEvent {

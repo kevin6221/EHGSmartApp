@@ -8,9 +8,11 @@ import '../../../../core/theme/responsive.dart';
 import '../../../../data/models/workout_model.dart';
 import '../../../blocs/training/training_bloc.dart';
 import '../../../blocs/training/training_event.dart';
+import '../../../blocs/wellness/wellness_bloc.dart';
 import '../../../widgets/common/dotted_divider.dart';
 import '../../details/hydration_detail_screen.dart';
 import '../../train/training_session_screen.dart';
+import 'mind_meditation_session_sheet.dart';
 
 /// Model representing an actionable exercise item inside a system card.
 class SystemExerciseItem {
@@ -185,8 +187,12 @@ class SystemsCardTemplate extends StatelessWidget {
                   title: exercise.title,
                   r: r,
                   onStart: () {
+                    final titlePrefix = exercise.title.split('·').first.trim();
                     context.read<TrainingBloc>().add(
-                          SelectWorkoutCategoryEvent(exercise.workoutType),
+                          SelectWorkoutCategoryEvent(
+                            exercise.workoutType,
+                            customTitle: titlePrefix.isNotEmpty ? titlePrefix : exercise.title,
+                          ),
                         );
                     context.read<TrainingBloc>().add(const StartWorkoutEvent());
                     Navigator.of(context).push(
@@ -430,19 +436,19 @@ class SystemsRecoverCard extends StatelessWidget {
                   context: context,
                   title: 'Full mobility flow · 20 min',
                   r: r,
-                  onStart: () => _startSession(context, WorkoutType.walk),
+                  onStart: () => _startSession(context, WorkoutType.mobility, customTitle: 'Full mobility flow'),
                 ),
                 _buildActionItemRow(
                   context: context,
                   title: 'Foam roll: calves & hamstrings · 8 min',
                   r: r,
-                  onStart: () => _startSession(context, WorkoutType.walk),
+                  onStart: () => _startSession(context, WorkoutType.mobility, customTitle: 'Foam roll: calves & hamstrings'),
                 ),
                 _buildActionItemRow(
                   context: context,
                   title: 'Sleep wind-down · 12 min',
                   r: r,
-                  onStart: () => _startSession(context, WorkoutType.walk),
+                  onStart: () => _startSession(context, WorkoutType.breathing, customTitle: 'Sleep wind-down'),
                 ),
                 const SizedBox(height: 4.0),
                 Padding(
@@ -473,8 +479,8 @@ class SystemsRecoverCard extends StatelessWidget {
     );
   }
 
-  static void _startSession(BuildContext context, WorkoutType type) {
-    context.read<TrainingBloc>().add(SelectWorkoutCategoryEvent(type));
+  static void _startSession(BuildContext context, WorkoutType type, {String? customTitle}) {
+    context.read<TrainingBloc>().add(SelectWorkoutCategoryEvent(type, customTitle: customTitle));
     context.read<TrainingBloc>().add(const StartWorkoutEvent());
     Navigator.of(context).push(
       MaterialPageRoute(
@@ -528,6 +534,209 @@ class SystemsRecoverCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Expandable Mind system card with interactive countdown timers for each practice.
+class SystemsMindCard extends StatelessWidget {
+  final ValueNotifier<String?> expandedSystemNotifier;
+  final bool leadsToday;
+  final Responsive r;
+
+  const SystemsMindCard({
+    super.key,
+    required this.expandedSystemNotifier,
+    this.leadsToday = false,
+    required this.r,
+  });
+
+  void _openCountdown(BuildContext context, String title, int seconds) {
+    final wellnessBloc = context.read<WellnessBloc>();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => MindMeditationSessionSheet(
+        title: title,
+        totalSeconds: seconds,
+        wellnessBloc: wellnessBloc,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<String?>(
+      valueListenable: expandedSystemNotifier,
+      builder: (context, expandedSection, _) {
+        final isExpanded = expandedSection == 'mind';
+        return Container(
+          decoration: BoxDecoration(
+            color: isExpanded
+                ? (context.isDark ? AppColors.midnightSurface : null)
+                : context.cardBackground,
+            gradient: isExpanded
+                ? (context.isDark ? null : AppGradients.recoverCard)
+                : null,
+            borderRadius: BorderRadius.circular(16.0),
+            border: Border.all(
+              color: context.isDark ? context.cardBorder : AppColors.systemCardBorder,
+              width: 1.0,
+            ),
+            boxShadow: context.isDark
+                ? []
+                : [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.04),
+                      blurRadius: 10.0,
+                      offset: const Offset(0.0, 3.0),
+                    ),
+                  ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              GestureDetector(
+                onTap: () => expandedSystemNotifier.value = isExpanded ? null : 'mind',
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.all(14.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40.0,
+                        height: 40.0,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: context.isDark ? AppColors.midnightBackground : AppColors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const AppSvgIcon(
+                          AppIcons.mindBreath,
+                          size: 24.0,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 10.0),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'Mind',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: r.font(14.0),
+                                    fontWeight: FontWeight.w600,
+                                    color: context.textPrimary,
+                                  ),
+                                ),
+                                if (leadsToday) ...[
+                                  const SizedBox(width: 8.0),
+                                  Container(
+                                    alignment: Alignment.center,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8.0,
+                                      vertical: 3.0,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.cyanLight,
+                                      borderRadius: BorderRadius.circular(4.0),
+                                    ),
+                                    child: Text(
+                                      'Leads today',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: r.font(10.0),
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.white,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 4.0),
+                            Text(
+                              'Breath, mood, meditation',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: r.font(12.0),
+                                fontWeight: FontWeight.w400,
+                                color: context.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      RotatedBox(
+                        quarterTurns: isExpanded ? 1 : 0,
+                        child: const AppSvgIcon(
+                          AppIcons.chevronRight,
+                          color: AppColors.primary,
+                          size: 20.0,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (isExpanded) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14.0),
+                  child: DottedDivider(
+                    color: context.cardBorder,
+                    dashWidth: 3.0,
+                    dashSpace: 3.0,
+                    thickness: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 4.0),
+                SystemsFuelCard._buildActionItemRow(
+                  context: context,
+                  title: 'Guided meditation · 10 min',
+                  r: r,
+                  onStart: () => _openCountdown(context, 'Guided meditation', 600),
+                ),
+                SystemsFuelCard._buildActionItemRow(
+                  context: context,
+                  title: 'Breathwork reset · 5 min',
+                  r: r,
+                  onStart: () => _openCountdown(context, 'Breathwork reset', 300),
+                ),
+                SystemsFuelCard._buildActionItemRow(
+                  context: context,
+                  title: 'Mindful check-in · 3 min',
+                  r: r,
+                  onStart: () => _openCountdown(context, 'Mindful check-in', 180),
+                ),
+                const SizedBox(height: 4.0),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14.0),
+                  child: DottedDivider(
+                    color: context.cardBorder,
+                    dashWidth: 3.0,
+                    dashSpace: 3.0,
+                    thickness: 0.5,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14.0, 8.0, 14.0, 12.0),
+                  child: Text(
+                    'Your gear: Breath Sensor · EHG Mind Band',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: r.font(10.0),
+                      fontWeight: FontWeight.w500,
+                      color: context.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -675,19 +884,7 @@ class SystemsFuelCard extends StatelessWidget {
                 const SizedBox(height: 4.0),
                 _buildActionItemRow(
                   context: context,
-                  title: 'Drink water · Log fluid intake',
-                  r: r,
-                  onStart: () => _openHydrationDetail(context),
-                ),
-                _buildActionItemRow(
-                  context: context,
-                  title: 'Daily hydration goal · 2,500 ml',
-                  r: r,
-                  onStart: () => _openHydrationDetail(context),
-                ),
-                _buildActionItemRow(
-                  context: context,
-                  title: 'Log today’s fuel habits · Fluid check',
+                  title: 'Record your water daily intake',
                   r: r,
                   onStart: () => _openHydrationDetail(context),
                 ),

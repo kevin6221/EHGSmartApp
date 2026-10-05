@@ -56,6 +56,32 @@ class NativeBandService implements BandService {
     if (event is! Map) return;
 
     final String type = event['type']?.toString() ?? '';
+
+    // Step update deduplication: only process & log when user actually takes new steps or covers distance
+    if (type == 'step_update') {
+      final steps = (event['steps'] as num?)?.toInt() ?? 0;
+      final rawCal = (event['calories'] as num?)?.toInt() ?? 0;
+      final cal = BandSyncedVitals.sanitizeCalories(rawCal, steps: steps);
+      final dist = (event['distance'] as num?)?.toInt() ?? 0;
+
+      if (steps == _lastReportedSteps &&
+          cal == _lastReportedCalories &&
+          dist == _lastReportedDistance) {
+        return; // Suppress duplicate step events - no new steps taken
+      }
+
+      _lastReportedSteps = steps;
+      _lastReportedCalories = cal;
+      _lastReportedDistance = dist;
+      debugPrint('👟 [BAND DATA - LIVE PEDOMETER] Steps: $steps | Calories: $cal kcal | Distance: $dist m');
+      _pedometerController.add(BandPedometerInfo(
+        steps: steps,
+        calories: cal,
+        distance: dist,
+      ));
+      return;
+    }
+
     debugPrint('⌚️ [BAND RAW EVENT] Type: "$type" | Data: $event');
 
     switch (type) {
@@ -141,24 +167,6 @@ class NativeBandService implements BandService {
         ));
         break;
 
-      case 'step_update':
-        final steps = (event['steps'] as num?)?.toInt() ?? 0;
-        final rawCal = (event['calories'] as num?)?.toInt() ?? 0;
-        final cal = BandSyncedVitals.sanitizeCalories(rawCal, steps: steps);
-        final dist = (event['distance'] as num?)?.toInt() ?? 0;
-        // Deduplicate: only emit when user makes progress (steps, calories, or distance changes)
-        if (steps != _lastReportedSteps || cal != _lastReportedCalories || dist != _lastReportedDistance) {
-          _lastReportedSteps = steps;
-          _lastReportedCalories = cal;
-          _lastReportedDistance = dist;
-          debugPrint('👟 [BAND DATA - LIVE PEDOMETER] Steps: $steps | Calories: $cal kcal | Distance: $dist m');
-          _pedometerController.add(BandPedometerInfo(
-            steps: steps,
-            calories: cal,
-            distance: dist,
-          ));
-        }
-        break;
 
       case 'connection_failed':
         _lastConnectionError = event['error']?.toString();

@@ -330,7 +330,7 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
                                 ? 'Optimal'
                                 : widget.score >= 50
                                     ? 'Steady'
-                                    : 'Push')
+                                    : 'Recover')
                             : 'No Data',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: r.font(12.5),

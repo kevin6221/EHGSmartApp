@@ -5,6 +5,8 @@ import '../../../../core/constants/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/responsive.dart';
 
+import 'locked_item_explanation_sheet.dart';
+
 /// Section displaying programmes on the Systems screen with locked status.
 class SystemsProgrammesSection extends StatelessWidget {
   final Responsive r;
@@ -30,25 +32,35 @@ class SystemsProgrammesSection extends StatelessWidget {
                 color: context.textPrimary,
               ),
             ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AppSvgIcon(
-                  AppIcons.lock,
-                  size: 11.0,
-                  color: context.textSecondary,
-                ),
-                const SizedBox(width: 4.0),
-                Text(
-                  'LOCKED',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: r.font(10.0),
-                    fontWeight: FontWeight.w600,
+            GestureDetector(
+              onTap: () => LockedItemExplanationSheet.show(
+                context,
+                title: 'Programmes Catalog',
+                itemType: 'Programme',
+                requiredCondition: 'Complete daily missions and connect your wearable garments to unlock specialized programmes.',
+                rewardDescription: 'Access structured multi-week training regimens, form feedback, and exclusive rewards.',
+              ),
+              behavior: HitTestBehavior.opaque,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppSvgIcon(
+                    AppIcons.lock,
+                    size: 11.0,
                     color: context.textSecondary,
-                    letterSpacing: 0.5,
                   ),
-                ),
-              ],
+                  const SizedBox(width: 4.0),
+                  Text(
+                    'LOCKED',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: r.font(10.0),
+                      fontWeight: FontWeight.w600,
+                      color: context.textSecondary,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -59,6 +71,8 @@ class SystemsProgrammesSection extends StatelessWidget {
           category: '',
           sourcePiece: 'From your High Rise Flared Yoga Pants',
           kcalRemaining: '',
+          requiredCondition: 'Pair your High Rise Flared Yoga Pants and complete 5 core sessions to unlock.',
+          rewardDescription: 'Unlocks full 30-day progressive Pilates calendar, form analysis, and +300 Reward points.',
           r: r,
         ),
         const SizedBox(height: 16.0),
@@ -68,6 +82,8 @@ class SystemsProgrammesSection extends StatelessWidget {
           category: '',
           sourcePiece: 'From your High Rise Flared Yoga Pants',
           kcalRemaining: '',
+          requiredCondition: 'Reach 8,000 steps on 3 consecutive days to unlock this strength programme.',
+          rewardDescription: 'Unlocks progressive resistance sessions, muscular fatigue recovery guide, and +250 Reward points.',
           r: r,
         ),
       ],
@@ -80,9 +96,20 @@ class SystemsProgrammesSection extends StatelessWidget {
     required String category,
     required String sourcePiece,
     required String kcalRemaining,
+    required String requiredCondition,
+    required String rewardDescription,
     required Responsive r,
   }) {
-    return Container(
+    return GestureDetector(
+      onTap: () => LockedItemExplanationSheet.show(
+        context,
+        title: title,
+        itemType: 'Programme',
+        requiredCondition: requiredCondition,
+        rewardDescription: rewardDescription,
+      ),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
       padding: const EdgeInsets.all(14.0),
       decoration: BoxDecoration(
         color: context.cardBackground,
@@ -161,6 +188,7 @@ class SystemsProgrammesSection extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 

@@ -31,6 +31,43 @@ class AddHydrationEvent extends WellnessEvent {
   List<Object?> get props => [amountMl];
 }
 
+class RemoveHydrationEvent extends WellnessEvent {
+  final int amountMl;
+
+  const RemoveHydrationEvent(this.amountMl);
+
+  @override
+  List<Object?> get props => [amountMl];
+}
+
+class RemoveHydrationEntryEvent extends WellnessEvent {
+  final String entryId;
+  final DateTime? date;
+
+  const RemoveHydrationEntryEvent(this.entryId, {this.date});
+
+  @override
+  List<Object?> get props => [entryId, date];
+}
+
+class SetHydrationEvent extends WellnessEvent {
+  final int totalMl;
+
+  const SetHydrationEvent(this.totalMl);
+
+  @override
+  List<Object?> get props => [totalMl];
+}
+
+class CompleteMindSessionEvent extends WellnessEvent {
+  final int points;
+
+  const CompleteMindSessionEvent({this.points = 5});
+
+  @override
+  List<Object?> get props => [points];
+}
+
 class SyncBandVitalsEvent extends WellnessEvent {
   final int steps;
   final int calories;

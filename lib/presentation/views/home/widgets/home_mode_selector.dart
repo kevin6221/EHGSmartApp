@@ -43,11 +43,15 @@ class ModeSelectorGeometry {
 /// Features a continuous baseline divider with a sliding active indicator bar matching Figma specs.
 class HomeModeSelector extends StatelessWidget {
   final WellnessMode currentMode;
+  final WellnessMode recommendedMode;
+  final String? recommendationExplanation;
   final ValueChanged<WellnessMode> onModeChanged;
 
   const HomeModeSelector({
     super.key,
     required this.currentMode,
+    this.recommendedMode = WellnessMode.steady,
+    this.recommendationExplanation,
     required this.onModeChanged,
   });
 
@@ -146,6 +150,56 @@ class HomeModeSelector extends StatelessWidget {
             );
           },
         ),
+        if (recommendationExplanation != null && recommendationExplanation!.isNotEmpty) ...[
+          const SizedBox(height: 10.0),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
+            decoration: BoxDecoration(
+              color: context.isDark
+                  ? AppColors.midnightSurface
+                  : AppColors.primaryLight.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(12.0),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.15),
+                width: 0.8,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
+                  margin: const EdgeInsets.only(top: 1.0),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(4.0),
+                  ),
+                  child: Text(
+                    'RECOMMENDED',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: r.font(9.0),
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.white,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8.0),
+                Expanded(
+                  child: Text(
+                    recommendationExplanation!,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: r.font(11.5),
+                      fontWeight: FontWeight.w500,
+                      color: context.textSecondary,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }

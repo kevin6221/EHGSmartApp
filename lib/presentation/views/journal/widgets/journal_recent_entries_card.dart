@@ -102,8 +102,8 @@ class JournalRecentEntriesCard extends StatelessWidget {
                 _buildBadge(
                   icon: AppIcons.mindBreath,
                   label: entry.moodWord,
-                  color: AppColors.tealMetric,
-                  bgColor: AppColors.tealMetric.withValues(alpha: 0.12),
+                  color: AppColors.primary,
+                  bgColor: AppColors.primaryLight,
                   r: r,
                 ),
             ],

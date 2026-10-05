@@ -88,9 +88,19 @@ class WaveChartPainter extends CustomPainter {
       if (effectivePinIndex == -1) effectivePinIndex = (points.length * 0.75).round();
     }
 
-    // Normalizing scores between 45 and 85
-    const double minScore = 45.0;
-    const double maxScore = 85.0;
+    // Dynamic score normalization range to prevent clipping and guarantee a smooth wave
+    double minScore = 25.0;
+    double maxScore = 95.0;
+    if (points.isNotEmpty) {
+      double minPt = points.first.score;
+      double maxPt = points.first.score;
+      for (final pt in points) {
+        if (pt.score < minPt) minPt = pt.score;
+        if (pt.score > maxPt) maxPt = pt.score;
+      }
+      if (minPt < minScore) minScore = (minPt - 5.0).clamp(10.0, 50.0);
+      if (maxPt > maxScore) maxScore = (maxPt + 5.0).clamp(70.0, 100.0);
+    }
 
     final List<Offset> solidOffsets = [];
     final List<Offset> dashedOffsets = [];

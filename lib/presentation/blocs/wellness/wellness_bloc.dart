@@ -46,6 +46,43 @@ class WellnessBloc extends Bloc<WellnessEvent, WellnessState> {
       ));
     });
 
+    on<RemoveHydrationEvent>((event, emit) async {
+      await repository.removeHydration(event.amountMl);
+      final data = repository.getWellnessData();
+      emit(state.copyWith(
+        data: data,
+        baseline: repository.baselineData,
+      ));
+    });
+
+    on<RemoveHydrationEntryEvent>((event, emit) async {
+      await repository.removeHydrationEntryById(event.entryId, date: event.date);
+      final data = repository.getWellnessData();
+      emit(state.copyWith(
+        data: data,
+        baseline: repository.baselineData,
+      ));
+    });
+
+    on<SetHydrationEvent>((event, emit) async {
+      await repository.setHydration(event.totalMl);
+      final data = repository.getWellnessData();
+      emit(state.copyWith(
+        data: data,
+        baseline: repository.baselineData,
+      ));
+    });
+
+    on<CompleteMindSessionEvent>((event, emit) async {
+      await repository.completeMindSession(points: event.points);
+      final data = repository.getWellnessData();
+      emit(state.copyWith(
+        status: WellnessStatus.loaded,
+        data: data,
+        baseline: repository.baselineData,
+      ));
+    });
+
     on<SyncBandVitalsEvent>((event, emit) {
       if (state.data != null) {
         final int hr = (event.liveHeartRate != null && event.liveHeartRate! > 0)

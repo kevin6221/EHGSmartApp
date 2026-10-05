@@ -5,6 +5,8 @@ import '../../../../core/constants/app_icons.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/responsive.dart';
 
+import 'locked_item_explanation_sheet.dart';
+
 /// Section showing user journeys in progress on the Systems screen.
 class SystemsJourneysSection extends StatelessWidget {
   final Responsive r;
@@ -36,6 +38,8 @@ class SystemsJourneysSection extends StatelessWidget {
           context: context,
           title: 'Morning Energy',
           gearText: 'Tank Top · Resistance Band · Smart Band',
+          requiredCondition: 'Complete 3 more daily missions to unlock this morning activation journey.',
+          rewardDescription: 'Unlocks morning protocol, daylight exposure sync, and +150 Wardrobe Reward points.',
           r: r,
         ),
         SizedBox(height: itemSpacing),
@@ -43,6 +47,8 @@ class SystemsJourneysSection extends StatelessWidget {
           context: context,
           title: 'Better Sleep',
           gearText: 'Boxy Piping Tee · Eye Mask · Smart Band',
+          requiredCondition: 'Complete 4 consecutive nights of sleep tracking to unlock this wind-down journey.',
+          rewardDescription: 'Unlocks parasympathetic breathwork flow, circadian lighting guidance, and +200 Reward points.',
           r: r,
         ),
       ],
@@ -53,9 +59,20 @@ class SystemsJourneysSection extends StatelessWidget {
     required BuildContext context,
     required String title,
     required String gearText,
+    required String requiredCondition,
+    required String rewardDescription,
     required Responsive r,
   }) {
-    return Container(
+    return GestureDetector(
+      onTap: () => LockedItemExplanationSheet.show(
+        context,
+        title: title,
+        itemType: 'Journey',
+        requiredCondition: requiredCondition,
+        rewardDescription: rewardDescription,
+      ),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
       padding: const EdgeInsets.all(14.0),
       decoration: BoxDecoration(
         color: context.cardBackground,
@@ -101,6 +118,7 @@ class SystemsJourneysSection extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 

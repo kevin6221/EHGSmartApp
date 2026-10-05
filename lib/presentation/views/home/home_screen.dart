@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -20,6 +22,7 @@ import '../../blocs/wellness/wellness_bloc.dart';
 import '../../blocs/wellness/wellness_event.dart';
 import '../../blocs/wellness/wellness_state.dart';
 import '../../widgets/common/screen_header.dart';
+import '../../widgets/common/sync_loader_overlay.dart';
 import '../details/heart_rate_detail_screen.dart';
 import '../details/hydration_detail_screen.dart';
 import '../details/sleep_detail_screen.dart';
@@ -31,6 +34,7 @@ import 'widgets/home_hydration_card.dart';
 import 'widgets/home_live_check_card.dart';
 import 'widgets/home_mode_selector.dart';
 import 'widgets/home_readiness_card.dart';
+import 'widgets/home_steps_card.dart';
 import 'widgets/home_vitals_summary_row.dart';
 import 'widgets/home_wellness_score_card.dart';
 
@@ -47,6 +51,8 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _chartAnimController;
   late final Animation<double> _chartAnim;
+  late final ValueNotifier<bool> _initialSyncDoneNotifier;
+  Timer? _safetyTimeoutTimer;
 
   @override
   void initState() {
@@ -60,11 +66,21 @@ class _HomeScreenState extends State<HomeScreen>
       curve: AppCurves.chartEase,
     );
     _chartAnimController.forward();
-    // No automatic polling — data updates only via pull-to-refresh.
+
+    _initialSyncDoneNotifier = ValueNotifier<bool>(false);
+
+    // Safety timeout: Never leave user blocked on sync loader longer than 6 seconds
+    _safetyTimeoutTimer = Timer(const Duration(seconds: 6), () {
+      if (mounted && !_initialSyncDoneNotifier.value) {
+        _initialSyncDoneNotifier.value = true;
+      }
+    });
   }
 
   @override
   void dispose() {
+    _safetyTimeoutTimer?.cancel();
+    _initialSyncDoneNotifier.dispose();
     _chartAnimController.dispose();
     super.dispose();
   }
@@ -73,24 +89,69 @@ class _HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     final r = context.responsive;
     final itemSpacing = (r.height * 0.018).clamp(12.0, 20.0);
+    final syncMgr = context.read<HealthSyncManager>();
+    final bandRepo = context.read<BandRepository>();
 
-    return BlocBuilder<WellnessBloc, WellnessState>(
-      builder: (context, state) {
-        final data = state.data;
-        if (data == null) {
-          return const Center(child: CircularProgressIndicator());
-        }
+    return ValueListenableBuilder<bool>(
+      valueListenable: _initialSyncDoneNotifier,
+      builder: (context, initialSyncDone, _) {
+        return ValueListenableBuilder<HealthSyncSnapshot>(
+          valueListenable: syncMgr.snapshot,
+          builder: (context, syncSnapshot, _) {
+            return BlocBuilder<BandBloc, BandState>(
+              builder: (context, bandState) {
+                final bool hasPairedBand =
+                    bandState.isBound || bandRepo.boundDevice != null || bandRepo.lastPairedDevice != null;
 
-        return Scaffold(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          body: Stack(
-            children: [
-              SkyHeaderBackground(height: r.hp(0.36)),
+                final bool isActivelySyncing =
+                    syncSnapshot.isSyncing || bandState.isSyncingVitals;
+                final bool isConnecting =
+                    bandState.isConnecting || bandState.status == BandConnectionStatus.connecting;
 
-              // 2. Main Scrollable Dashboard Content
-              SafeArea(
-                bottom: false,
-                child: RefreshIndicator(
+                // Mark initial sync complete when sync finishes or if no band paired
+                if (!initialSyncDone) {
+                  if (!hasPairedBand) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) _initialSyncDoneNotifier.value = true;
+                    });
+                  } else if (syncSnapshot.isCompleted || syncSnapshot.hasError) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) _initialSyncDoneNotifier.value = true;
+                    });
+                  } else if (bandState.status == BandConnectionStatus.disconnected && !isConnecting && !isActivelySyncing) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) _initialSyncDoneNotifier.value = true;
+                    });
+                  }
+                }
+
+                return BlocBuilder<WellnessBloc, WellnessState>(
+                  builder: (context, wellnessState) {
+                    final data = wellnessState.data ?? context.read<WellnessRepository>().getWellnessData();
+
+                    // Qwatch Pro UX: Show sync loader overlay while connecting or syncing fresh data on cold start / hot restart
+                    final bool showSyncLoader = !initialSyncDone &&
+                        hasPairedBand &&
+                        (isConnecting || isActivelySyncing || data.wellnessScore == 0);
+
+                    final String statusMsg = syncSnapshot.statusMessage.isNotEmpty
+                        ? syncSnapshot.statusMessage
+                        : (isConnecting
+                            ? 'Connecting to band…'
+                            : (isActivelySyncing
+                                ? 'Syncing your data…'
+                                : 'Loading your dashboard…'));
+
+                    return Scaffold(
+                      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+                      body: Stack(
+                        children: [
+                          SkyHeaderBackground(height: r.hp(0.36)),
+
+                          // 2. Main Scrollable Dashboard Content
+                          SafeArea(
+                            bottom: false,
+                            child: RefreshIndicator(
                   color: AppColors.primary,
                   backgroundColor: AppColors.surface,
                   onRefresh: () async {
@@ -152,6 +213,8 @@ class _HomeScreenState extends State<HomeScreen>
                       // Mode Selector Tabs (Recover / Steady / Push)
                       HomeModeSelector(
                         currentMode: data.activeMode,
+                        recommendedMode: data.recommendedMode,
+                        recommendationExplanation: data.recommendationExplanation,
                         onModeChanged: (mode) {
                           context.read<WellnessBloc>().add(
                             ChangeWellnessModeEvent(mode),
@@ -274,6 +337,32 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       SizedBox(height: itemSpacing),
 
+                      // Step Counting Card
+                      BlocBuilder<BandBloc, BandState>(
+                        builder: (context, bandState) {
+                          final steps = (bandState.lastSyncedVitals?.steps ?? 0) > 0
+                              ? bandState.lastSyncedVitals!.steps
+                              : data.steps;
+                          final distance = bandState.lastSyncedVitals?.distance.toDouble();
+                          final calories = bandState.lastSyncedVitals?.calories;
+
+                          return HomeStepsCard(
+                            steps: steps,
+                            goalSteps: 10000,
+                            distanceMeters: distance,
+                            calories: calories,
+                            onTap: () {
+                              // Navigator.of(context).push(
+                              //   MaterialPageRoute(
+                              //     builder: (_) => const VitalsScreen(),
+                              //   ),
+                              // );
+                            },
+                          );
+                        },
+                      ),
+                      SizedBox(height: itemSpacing),
+
                       // Energy Burned Card
                       BlocBuilder<BandBloc, BandState>(
                         builder: (context, bandState) {
@@ -321,10 +410,24 @@ class _HomeScreenState extends State<HomeScreen>
                     ],
                   ),
                 ),
-                ),
               ),
+            ),
+
+              // 3. Foreground Glassmorphic Sync Loader Overlay (HomeScreen visible underneath)
+              if (showSyncLoader)
+                Positioned.fill(
+                  child: SyncLoaderOverlay(
+                    statusMessage: statusMsg,
+                  ),
+                ),
             ],
           ),
+        );
+                  },
+                );
+              },
+            );
+          },
         );
       },
     );

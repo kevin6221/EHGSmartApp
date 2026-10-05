@@ -17,6 +17,8 @@ class CapsuleBarChart extends StatelessWidget {
   final double barWidth;
   final List<String> days;
   final bool showTrack;
+  final int? selectedIndex;
+  final ValueChanged<int>? onBarTap;
 
   const CapsuleBarChart({
     super.key,
@@ -30,6 +32,8 @@ class CapsuleBarChart extends StatelessWidget {
     this.barWidth = 8.9,
     this.days = const ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
     this.showTrack = false,
+    this.selectedIndex,
+    this.onBarTap,
   });
 
   @override
@@ -60,60 +64,65 @@ class CapsuleBarChart extends StatelessWidget {
           final targetVal = normalizedValues[index];
           final day = index < days.length ? days[index] : '';
 
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Capsule Bar Container with smooth height growth animation
-              SizedBox(
-                width: barWidth,
-                height: height,
-                child: TweenAnimationBuilder<double>(
-                  key: ValueKey('capsule_bar_${index}_${targetVal.toStringAsFixed(3)}'),
-                  duration: const Duration(milliseconds: 650),
-                  curve: Curves.easeOutCubic,
-                  tween: Tween<double>(begin: 0.0, end: targetVal),
-                  builder: (context, animVal, child) {
-                    final tiers = CapsuleBarCalculator.computeTiers(
-                      rawValue: animVal,
-                      totalHeight: height,
-                      barWidth: barWidth,
-                    );
-                    return Align(
-                      alignment: Alignment.bottomCenter,
-                      child: showTrack
-                          ? Container(
-                              width: barWidth,
-                              height: height,
-                              decoration: BoxDecoration(
-                                color: effectiveTrackColor,
-                                borderRadius: BorderRadius.circular(barWidth / 2.0),
-                              ),
-                              alignment: Alignment.bottomCenter,
-                              child: _buildBar(
+          final isSelected = selectedIndex == index;
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onBarTap != null ? () => onBarTap!(index) : null,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Capsule Bar Container with smooth height growth animation
+                SizedBox(
+                  width: barWidth,
+                  height: height,
+                  child: TweenAnimationBuilder<double>(
+                    key: ValueKey('capsule_bar_${index}_${targetVal.toStringAsFixed(3)}'),
+                    duration: const Duration(milliseconds: 650),
+                    curve: Curves.easeOutCubic,
+                    tween: Tween<double>(begin: 0.0, end: targetVal),
+                    builder: (context, animVal, child) {
+                      final tiers = CapsuleBarCalculator.computeTiers(
+                        rawValue: animVal,
+                        totalHeight: height,
+                        barWidth: barWidth,
+                      );
+                      return Align(
+                        alignment: Alignment.bottomCenter,
+                        child: showTrack
+                            ? Container(
+                                width: barWidth,
+                                height: height,
+                                decoration: BoxDecoration(
+                                  color: effectiveTrackColor,
+                                  borderRadius: BorderRadius.circular(barWidth / 2.0),
+                                ),
+                                alignment: Alignment.bottomCenter,
+                                child: _buildBar(
+                                  tiers,
+                                  effectiveMiddleColor,
+                                  effectiveLightColor,
+                                ),
+                              )
+                            : _buildBar(
                                 tiers,
                                 effectiveMiddleColor,
                                 effectiveLightColor,
                               ),
-                            )
-                          : _buildBar(
-                              tiers,
-                              effectiveMiddleColor,
-                              effectiveLightColor,
-                            ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6.0),
-              Text(
-                day,
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 10.0,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.tertiary,
+                const SizedBox(height: 6.0),
+                Text(
+                  day,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 10.0,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    color: isSelected ? activeColor : AppColors.tertiary,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         }),
       ),

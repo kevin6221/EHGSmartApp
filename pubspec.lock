@@ -193,6 +193,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.1.13"
+  donut_chart:
+    dependency: "direct main"
+    description:
+      name: donut_chart
+      sha256: "5234eca1faef3ade4b5f796efeacd681f8201ceba16b301bae107d1bd3de8b3d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.1"
   drift:
     dependency: "direct main"
     description:

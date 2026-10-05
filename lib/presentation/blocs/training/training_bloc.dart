@@ -49,6 +49,15 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
         targetMidHr = 168; // Zone 4–5 (150–185 bpm)
         sportMet = 11.0;
         break;
+      case WorkoutType.mobility:
+        targetMidHr = 95; // Zone 1 (80–110 bpm)
+        sportMet = 2.8;
+        break;
+      case WorkoutType.breathing:
+      case WorkoutType.meditation:
+        targetMidHr = 72; // Restorative (60–85 bpm)
+        sportMet = 1.3;
+        break;
     }
 
     final effectiveHr = (liveHeartRate != null && liveHeartRate > 60)
@@ -127,61 +136,88 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
     });
 
     on<SelectWorkoutCategoryEvent>((event, emit) {
-      if (state.data != null) {
-        String title = 'Outdoor run';
-        String zoneInfo = 'Zone 2–4 · 130–165 bpm';
-        String metrics = 'Pace, cadence, HR zones, route, recovery HR';
-        String outfit = 'Breathable Running Tee · Lightweight Split Shorts';
+      final baseData = state.data ?? repository.getWorkoutData();
+      String title = event.category.defaultTitle;
+      String zoneInfo = 'Zone 1–2 · 90–120 bpm';
+      String metrics = 'Duration, HR zones, recovery rate';
+      String outfit = 'Comfort Fit T-Shirt · Flexible Mobility Pants';
 
-        switch (event.category) {
-          case WorkoutType.run:
-            title = 'Outdoor run';
-            zoneInfo = 'Zone 2–4 · 130–165 bpm';
-            metrics = 'Pace, cadence, HR zones, route, recovery HR';
-            outfit = 'Breathable Running Tee · Lightweight Split Shorts';
-            break;
-          case WorkoutType.walk:
-            title = 'Outdoor walking';
-            zoneInfo = 'Zone 1–2 · 95–120 bpm';
-            metrics = 'Steps, cadence, elevation gain, recovery HR';
-            outfit = 'Comfort Fit T-Shirt · Flexible Walking Pants';
-            break;
-          case WorkoutType.cycling:
-            title = 'Outdoor biking';
-            zoneInfo = 'Zone 2–3 · 120–150 bpm';
-            metrics = 'Speed, distance, elevation, power zones';
-            outfit = 'Aerodynamic Cycling Jersey · Padded Bib Shorts';
-            break;
-          case WorkoutType.strength:
-            title = 'Full body strength';
-            zoneInfo = 'Zone 3–4 · 125–160 bpm';
-            metrics = 'Reps, sets, volume, heart rate peak';
-            outfit = 'Moisture-Wicking Athletic Shirt · Gym Training Shorts';
-            break;
-          case WorkoutType.hit:
-            title = 'HIIT intervals';
-            zoneInfo = 'Zone 4–5 · 150–185 bpm';
-            metrics = 'Interval splits, max HR, EPOC burn';
-            outfit = 'High-Ventilation Performance Tee · Compression Shorts';
-            break;
-        }
-
-        final calculatedRate = calculateEstimatedKcalPerMin(
-          category: event.category,
-          weightKg: state.data!.selectedWeightKg,
-          liveHeartRate: state.liveHeartRate > 0 ? state.liveHeartRate : null,
-        );
-        final updated = state.data!.copyWith(
-          selectedCategory: event.category,
-          title: title,
-          zoneInfo: zoneInfo,
-          metricsSummary: metrics,
-          outfitRecommendation: outfit,
-          estimatedKcalPerMin: calculatedRate,
-        );
-        repository.updateWorkoutData(updated);
-        emit(state.copyWith(data: updated));
+      switch (event.category) {
+        case WorkoutType.run:
+          title = 'Outdoor run';
+          zoneInfo = 'Zone 2–4 · 130–165 bpm';
+          metrics = 'Pace, cadence, HR zones, route, recovery HR';
+          outfit = 'Breathable Running Tee · Lightweight Split Shorts';
+          break;
+        case WorkoutType.walk:
+          title = 'Outdoor walking';
+          zoneInfo = 'Zone 1–2 · 95–120 bpm';
+          metrics = 'Steps, cadence, elevation gain, recovery HR';
+          outfit = 'Comfort Fit T-Shirt · Flexible Walking Pants';
+          break;
+        case WorkoutType.cycling:
+          title = 'Outdoor biking';
+          zoneInfo = 'Zone 2–3 · 120–150 bpm';
+          metrics = 'Speed, distance, elevation, power zones';
+          outfit = 'Aerodynamic Cycling Jersey · Padded Bib Shorts';
+          break;
+        case WorkoutType.strength:
+          title = 'Full body strength';
+          zoneInfo = 'Zone 3–4 · 125–160 bpm';
+          metrics = 'Reps, sets, volume, heart rate peak';
+          outfit = 'Moisture-Wicking Athletic Shirt · Gym Training Shorts';
+          break;
+        case WorkoutType.hit:
+          title = 'HIIT intervals';
+          zoneInfo = 'Zone 4–5 · 150–185 bpm';
+          metrics = 'Interval splits, max HR, EPOC burn';
+          outfit = 'High-Ventilation Performance Tee · Compression Shorts';
+          break;
+        case WorkoutType.mobility:
+          title = 'Full mobility flow';
+          zoneInfo = 'Zone 1 · 80–110 bpm';
+          metrics = 'Range of motion, soft tissue ease, recovery HR';
+          outfit = 'Boxy Piping T-Shirt · Flexible Mobility Pants';
+          break;
+        case WorkoutType.breathing:
+          title = 'Breathing reset';
+          zoneInfo = 'Parasympathetic · 60–85 bpm';
+          metrics = 'Inhale/exhale cadence, HRV elevation, autonomic calm';
+          outfit = 'Breath Sensor · EHG Mind Band';
+          break;
+        case WorkoutType.meditation:
+          title = 'Guided meditation';
+          zoneInfo = 'Restorative · 55–80 bpm';
+          metrics = 'Mindfulness minutes, calm focus, resting HR';
+          outfit = 'Comfort Fit Loungewear · EHG Mind Band';
+          break;
       }
+
+      if (event.customTitle != null && event.customTitle!.trim().isNotEmpty) {
+        title = event.customTitle!.trim();
+      }
+
+      final calculatedRate = calculateEstimatedKcalPerMin(
+        category: event.category,
+        weightKg: baseData.selectedWeightKg,
+        liveHeartRate: state.liveHeartRate > 0 ? state.liveHeartRate : null,
+      );
+      final updated = baseData.copyWith(
+        selectedCategory: event.category,
+        title: title,
+        zoneInfo: zoneInfo,
+        metricsSummary: metrics,
+        outfitRecommendation: outfit,
+        estimatedKcalPerMin: calculatedRate,
+      );
+      repository.updateWorkoutData(updated);
+      emit(state.copyWith(
+        status: TrainingStatus.loaded,
+        data: updated,
+        currentZone: _zoneCalculator.calculateZone(
+          state.liveHeartRate,
+        ),
+      ));
     });
 
     on<SelectWeightEvent>((event, emit) {
@@ -302,6 +338,8 @@ class TrainingBloc extends Bloc<TrainingEvent, TrainingState> {
           if (category == WorkoutType.strength) sportFactor = 0.85;
           if (category == WorkoutType.walk) sportFactor = 0.80;
           if (category == WorkoutType.cycling) sportFactor = 0.95;
+          if (category == WorkoutType.mobility) sportFactor = 0.65;
+          if (category == WorkoutType.breathing || category == WorkoutType.meditation) sportFactor = 0.45;
 
           kcalPerMin = (keytelKcal * sportFactor).clamp(2.5, 25.0);
         } else {

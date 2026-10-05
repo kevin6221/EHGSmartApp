@@ -14,7 +14,9 @@ import '../models/user_profile_model.dart';
 import '../models/vitals_model.dart';
 import '../models/wellness_data_model.dart';
 import '../models/workout_model.dart';
+import '../models/hydration_record_model.dart';
 import '../../core/engine/personalized_baseline_engine.dart';
+import '../../core/engine/wellness_recommendation_engine.dart';
 import 'band_repository.dart';
 
 class WellnessRepository {
@@ -22,6 +24,8 @@ class WellnessRepository {
   final SecureStorageService _secureStorage;
   final Completer<void> _initCompleter = Completer<void>();
   int _yesterdayWellnessScore = 0;
+  int _todayMindBonus = 0;
+  bool _hasUserSelectedMode = false;
   List<JournalEntryModel> _journalEntries = [];
   PersonalizedBaselineData _baselineData = const PersonalizedBaselineData();
 
@@ -212,6 +216,15 @@ class WellnessRepository {
           if (_wellnessData.recoverScore > 0) _baseRecoverScore = _wellnessData.recoverScore;
           if (_wellnessData.readinessScore > 0) _baseReadinessScore = _wellnessData.readinessScore;
           if (_wellnessData.energyBurned > 0) _baseEnergy = _wellnessData.energyBurned;
+
+          // Prevent flatline display: if points are empty or contain 0s, regenerate smooth wave
+          if (_wellnessData.wellnessScore > 0 &&
+              (_wellnessData.dayChartPoints.isEmpty ||
+                  _wellnessData.dayChartPoints.any((p) => !p.isProjected && p.score <= 0))) {
+            _wellnessData = _wellnessData.copyWith(
+              dayChartPoints: generateDayPointsForScore(_wellnessData.wellnessScore.toDouble()),
+            );
+          }
         } catch (_) {}
       }
 
@@ -272,6 +285,15 @@ class WellnessRepository {
         yesterdayScore: _yesterdayWellnessScore,
         scoreDiff: initialDiff,
       );
+
+      final savedMode = await _secureStorage.read('user_selected_mode');
+      if (savedMode != null && savedMode.isNotEmpty) {
+        _hasUserSelectedMode = true;
+      }
+      final savedMindBonusStr = await _secureStorage.read('mind_bonus_$today');
+      if (savedMindBonusStr != null && savedMindBonusStr.isNotEmpty) {
+        _todayMindBonus = int.tryParse(savedMindBonusStr) ?? 0;
+      }
 
       // Populate weekly arrays from Drift SQLite historical daily summaries
       final monday = now.subtract(Duration(days: now.weekday - 1));
@@ -372,6 +394,27 @@ class WellnessRepository {
       final todayHydrationStr = await _secureStorage.read('hydration_$today');
       final int todayHydration = int.tryParse(todayHydrationStr ?? '') ?? 0;
 
+      final recordsJsonStr = await _secureStorage.read('hydration_records_$today');
+      List<HydrationRecord> todayRecords = [];
+      if (recordsJsonStr != null && recordsJsonStr.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(recordsJsonStr) as List<dynamic>;
+          todayRecords = decoded
+              .map((e) => HydrationRecord.fromJson(e as Map<String, dynamic>))
+              .toList();
+        } catch (_) {}
+      }
+      if (todayRecords.isEmpty && todayHydration > 0) {
+        todayRecords = [
+          HydrationRecord(
+            id: 'init_${DateTime.now().millisecondsSinceEpoch}',
+            amountMl: todayHydration,
+            timestamp: DateTime.now(),
+            dateKey: today,
+          ),
+        ];
+      }
+
       final List<double> weeklyHydration = List<double>.filled(7, 0.0);
       for (int i = 0; i < 7; i++) {
         final dayDate = monday.add(Duration(days: i));
@@ -392,6 +435,7 @@ class WellnessRepository {
 
       _wellnessData = _wellnessData.copyWith(
         hydrationCurrent: todayHydration,
+        hydrationRecords: todayRecords,
         weeklyHydration: weeklyHydration,
         fuelScore: fuelScore,
         wellnessScore: updatedWellnessScore,
@@ -493,6 +537,26 @@ class WellnessRepository {
   VitalsModel getVitalsData() => _vitalsData;
   WorkoutModel getWorkoutData() => _workoutData;
   UserProfileModel getUserProfile() => _userProfile;
+
+  /// Generates a realistic, continuous daytime wellness wave matching a target score.
+  /// Guarantees that points are never 0 and the wave has natural physiological variance.
+  static List<DayChartPoint> generateDayPointsForScore(double baseScore) {
+    if (baseScore <= 0) return const [];
+    final base = baseScore.clamp(30.0, 95.0);
+    return [
+      DayChartPoint(timeLabel: '8 AM', score: (base - 12).clamp(30.0, 95.0)),
+      DayChartPoint(timeLabel: '9 AM', score: (base - 8).clamp(30.0, 95.0)),
+      DayChartPoint(timeLabel: '10 AM', score: (base - 4).clamp(30.0, 95.0)),
+      DayChartPoint(timeLabel: '11 AM', score: (base + 2).clamp(30.0, 95.0)),
+      DayChartPoint(timeLabel: '12 PM', score: (base - 10).clamp(30.0, 95.0)),
+      DayChartPoint(timeLabel: '1 PM', score: (base - 6).clamp(30.0, 95.0)),
+      DayChartPoint(timeLabel: '2 PM', score: (base - 2).clamp(30.0, 95.0)),
+      DayChartPoint(timeLabel: '3 PM', score: (base - 5).clamp(30.0, 95.0)),
+      DayChartPoint(timeLabel: '4 PM', score: base, hasPin: true),
+      DayChartPoint(timeLabel: '5 PM', score: base, isProjected: true),
+      DayChartPoint(timeLabel: '6 PM', score: base, isProjected: true),
+    ];
+  }
 
   void updateWorkoutData(WorkoutModel data) {
     _workoutData = data;
@@ -914,19 +978,20 @@ class WellnessRepository {
         : computedRecoverScore;
 
     final todayEntry = todayJournalEntry;
-    final int mindScore = calculateMindScore(
+    final int baseMindScore = calculateMindScore(
       stressScore: effectiveStress,
       energyLevel: todayEntry?.energyLevel,
       moodWord: todayEntry?.moodWord,
       fallbackMindScore: _wellnessData.mindScore > 0 ? _wellnessData.mindScore : (hasData ? 50 : 0),
     );
+    final int mindScore = (baseMindScore + _todayMindBonus).clamp(20, 99);
 
     final int fuelScore = hasData
         ? (_wellnessData.hydrationCurrent / _wellnessData.hydrationGoal * 100).clamp(15, 95).round()
         : 0;
 
     final int calculatedWellnessScore = hasData
-        ? ((moveScore + recoverScore + mindScore + fuelScore) / 4).round()
+        ? (((moveScore + recoverScore + baseMindScore + fuelScore) / 4).round() + _todayMindBonus).clamp(1, 100)
         : 0;
     final int newWellnessScore = (savedWellnessScore != null && savedWellnessScore > 0)
         ? savedWellnessScore
@@ -935,6 +1000,8 @@ class WellnessRepository {
     int scoreDiff = 0;
     if (newWellnessScore > 0 && _yesterdayWellnessScore > 0) {
       scoreDiff = newWellnessScore - _yesterdayWellnessScore;
+    } else if (_todayMindBonus > 0 && _wellnessData.scoreDiff != 0) {
+      scoreDiff = _wellnessData.scoreDiff;
     }
 
     // 4. Dynamic Readiness Score & Mode with Personalized Autonomous Weighting
@@ -955,19 +1022,20 @@ class WellnessRepository {
     _baseReadinessScore = readinessScore;
     _baseEnergy = energy > 0 ? energy : 560;
 
-    final WellnessMode recommendedMode;
-    if (!hasData || readinessScore == 0) {
-      recommendedMode = WellnessMode.steady;
-    } else if (readinessScore >= 75) {
-      recommendedMode = WellnessMode.push;
-    } else if (readinessScore >= 55) {
-      recommendedMode = WellnessMode.steady;
-    } else {
-      recommendedMode = WellnessMode.recover;
-    }
+    final recommendation = WellnessRecommendationEngine.compute(
+      wellnessScore: newWellnessScore,
+      readinessScore: readinessScore,
+      hrvMs: vitals.hrvMs,
+      restHr: vitals.restingHeartRate,
+      sleepHours: hours,
+    );
+    final WellnessMode recommendedMode = recommendation.mode;
+    final String recommendationExplanation = recommendation.explanation;
 
-    // Preserve user-selected active mode unless this is an explicit screen/pull-to-refresh
-    final WellnessMode activeMode = updateMode ? recommendedMode : _wellnessData.activeMode;
+    // Preserve current active mode across refreshes; only default to recommendedMode on initial fresh setup
+    final WellnessMode activeMode = (_hasUserSelectedMode || _wellnessData.wellnessScore > 0)
+        ? _wellnessData.activeMode
+        : (updateMode ? recommendedMode : _wellnessData.activeMode);
 
     final String readinessTag;
     if (!hasData || readinessScore == 0) {
@@ -980,36 +1048,13 @@ class WellnessRepository {
       };
     }
 
-    final int effectiveReadinessScore;
-    if (!hasData || readinessScore == 0) {
-      effectiveReadinessScore = 0;
-    } else if (activeMode == recommendedMode) {
-      effectiveReadinessScore = readinessScore;
-    } else {
-      effectiveReadinessScore = switch (activeMode) {
-        WellnessMode.recover => (readinessScore * 0.85).round().clamp(55, 68),
-        WellnessMode.steady => readinessScore.clamp(68, 80),
-        WellnessMode.push => (readinessScore * 1.35).round().clamp(84, 94),
-      };
-    }
-
     // 5. Dynamic 24h day chart points
     final baseScore = newWellnessScore.toDouble();
     final List<DayChartPoint> dayPoints = (hasData && baseScore > 0)
-        ? [
-            DayChartPoint(timeLabel: '8 AM', score: (baseScore - 12).clamp(30.0, 95.0)),
-            DayChartPoint(timeLabel: '9 AM', score: (baseScore - 8).clamp(30.0, 95.0)),
-            DayChartPoint(timeLabel: '10 AM', score: (baseScore - 4).clamp(30.0, 95.0)),
-            DayChartPoint(timeLabel: '11 AM', score: (baseScore + 2).clamp(30.0, 95.0)),
-            DayChartPoint(timeLabel: '12 PM', score: (baseScore - 10).clamp(30.0, 95.0)),
-            DayChartPoint(timeLabel: '1 PM', score: (baseScore - 6).clamp(30.0, 95.0)),
-            DayChartPoint(timeLabel: '2 PM', score: (baseScore - 2).clamp(30.0, 95.0)),
-            DayChartPoint(timeLabel: '3 PM', score: (baseScore - 5).clamp(30.0, 95.0)),
-            DayChartPoint(timeLabel: '4 PM', score: baseScore, hasPin: true),
-            DayChartPoint(timeLabel: '5 PM', score: baseScore, isProjected: true),
-            DayChartPoint(timeLabel: '6 PM', score: baseScore, isProjected: true),
-          ]
-        : (_wellnessData.dayChartPoints.isNotEmpty ? _wellnessData.dayChartPoints : const []);
+        ? generateDayPointsForScore(baseScore)
+        : (_wellnessData.dayChartPoints.isNotEmpty
+            ? _wellnessData.dayChartPoints
+            : (baseScore > 0 ? generateDayPointsForScore(baseScore) : const []));
 
     // 6. Dynamic Weekly Heart Rate & Stress Timeline from Hardware Readings
     List<double> updatedWeeklyHr = List<double>.from(
@@ -1083,13 +1128,15 @@ class WellnessRepository {
       scoreDiff: scoreDiff,
       yesterdayScore: _yesterdayWellnessScore,
       activeMode: activeMode,
+      recommendedMode: recommendedMode,
+      recommendationExplanation: recommendationExplanation,
       dayChartPoints: dayPoints,
       currentHeartRate: effectiveHr,
       weeklyHeartRate: updatedWeeklyHr,
       weeklyEnergy: updatedWeeklyEnergy,
       sleepHours: double.parse(hours.toStringAsFixed(1)),
       weeklySleep: updatedWeeklySleep,
-      readinessScore: effectiveReadinessScore,
+      readinessScore: readinessScore,
       readinessTag: readinessTag,
       sleepDetail: vitals.sleepMinutes > 0 ? '${vitals.sleepMinutes ~/ 60}hr ${vitals.sleepMinutes % 60} min' : '--',
       hrvMs: vitals.hrvMs > 0 ? vitals.hrvMs : _wellnessData.hrvMs,
@@ -1223,26 +1270,209 @@ class WellnessRepository {
     }
   }
 
+  /// Retrieves discrete hydration entries for a specific calendar date.
+  Future<List<HydrationRecord>> getHydrationEntriesForDate(DateTime date) async {
+    final dateStr = date.toIso8601String().substring(0, 10);
+    final recordsJsonStr = await _secureStorage.read('hydration_records_$dateStr');
+    if (recordsJsonStr != null && recordsJsonStr.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(recordsJsonStr) as List<dynamic>;
+        return decoded
+            .map((e) => HydrationRecord.fromJson(e as Map<String, dynamic>))
+            .toList();
+      } catch (_) {}
+    }
+    // Fallback to legacy single value if present
+    final legacyStr = await _secureStorage.read('hydration_$dateStr');
+    final legacyVal = int.tryParse(legacyStr ?? '') ?? 0;
+    if (legacyVal > 0) {
+      return [
+        HydrationRecord(
+          id: 'legacy_$dateStr',
+          amountMl: legacyVal,
+          timestamp: DateTime(date.year, date.month, date.day, 12, 0),
+          dateKey: dateStr,
+        ),
+      ];
+    }
+    return const [];
+  }
+
+  /// Logs an individual hydration intake entry and updates the daily total & wellness score.
+  Future<void> logHydrationEntry(int amountMl, {DateTime? date}) async {
+    if (amountMl <= 0) return;
+    final targetDate = date ?? DateTime.now();
+    final dateStr = targetDate.toIso8601String().substring(0, 10);
+    final todayStr = DateTime.now().toIso8601String().substring(0, 10);
+    final isToday = dateStr == todayStr;
+
+    final existingRecords = await getHydrationEntriesForDate(targetDate);
+    final newRecord = HydrationRecord(
+      id: '${DateTime.now().millisecondsSinceEpoch}_$amountMl',
+      amountMl: amountMl,
+      timestamp: DateTime.now(),
+      dateKey: dateStr,
+    );
+    final updatedRecords = [...existingRecords, newRecord];
+
+    await _secureStorage.write(
+      'hydration_records_$dateStr',
+      jsonEncode(updatedRecords.map((e) => e.toJson()).toList()),
+    );
+
+    final totalMl = updatedRecords.fold<int>(0, (sum, r) => sum + r.amountMl).clamp(0, 5000);
+    await _secureStorage.write('hydration_$dateStr', totalMl.toString());
+
+    if (isToday) {
+      final updatedWeekly = List<double>.from(_wellnessData.weeklyHydration);
+      if (updatedWeekly.length == 7) {
+        updatedWeekly[_todayIndex] = (totalMl / _wellnessData.hydrationGoal).clamp(0.0, 1.0);
+      }
+
+      final fuelScore = (totalMl / _wellnessData.hydrationGoal * 100).clamp(15, 95).round();
+      final updatedWellnessScore = _wellnessData.wellnessScore > 0
+          ? ((_wellnessData.moveScore + _wellnessData.recoverScore + _wellnessData.mindScore + fuelScore) / 4).round()
+          : _wellnessData.wellnessScore;
+
+      _wellnessData = _wellnessData.copyWith(
+        hydrationCurrent: totalMl,
+        hydrationRecords: updatedRecords,
+        weeklyHydration: updatedWeekly,
+        fuelScore: fuelScore,
+        wellnessScore: updatedWellnessScore,
+      );
+
+      await _secureStorage.write(
+        'cached_wellness_data_v1',
+        jsonEncode(_wellnessData.toJson()),
+      ).catchError((_) {});
+    }
+  }
+
+  /// Removes an individual hydration intake entry by ID and updates the daily total & wellness score.
+  Future<void> removeHydrationEntryById(String recordId, {DateTime? date}) async {
+    final targetDate = date ?? DateTime.now();
+    final dateStr = targetDate.toIso8601String().substring(0, 10);
+    final todayStr = DateTime.now().toIso8601String().substring(0, 10);
+    final isToday = dateStr == todayStr;
+
+    final existingRecords = await getHydrationEntriesForDate(targetDate);
+    final updatedRecords = existingRecords.where((r) => r.id != recordId).toList();
+
+    await _secureStorage.write(
+      'hydration_records_$dateStr',
+      jsonEncode(updatedRecords.map((e) => e.toJson()).toList()),
+    );
+
+    final totalMl = updatedRecords.fold<int>(0, (sum, r) => sum + r.amountMl).clamp(0, 5000);
+    await _secureStorage.write('hydration_$dateStr', totalMl.toString());
+
+    if (isToday) {
+      final updatedWeekly = List<double>.from(_wellnessData.weeklyHydration);
+      if (updatedWeekly.length == 7) {
+        updatedWeekly[_todayIndex] = (totalMl / _wellnessData.hydrationGoal).clamp(0.0, 1.0);
+      }
+
+      final fuelScore = (totalMl / _wellnessData.hydrationGoal * 100).clamp(15, 95).round();
+      final updatedWellnessScore = _wellnessData.wellnessScore > 0
+          ? ((_wellnessData.moveScore + _wellnessData.recoverScore + _wellnessData.mindScore + fuelScore) / 4).round()
+          : _wellnessData.wellnessScore;
+
+      _wellnessData = _wellnessData.copyWith(
+        hydrationCurrent: totalMl,
+        hydrationRecords: updatedRecords,
+        weeklyHydration: updatedWeekly,
+        fuelScore: fuelScore,
+        wellnessScore: updatedWellnessScore,
+      );
+
+      await _secureStorage.write(
+        'cached_wellness_data_v1',
+        jsonEncode(_wellnessData.toJson()),
+      ).catchError((_) {});
+    }
+  }
+
   /// Adds daily hydration intake, updates weekly chart, and recalculates Fuel & Wellness scores.
   Future<void> addHydration(int amountMl) async {
-    final today = DateTime.now().toIso8601String().substring(0, 10);
-    final current = _wellnessData.hydrationCurrent;
-    final updated = (current + amountMl).clamp(0, 5000);
+    if (amountMl > 0) {
+      await logHydrationEntry(amountMl);
+    } else if (amountMl < 0) {
+      await removeHydration(-amountMl);
+    }
+  }
 
-    await _secureStorage.write('hydration_$today', updated.toString());
+  /// Decrements daily hydration intake by [amountMl] (removing a matching or latest entry).
+  Future<void> removeHydration(int amountMl) async {
+    final records = List<HydrationRecord>.from(_wellnessData.hydrationRecords);
+    if (records.isNotEmpty) {
+      final matchIdx = records.lastIndexWhere((r) => r.amountMl == amountMl);
+      if (matchIdx != -1) {
+        await removeHydrationEntryById(records[matchIdx].id);
+        return;
+      }
+      await removeHydrationEntryById(records.last.id);
+    } else {
+      final current = _wellnessData.hydrationCurrent;
+      final updated = (current - amountMl).clamp(0, 5000);
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      await _secureStorage.write('hydration_$today', updated.toString());
+
+      final updatedWeekly = List<double>.from(_wellnessData.weeklyHydration);
+      if (updatedWeekly.length == 7) {
+        updatedWeekly[_todayIndex] = (updated / _wellnessData.hydrationGoal).clamp(0.0, 1.0);
+      }
+
+      final fuelScore = (updated / _wellnessData.hydrationGoal * 100).clamp(15, 95).round();
+      final updatedWellnessScore = _wellnessData.wellnessScore > 0
+          ? ((_wellnessData.moveScore + _wellnessData.recoverScore + _wellnessData.mindScore + fuelScore) / 4).round()
+          : _wellnessData.wellnessScore;
+
+      _wellnessData = _wellnessData.copyWith(
+        hydrationCurrent: updated,
+        weeklyHydration: updatedWeekly,
+        fuelScore: fuelScore,
+        wellnessScore: updatedWellnessScore,
+      );
+
+      await _secureStorage.write(
+        'cached_wellness_data_v1',
+        jsonEncode(_wellnessData.toJson()),
+      ).catchError((_) {});
+    }
+  }
+
+  /// Sets daily hydration intake to an exact custom [totalMl] value.
+  Future<void> setHydration(int totalMl) async {
+    final target = totalMl.clamp(0, 5000);
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final newRecord = HydrationRecord(
+      id: 'set_${DateTime.now().millisecondsSinceEpoch}',
+      amountMl: target,
+      timestamp: DateTime.now(),
+      dateKey: today,
+    );
+    final updatedRecords = [newRecord];
+
+    await _secureStorage.write(
+      'hydration_records_$today',
+      jsonEncode(updatedRecords.map((e) => e.toJson()).toList()),
+    );
+    await _secureStorage.write('hydration_$today', target.toString());
 
     final updatedWeekly = List<double>.from(_wellnessData.weeklyHydration);
     if (updatedWeekly.length == 7) {
-      updatedWeekly[_todayIndex] = (updated / _wellnessData.hydrationGoal).clamp(0.0, 1.0);
+      updatedWeekly[_todayIndex] = (target / _wellnessData.hydrationGoal).clamp(0.0, 1.0);
     }
 
-    final fuelScore = (updated / _wellnessData.hydrationGoal * 100).clamp(15, 95).round();
+    final fuelScore = (target / _wellnessData.hydrationGoal * 100).clamp(15, 95).round();
     final updatedWellnessScore = _wellnessData.wellnessScore > 0
         ? ((_wellnessData.moveScore + _wellnessData.recoverScore + _wellnessData.mindScore + fuelScore) / 4).round()
         : _wellnessData.wellnessScore;
 
     _wellnessData = _wellnessData.copyWith(
-      hydrationCurrent: updated,
+      hydrationCurrent: target,
+      hydrationRecords: updatedRecords,
       weeklyHydration: updatedWeekly,
       fuelScore: fuelScore,
       wellnessScore: updatedWellnessScore,
@@ -1254,9 +1484,67 @@ class WellnessRepository {
     ).catchError((_) {});
   }
 
+  /// Completes a Mind mission (countdown completed) and boosts mind score & overall wellness score.
+  Future<void> completeMindSession({int points = 5}) async {
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    _todayMindBonus += points;
+    await _secureStorage.write('mind_bonus_$today', '$_todayMindBonus').catchError((_) {});
+
+    final currentScore = _wellnessData.wellnessScore;
+    final int baseScore = currentScore > 0 ? currentScore : 75;
+    final int updatedWellnessScore = (baseScore + points).clamp(1, 100);
+    final int newMind = (_wellnessData.mindScore > 0 ? _wellnessData.mindScore + points : 70 + points).clamp(20, 99);
+    final int scoreDiff = _wellnessData.yesterdayScore > 0
+        ? (updatedWellnessScore - _wellnessData.yesterdayScore)
+        : (_wellnessData.scoreDiff + points);
+
+    // Sync pinned point on the "Your day so far" chart to match updatedWellnessScore
+    final List<DayChartPoint> updatedDayPoints = _wellnessData.dayChartPoints.map((pt) {
+      if (pt.hasPin) {
+        return DayChartPoint(
+          timeLabel: pt.timeLabel,
+          score: updatedWellnessScore.toDouble(),
+          hasPin: true,
+          isProjected: pt.isProjected,
+        );
+      }
+      return pt;
+    }).toList();
+
+    _wellnessData = _wellnessData.copyWith(
+      mindScore: newMind,
+      wellnessScore: updatedWellnessScore,
+      scoreDiff: scoreDiff,
+      dayChartPoints: updatedDayPoints.isNotEmpty ? updatedDayPoints : _wellnessData.dayChartPoints,
+    );
+
+    await _secureStorage.write(
+      'cached_wellness_data_v1',
+      jsonEncode(_wellnessData.toJson()),
+    ).catchError((_) {});
+
+    final userId = await _secureStorage.getActiveUserId();
+    final mac = await _secureStorage.getBondedDeviceMac();
+    final devId = mac ?? 'default_band';
+    await _db.healthDataDao.upsertDailySummary(
+      DailyHealthSummariesTableCompanion(
+        userId: drift.Value(userId),
+        deviceId: drift.Value(devId),
+        date: drift.Value(today),
+        wellnessScore: drift.Value(updatedWellnessScore),
+        lastSyncTimestamp: drift.Value(DateTime.now()),
+      ),
+    ).catchError((e) {
+      debugPrint('⚠️ [WELLNESS REPO] upsertDailySummary error in completeMindSession: $e');
+      return -1;
+    });
+  }
+
   /// Updates active wellness mode (Recover / Steady / Push) and recalculates
   /// mode-adapted energy burned target, active minutes, and weekly strain.
   Future<void> changeWellnessMode(WellnessMode mode) async {
+    _hasUserSelectedMode = true;
+    await _secureStorage.write('user_selected_mode', mode.name).catchError((_) {});
     if (_wellnessData.activeMode == mode) return;
 
     // Mode-adapted energy burn and targets:
@@ -1314,38 +1602,20 @@ class WellnessRepository {
         : (_wellnessData.readinessScore > 0 ? _wellnessData.readinessScore : 72);
     _baseReadinessScore = baseReadiness;
 
-    final int modeReadiness = switch (mode) {
-      WellnessMode.recover => (baseReadiness * 0.85).round().clamp(55, 68),
-      WellnessMode.steady => baseReadiness.clamp(68, 80),
-      WellnessMode.push => (baseReadiness * 1.35).round().clamp(84, 94),
-    };
-
-    // Mode-adapted Move and Recover pillar scores for the 4-pillar Wellness Score
     final int baseMove = _baseMoveScore > 0
         ? _baseMoveScore
         : (_wellnessData.moveScore > 0 ? _wellnessData.moveScore : 65);
     _baseMoveScore = baseMove;
-
-    final int modeMove = switch (mode) {
-      WellnessMode.recover => (baseMove * 0.70).round().clamp(30, 60),
-      WellnessMode.steady => baseMove.clamp(60, 78),
-      WellnessMode.push => (baseMove * 1.35).round().clamp(80, 96),
-    };
 
     final int baseRecover = _baseRecoverScore > 0
         ? _baseRecoverScore
         : (_wellnessData.recoverScore > 0 ? _wellnessData.recoverScore : 70);
     _baseRecoverScore = baseRecover;
 
-    final int modeRecover = switch (mode) {
-      WellnessMode.recover => (baseRecover * 0.85).round().clamp(55, 70),
-      WellnessMode.steady => baseRecover.clamp(70, 84),
-      WellnessMode.push => (baseRecover * 1.25).round().clamp(85, 96),
-    };
+    // Overall Wellness Score remains consistent across recover, steady, and push modes
+    final int modeWellnessScore = _wellnessData.wellnessScore;
 
-    final int modeWellnessScore = ((modeMove + modeRecover + _wellnessData.mindScore + _wellnessData.fuelScore) / 4).round().clamp(1, 100);
-
-    // Sync pinned point on the "Your day so far" chart to match the new mode wellness score
+    // Sync pinned point on the "Your day so far" chart to match the mode wellness score
     final List<DayChartPoint> updatedDayPoints = _wellnessData.dayChartPoints.map((pt) {
       if (pt.hasPin) {
         return DayChartPoint(
@@ -1364,10 +1634,10 @@ class WellnessRepository {
       activeMins: modeActiveMins,
       goalMins: modeGoalMins,
       weeklyEnergy: updatedWeeklyEnergy,
-      readinessScore: modeReadiness,
+      readinessScore: baseReadiness,
       readinessTag: modeTag,
-      moveScore: modeMove,
-      recoverScore: modeRecover,
+      moveScore: baseMove,
+      recoverScore: baseRecover,
       wellnessScore: modeWellnessScore,
       dayChartPoints: updatedDayPoints.isNotEmpty ? updatedDayPoints : _wellnessData.dayChartPoints,
     );

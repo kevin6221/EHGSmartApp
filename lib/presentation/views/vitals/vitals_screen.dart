@@ -21,7 +21,6 @@ import 'widgets/vitals_expandable_metric_card.dart';
 import 'widgets/vitals_heart_rate_card.dart';
 import 'widgets/vitals_hrv_card.dart';
 import 'widgets/vitals_period_segmented_bar.dart';
-import 'widgets/vitals_period_stats_card.dart';
 import 'widgets/vitals_sleep_summary_card.dart';
 import 'widgets/vitals_stress_card.dart';
 import 'widgets/vitals_twin_trend_cards.dart';
@@ -355,22 +354,22 @@ class _VitalsScreenState extends State<VitalsScreen> {
                                 SizedBox(height: cardSpacing),
 
                                 // 3. Period Overview Stats Card with Relax/Normal/Medium/High Distribution
-                                ValueListenableBuilder<VitalsPeriodStats?>(
-                                  valueListenable: _periodStatsNotifier,
-                                  builder: (context, dynamicStats, _) {
-                                    final periodStats = dynamicStats ??
-                                        VitalsPeriodStats.compute(
-                                          period: _selectedPeriodNotifier.value,
-                                          anchorDate: _selectedDateNotifier.value,
-                                          currentVitals: data,
-                                        );
-                                    return VitalsPeriodStatsCard(
-                                      stats: periodStats,
-                                      isLoading: isLoading,
-                                    );
-                                  },
-                                ),
-                                SizedBox(height: cardSpacing),
+                                // ValueListenableBuilder<VitalsPeriodStats?>(
+                                //   valueListenable: _periodStatsNotifier,
+                                //   builder: (context, dynamicStats, _) {
+                                //     final periodStats = dynamicStats ??
+                                //         VitalsPeriodStats.compute(
+                                //           period: _selectedPeriodNotifier.value,
+                                //           anchorDate: _selectedDateNotifier.value,
+                                //           currentVitals: data,
+                                //         );
+                                //     return VitalsPeriodStatsCard(
+                                //       stats: periodStats,
+                                //       isLoading: isLoading,
+                                //     );
+                                //   },
+                                // ),
+                                // SizedBox(height: cardSpacing),
 
                                 // 4. Last night / Weekly / Monthly Sleep Summary Card (Figma Node 73:1319)
                                 ValueListenableBuilder<VitalsTimePeriod>(

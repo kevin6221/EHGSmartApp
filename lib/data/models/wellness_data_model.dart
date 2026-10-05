@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import 'band_device_model.dart';
+import 'hydration_record_model.dart';
 
 enum WellnessMode { recover, steady, push }
 
@@ -64,6 +65,10 @@ class WellnessDataModel extends Equatable {
   final int mindScore;
   final int fuelScore;
   final int yesterdayScore;
+  final WellnessMode recommendedMode;
+  final String recommendationExplanation;
+
+  final List<HydrationRecord> hydrationRecords;
 
   bool get hasYesterdayData => yesterdayScore > 0;
 
@@ -72,6 +77,9 @@ class WellnessDataModel extends Equatable {
     required this.scoreDiff,
     this.yesterdayScore = 0,
     required this.activeMode,
+    this.recommendedMode = WellnessMode.steady,
+    this.recommendationExplanation =
+        'Balanced autonomic equilibrium. Sustain aerobic baseline conditioning, steady pacing, and habitual movement volume.',
     required this.dayChartPoints,
     required this.currentHeartRate,
     required this.weeklyHeartRate,
@@ -86,6 +94,7 @@ class WellnessDataModel extends Equatable {
     required this.hydrationCurrent,
     required this.hydrationGoal,
     required this.weeklyHydration,
+    this.hydrationRecords = const [],
     required this.energyBurned,
     this.steps = 0,
     required this.activeMins,
@@ -116,6 +125,7 @@ class WellnessDataModel extends Equatable {
     int? hydrationCurrent,
     int? hydrationGoal,
     List<double>? weeklyHydration,
+    List<HydrationRecord>? hydrationRecords,
     int? energyBurned,
     int? steps,
     int? activeMins,
@@ -125,12 +135,17 @@ class WellnessDataModel extends Equatable {
     int? recoverScore,
     int? mindScore,
     int? fuelScore,
+    WellnessMode? recommendedMode,
+    String? recommendationExplanation,
   }) {
     return WellnessDataModel(
       wellnessScore: wellnessScore ?? this.wellnessScore,
       scoreDiff: scoreDiff ?? this.scoreDiff,
       yesterdayScore: yesterdayScore ?? this.yesterdayScore,
       activeMode: activeMode ?? this.activeMode,
+      recommendedMode: recommendedMode ?? this.recommendedMode,
+      recommendationExplanation:
+          recommendationExplanation ?? this.recommendationExplanation,
       dayChartPoints: dayChartPoints ?? this.dayChartPoints,
       currentHeartRate: currentHeartRate ?? this.currentHeartRate,
       weeklyHeartRate: weeklyHeartRate ?? this.weeklyHeartRate,
@@ -145,6 +160,7 @@ class WellnessDataModel extends Equatable {
       hydrationCurrent: hydrationCurrent ?? this.hydrationCurrent,
       hydrationGoal: hydrationGoal ?? this.hydrationGoal,
       weeklyHydration: weeklyHydration ?? this.weeklyHydration,
+      hydrationRecords: hydrationRecords ?? this.hydrationRecords,
       energyBurned: energyBurned ?? this.energyBurned,
       steps: steps ?? this.steps,
       activeMins: activeMins ?? this.activeMins,
@@ -162,6 +178,8 @@ class WellnessDataModel extends Equatable {
     'scoreDiff': scoreDiff,
     'yesterdayScore': yesterdayScore,
     'activeMode': activeMode.name,
+    'recommendedMode': recommendedMode.name,
+    'recommendationExplanation': recommendationExplanation,
     'dayChartPoints': dayChartPoints.map((p) => p.toJson()).toList(),
     'currentHeartRate': currentHeartRate,
     'weeklyHeartRate': weeklyHeartRate,
@@ -176,6 +194,7 @@ class WellnessDataModel extends Equatable {
     'hydrationCurrent': hydrationCurrent,
     'hydrationGoal': hydrationGoal,
     'weeklyHydration': weeklyHydration,
+    'hydrationRecords': hydrationRecords.map((e) => e.toJson()).toList(),
     'energyBurned': energyBurned,
     'steps': steps,
     'activeMins': activeMins,
@@ -204,6 +223,12 @@ class WellnessDataModel extends Equatable {
         (m) => m.name == json['activeMode'],
         orElse: () => WellnessMode.steady,
       ),
+      recommendedMode: WellnessMode.values.firstWhere(
+        (m) => m.name == json['recommendedMode'],
+        orElse: () => WellnessMode.steady,
+      ),
+      recommendationExplanation: json['recommendationExplanation'] as String? ??
+          'Balanced autonomic equilibrium. Sustain aerobic baseline conditioning, steady pacing, and habitual movement volume.',
       dayChartPoints: (json['dayChartPoints'] as List<dynamic>?)
               ?.map((p) => DayChartPoint.fromJson(p as Map<String, dynamic>))
               .toList() ??
@@ -230,6 +255,10 @@ class WellnessDataModel extends Equatable {
               ?.map((e) => (e as num).toDouble())
               .toList() ??
           const [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+      hydrationRecords: (json['hydrationRecords'] as List<dynamic>?)
+              ?.map((e) => HydrationRecord.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
       energyBurned: normalizedEnergy,
       steps: (json['steps'] as num?)?.toInt() ?? 0,
       activeMins: (json['activeMins'] as num?)?.toInt() ?? 0,
@@ -249,7 +278,10 @@ class WellnessDataModel extends Equatable {
   List<Object?> get props => [
     wellnessScore,
     scoreDiff,
+    yesterdayScore,
     activeMode,
+    recommendedMode,
+    recommendationExplanation,
     dayChartPoints,
     currentHeartRate,
     weeklyHeartRate,
@@ -264,6 +296,7 @@ class WellnessDataModel extends Equatable {
     hydrationCurrent,
     hydrationGoal,
     weeklyHydration,
+    hydrationRecords,
     energyBurned,
     steps,
     activeMins,
@@ -275,3 +308,4 @@ class WellnessDataModel extends Equatable {
     fuelScore,
   ];
 }
+
