@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -16,6 +17,7 @@ import '../../widgets/common/screen_header.dart';
 import 'widgets/train_active_workout_card.dart';
 import 'widgets/train_category_selector.dart';
 import 'widgets/train_recent_session_card.dart';
+import '../details/workout_session_detail_screen.dart';
 
 /// Training and workout dashboard screen matching Figma Node 75:2261.
 class TrainScreen extends StatelessWidget {
@@ -253,6 +255,23 @@ class TrainScreen extends StatelessWidget {
                           duration: data.recentSessionDuration,
                           peakHr: data.recentPeakHr,
                           avgHr: data.recentAvgHr,
+                          burnedCalories: 1,
+                          startTime: DateTime.now().subtract(const Duration(minutes: 50)),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              CupertinoPageRoute(
+                                builder: (_) => WorkoutSessionDetailScreen(
+                                  title: data.recentSessionTitle,
+                                  durationSeconds: 14,
+                                  avgHeartRate: data.recentAvgHr,
+                                  peakHeartRate: data.recentPeakHr,
+                                  burnedCalories: 1,
+                                  category: 'walk',
+                                  startTime: DateTime.now().subtract(const Duration(minutes: 50)),
+                                ),
+                              ),
+                            );
+                          },
                         )
                       else
                         ListView.separated(
@@ -265,6 +284,15 @@ class TrainScreen extends StatelessWidget {
                             final session = state.recentSessions[index];
                             return TrainRecentSessionCard.fromSession(
                               session: session,
+                              onTap: () {
+                                Navigator.of(context).push(
+                                  CupertinoPageRoute(
+                                    builder: (_) => WorkoutSessionDetailScreen(
+                                      session: session,
+                                    ),
+                                  ),
+                                );
+                              },
                               onDelete: () => _confirmDeleteSession(context, session),
                             );
                           },

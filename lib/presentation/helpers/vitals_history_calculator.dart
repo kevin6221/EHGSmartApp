@@ -178,6 +178,18 @@ class VitalsPeriodStats {
         final sunday = monday.add(const Duration(days: 6));
         final startFmt = DateFormat('d MMM').format(monday);
         final endFmt = DateFormat('d MMM').format(sunday);
+        final currentMonday = today.subtract(Duration(days: today.weekday - 1));
+        if (monday.year == currentMonday.year &&
+            monday.month == currentMonday.month &&
+            monday.day == currentMonday.day) {
+          return 'This Week, $startFmt – $endFmt';
+        }
+        final lastMonday = currentMonday.subtract(const Duration(days: 7));
+        if (monday.year == lastMonday.year &&
+            monday.month == lastMonday.month &&
+            monday.day == lastMonday.day) {
+          return 'Last Week, $startFmt – $endFmt';
+        }
         return '$startFmt – $endFmt';
 
       case VitalsTimePeriod.month:

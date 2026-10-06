@@ -126,3 +126,7 @@ class SyncBandFullVitalsEvent extends WellnessEvent {
   List<Object?> get props => [vitals, isManualRefresh];
 }
 
+class CheckMidnightRolloverEvent extends WellnessEvent {
+  const CheckMidnightRolloverEvent();
+}
+

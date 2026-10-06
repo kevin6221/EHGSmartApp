@@ -91,14 +91,24 @@ class WellnessBloc extends Bloc<WellnessEvent, WellnessState> {
         if (hr > 0) {
           repository.updateHeartRate(hr);
         }
-        if (event.steps > 0 || event.calories > 0) {
-          repository.updateStepsAndCalories(
-            steps: event.steps > 0 ? event.steps : state.data!.steps,
-            calories: event.calories > 0 ? event.calories : state.data!.energyBurned,
-          );
-        }
+        repository.updateStepsAndCalories(
+          steps: event.steps,
+          calories: event.calories,
+        );
         final data = repository.getWellnessData();
         emit(state.copyWith(
+          data: data,
+          baseline: repository.baselineData,
+        ));
+      }
+    });
+
+    on<CheckMidnightRolloverEvent>((event, emit) {
+      final rolledOver = repository.checkMidnightRollover();
+      if (rolledOver) {
+        final data = repository.getWellnessData();
+        emit(state.copyWith(
+          status: WellnessStatus.loaded,
           data: data,
           baseline: repository.baselineData,
         ));

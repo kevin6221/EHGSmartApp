@@ -821,27 +821,34 @@ class _HydrationDetailScreenState extends State<HydrationDetailScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isToday ? '$dayTitle (Today)' : dayTitle,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: r.font(13.0),
-                            fontWeight: FontWeight.w700,
-                            color: context.textPrimary,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isToday ? '$dayTitle (Today)' : dayTitle,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: r.font(13.0),
+                              fontWeight: FontWeight.w700,
+                              color: context.textPrimary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                        const SizedBox(height: 2.0),
-                        Text(
-                          'Tap any day bar to view recorded intake',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: r.font(10.0),
-                            color: context.textSecondary,
+                          const SizedBox(height: 2.0),
+                          Text(
+                            'Tap any day bar to view recorded intake',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: r.font(10.0),
+                              color: context.textSecondary,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8.0),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -902,12 +909,15 @@ class _HydrationDetailScreenState extends State<HydrationDetailScreen> {
                 ),
               ),
               const SizedBox(width: 10.0),
-              Text(
-                'Hydration & Recovery Science',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: r.font(14.0),
-                  fontWeight: FontWeight.w700,
-                  color: context.textPrimary,
+              Expanded(
+                child: Text(
+                  'Hydration & Recovery Science',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: r.font(14.0),
+                    fontWeight: FontWeight.w700,
+                    color: context.textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],

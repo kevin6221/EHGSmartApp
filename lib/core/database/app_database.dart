@@ -29,7 +29,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? e]) : super(e ?? openConnection());
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -45,6 +45,14 @@ class AppDatabase extends _$AppDatabase {
           // Table already exists, preserve existing schema and data
         }
       }
+      if (from < 6) {
+        try {
+          await m.addColumn(bandDevicesTable, bandDevicesTable.isActive);
+        } catch (_) {}
+        try {
+          await m.addColumn(workoutSessionsTable, workoutSessionsTable.deviceId);
+        } catch (_) {}
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON;');
@@ -53,6 +61,12 @@ class AppDatabase extends _$AppDatabase {
       );
       await customStatement(
         'CREATE INDEX IF NOT EXISTS idx_hr_dev_time ON heart_rate_samples_table (device_id, timestamp DESC);',
+      );
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_summary_user_dev_date ON daily_health_summaries_table (user_id, device_id, date DESC);',
+      );
+      await customStatement(
+        'CREATE INDEX IF NOT EXISTS idx_workout_dev_time ON workout_sessions_table (device_id, start_time DESC);',
       );
     },
   );

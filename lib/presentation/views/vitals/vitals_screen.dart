@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_icons.dart';
 import '../../../core/engine/recommendation_engine.dart';
@@ -44,13 +46,15 @@ class _VitalsScreenState extends State<VitalsScreen> {
   late final ValueNotifier<VitalsPeriodStats?> _periodStatsNotifier;
   late final ValueNotifier<bool> _isLoadingNotifier;
   int _loadGeneration = 0;
+  Timer? _historicalSyncDebounce;
 
   @override
   void initState() {
     super.initState();
     _expandNotifiers = List.generate(9, (_) => ValueNotifier<bool>(false));
     _selectedPeriodNotifier = ValueNotifier<VitalsTimePeriod>(VitalsTimePeriod.day);
-    _selectedDateNotifier = ValueNotifier<DateTime>(DateTime.now());
+    final now = DateTime.now();
+    _selectedDateNotifier = ValueNotifier<DateTime>(DateTime(now.year, now.month, now.day));
     _historicalVitalsNotifier = ValueNotifier<VitalsModel?>(null);
     _periodStatsNotifier = ValueNotifier<VitalsPeriodStats?>(null);
     _isLoadingNotifier = ValueNotifier<bool>(false);
@@ -67,6 +71,7 @@ class _VitalsScreenState extends State<VitalsScreen> {
 
   @override
   void dispose() {
+    _historicalSyncDebounce?.cancel();
     _selectedPeriodNotifier.removeListener(_onPeriodOrDateChanged);
     _selectedDateNotifier.removeListener(_onPeriodOrDateChanged);
     for (final notifier in _expandNotifiers) {
@@ -133,49 +138,34 @@ class _VitalsScreenState extends State<VitalsScreen> {
     final cachedStats = results[0] as VitalsPeriodStats;
     final cachedVitals = results[1] as VitalsModel?;
 
-    final bool hasData = (cachedVitals != null &&
-            (cachedVitals.currentHeartRate > 0 ||
-             (cachedVitals.totalSleep != '--' && cachedVitals.totalSleep.isNotEmpty))) ||
-        cachedStats.average > 0;
+    // Present local database & in-memory data instantaneously (<16ms, 60fps)
+    _periodStatsNotifier.value = cachedStats;
+    _historicalVitalsNotifier.value = cachedVitals;
+    _isLoadingNotifier.value = false;
 
-    if (hasData) {
-      // Local database has valid data: present immediately
-      _periodStatsNotifier.value = cachedStats;
-      _historicalVitalsNotifier.value = cachedVitals;
-      _isLoadingNotifier.value = false;
-    }
-
-    // 2. Sync past day from band if viewing a past day (1-6 days ago)
+    // 2. Non-blocking silent background sync from hardware band ONLY if not yet cached in DB
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final normalized = DateTime(date.year, date.month, date.day);
     final dayDiff = today.difference(normalized).inDays;
+    final dateStr = DateFormat('yyyy-MM-dd').format(date);
 
-    if (period == VitalsTimePeriod.day && dayDiff >= 1 && dayDiff <= 6 && bandRepo.isConnected) {
-      if (!hasData) {
-        // No local data yet: keep loading indicator active while band synchronizes
-        _isLoadingNotifier.value = true;
-        try {
-          await bandRepo.syncHistoricalDay(dayDiff).timeout(const Duration(milliseconds: 3500));
-        } catch (e) {
-          debugPrint('⚠️ [VITALS] Historical day $dayDiff sync error: $e');
-        }
+    final bool hasDbData = cachedVitals != null &&
+        (cachedVitals.totalSleep != '--' || cachedVitals.currentHeartRate > 0 || cachedVitals.stressScore > 0);
+    final bool alreadySynced = bandRepo.isHistoricalDateSynced(dateStr);
+
+    if (period == VitalsTimePeriod.day &&
+        dayDiff >= 1 &&
+        dayDiff <= 6 &&
+        bandRepo.isConnected &&
+        !hasDbData &&
+        !alreadySynced) {
+      _historicalSyncDebounce?.cancel();
+      _historicalSyncDebounce = Timer(const Duration(milliseconds: 350), () {
         if (generation != _loadGeneration || !mounted) return;
-
-        // Re-read from SQLite after band sync completes
-        final updated = await Future.wait([
-          wellnessRepo.getHistoricalPeriodStats(period: period, anchorDate: date),
-          wellnessRepo.getHistoricalVitalsForDate(date),
-        ]);
-        if (generation != _loadGeneration || !mounted) return;
-
-        _periodStatsNotifier.value = updated[0] as VitalsPeriodStats;
-        _historicalVitalsNotifier.value = updated[1] as VitalsModel?;
-        _isLoadingNotifier.value = false;
-      } else {
-        // Already showed cached data, perform silent background sync
         bandRepo.syncHistoricalDay(dayDiff).then((_) async {
           if (generation != _loadGeneration || !mounted) return;
+          wellnessRepo.invalidateDateCache(dateStr);
           final updated = await Future.wait([
             wellnessRepo.getHistoricalPeriodStats(period: period, anchorDate: date),
             wellnessRepo.getHistoricalVitalsForDate(date),
@@ -185,14 +175,9 @@ class _VitalsScreenState extends State<VitalsScreen> {
             _historicalVitalsNotifier.value = updated[1] as VitalsModel?;
           }
         }).catchError((e) {
-          debugPrint('⚠️ [VITALS] Background past day sync error: $e');
+          debugPrint('⚠️ [VITALS] Non-blocking background past day sync error: $e');
         });
-      }
-    } else {
-      // No band sync required or band not connected
-      _periodStatsNotifier.value = cachedStats;
-      _historicalVitalsNotifier.value = cachedVitals;
-      _isLoadingNotifier.value = false;
+      });
     }
   }
 
@@ -205,16 +190,17 @@ class _VitalsScreenState extends State<VitalsScreen> {
 
   void _onPreviousDate() {
     final cur = _selectedDateNotifier.value;
+    final curDate = DateTime(cur.year, cur.month, cur.day);
     final period = _selectedPeriodNotifier.value;
     switch (period) {
       case VitalsTimePeriod.day:
-        _selectedDateNotifier.value = cur.subtract(const Duration(days: 1));
+        _selectedDateNotifier.value = curDate.subtract(const Duration(days: 1));
         break;
       case VitalsTimePeriod.week:
-        _selectedDateNotifier.value = cur.subtract(const Duration(days: 7));
+        _selectedDateNotifier.value = curDate.subtract(const Duration(days: 7));
         break;
       case VitalsTimePeriod.month:
-        _selectedDateNotifier.value = DateTime(cur.year, cur.month - 1, cur.day);
+        _selectedDateNotifier.value = DateTime(curDate.year, curDate.month - 1, curDate.day);
         break;
     }
   }
@@ -223,17 +209,18 @@ class _VitalsScreenState extends State<VitalsScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final cur = _selectedDateNotifier.value;
+    final curDate = DateTime(cur.year, cur.month, cur.day);
     final period = _selectedPeriodNotifier.value;
     DateTime next;
     switch (period) {
       case VitalsTimePeriod.day:
-        next = cur.add(const Duration(days: 1));
+        next = curDate.add(const Duration(days: 1));
         break;
       case VitalsTimePeriod.week:
-        next = cur.add(const Duration(days: 7));
+        next = curDate.add(const Duration(days: 7));
         break;
       case VitalsTimePeriod.month:
-        next = DateTime(cur.year, cur.month + 1, cur.day);
+        next = DateTime(curDate.year, curDate.month + 1, curDate.day);
         break;
     }
     if (next.isAfter(today)) {

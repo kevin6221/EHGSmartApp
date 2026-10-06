@@ -2,12 +2,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/constants/app_icons.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/responsive.dart';
 import '../../../data/models/band_device_model.dart';
+import '../../../data/models/vitals_model.dart';
 import '../../../data/repositories/band_repository.dart';
+import '../../../data/repositories/wellness_repository.dart';
 import '../../blocs/band/band_bloc.dart';
 import '../../blocs/band/band_event.dart';
 import '../../blocs/band/band_state.dart';
@@ -15,11 +18,14 @@ import '../../blocs/wellness/wellness_bloc.dart';
 import '../../blocs/wellness/wellness_event.dart';
 import '../../blocs/wellness/wellness_state.dart';
 import '../../helpers/vitals_card_calculator.dart';
+import '../../helpers/vitals_history_calculator.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_snackbar.dart';
 import '../../widgets/common/detail_screen_app_bar.dart';
 import '../../widgets/common/screen_header.dart';
 import '../../widgets/painters/heart_rate_chart_painter.dart';
+import '../vitals/widgets/vitals_date_navigator.dart';
+import '../vitals/widgets/vitals_period_segmented_bar.dart';
 
 /// Full-screen Heart Rate Detail screen adhering to the EHG design system.
 ///
@@ -40,6 +46,11 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
   late final ValueNotifier<double> _measuringProgressNotifier;
   late final ValueNotifier<int> _secondsRemainingNotifier;
   late final ValueNotifier<int?> _latestSampledHrNotifier;
+
+  late final ValueNotifier<DateTime> _selectedDateNotifier;
+  late final ValueNotifier<VitalsTimePeriod> _selectedPeriodNotifier;
+  late final ValueNotifier<VitalsModel?> _historicalVitalsNotifier;
+  late final ValueNotifier<VitalsPeriodStats?> _periodStatsNotifier;
 
   late final AnimationController _pulseController;
   late final Animation<double> _pulseScale;
@@ -62,6 +73,13 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
     _measuringProgressNotifier = ValueNotifier<double>(0.0);
     _secondsRemainingNotifier = ValueNotifier<int>(30);
     _latestSampledHrNotifier = ValueNotifier<int?>(null);
+
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    _selectedDateNotifier = ValueNotifier<DateTime>(today);
+    _selectedPeriodNotifier = ValueNotifier<VitalsTimePeriod>(VitalsTimePeriod.week);
+    _historicalVitalsNotifier = ValueNotifier<VitalsModel?>(null);
+    _periodStatsNotifier = ValueNotifier<VitalsPeriodStats?>(null);
 
     _pulseController = AnimationController(
       vsync: this,
@@ -95,7 +113,104 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
     _isMeasuringNotifier.dispose();
     _measuringStatusNotifier.dispose();
     _scrubIndexNotifier.dispose();
+    _selectedDateNotifier.dispose();
+    _selectedPeriodNotifier.dispose();
+    _historicalVitalsNotifier.dispose();
+    _periodStatsNotifier.dispose();
     super.dispose();
+  }
+
+  void _onPreviousDate() {
+    final cur = _selectedDateNotifier.value;
+    final curDate = DateTime(cur.year, cur.month, cur.day);
+    final period = _selectedPeriodNotifier.value;
+    final int step = period == VitalsTimePeriod.week ? 7 : (period == VitalsTimePeriod.month ? 30 : 1);
+    _selectedDateNotifier.value = curDate.subtract(Duration(days: step));
+    _syncScrubIndex();
+    _loadHistoricalDate();
+  }
+
+  void _onNextDate() {
+    final cur = _selectedDateNotifier.value;
+    final curDate = DateTime(cur.year, cur.month, cur.day);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final period = _selectedPeriodNotifier.value;
+
+    if (period == VitalsTimePeriod.week) {
+      final currentMonday = today.subtract(Duration(days: today.weekday - 1));
+      final curMonday = curDate.subtract(Duration(days: curDate.weekday - 1));
+      final nextMonday = curMonday.add(const Duration(days: 7));
+      if (!nextMonday.isAfter(currentMonday)) {
+        _selectedDateNotifier.value = nextMonday.isAtSameMomentAs(currentMonday) ? today : nextMonday;
+        _syncScrubIndex();
+        _loadHistoricalDate();
+      }
+    } else if (period == VitalsTimePeriod.month) {
+      final nextMonth = DateTime(curDate.year, curDate.month + 1, curDate.day);
+      if (!nextMonth.isAfter(today)) {
+        _selectedDateNotifier.value = nextMonth;
+        _syncScrubIndex();
+        _loadHistoricalDate();
+      }
+    } else {
+      final nextDate = curDate.add(const Duration(days: 1));
+      if (!nextDate.isAfter(today)) {
+        _selectedDateNotifier.value = nextDate;
+        _syncScrubIndex();
+        _loadHistoricalDate();
+      }
+    }
+  }
+
+  void _onDateSelected(DateTime picked) {
+    _selectedDateNotifier.value = DateTime(picked.year, picked.month, picked.day);
+    // When the user explicitly picks a specific day, switch to day period to show that day
+    _selectedPeriodNotifier.value = VitalsTimePeriod.day;
+    _syncScrubIndex();
+    _loadHistoricalDate();
+  }
+
+  void _onPeriodChanged(VitalsTimePeriod period) {
+    _syncScrubIndex();
+    _loadHistoricalDate();
+  }
+
+  void _syncScrubIndex() {
+    final date = _selectedDateNotifier.value;
+    final weekdayIdx = (date.weekday - 1).clamp(0, 6);
+    _scrubIndexNotifier.value = weekdayIdx;
+  }
+
+  Future<void> _loadHistoricalDate() async {
+    final date = _selectedDateNotifier.value;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final period = _selectedPeriodNotifier.value;
+
+    final isCurrentDay = period == VitalsTimePeriod.day &&
+        date.year == today.year && date.month == today.month && date.day == today.day;
+    final currentMonday = today.subtract(Duration(days: today.weekday - 1));
+    final selectedMonday = date.subtract(Duration(days: date.weekday - 1));
+    final isCurrentWeek = period == VitalsTimePeriod.week &&
+        currentMonday.year == selectedMonday.year &&
+        currentMonday.month == selectedMonday.month &&
+        currentMonday.day == selectedMonday.day;
+
+    if (isCurrentDay || isCurrentWeek) {
+      _historicalVitalsNotifier.value = null;
+      _periodStatsNotifier.value = null;
+      return;
+    }
+    final wellnessRepo = context.read<WellnessRepository>();
+    final results = await Future.wait([
+      wellnessRepo.getHistoricalVitalsForDate(date),
+      wellnessRepo.getHistoricalPeriodStats(period: period, anchorDate: date),
+    ]);
+    if (mounted) {
+      _historicalVitalsNotifier.value = results[0] as VitalsModel;
+      _periodStatsNotifier.value = results[1] as VitalsPeriodStats;
+    }
   }
 
   Future<void> _toggleHeartRateMeasurement() async {
@@ -303,9 +418,36 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Top Custom Navigation Bar
-                const DetailScreenAppBar(
-                  statusText: 'Live Telemetry',
-                  statusColor: AppColors.primary,
+                ValueListenableBuilder<VitalsTimePeriod>(
+                  valueListenable: _selectedPeriodNotifier,
+                  builder: (context, period, _) {
+                    return ValueListenableBuilder<DateTime>(
+                      valueListenable: _selectedDateNotifier,
+                      builder: (context, selectedDate, _) {
+                        final now = DateTime.now();
+                        final isTodayDate = selectedDate.year == now.year &&
+                            selectedDate.month == now.month &&
+                            selectedDate.day == now.day;
+                        final currentMon = now.subtract(Duration(days: now.weekday - 1));
+                        final selectedMon = selectedDate.subtract(Duration(days: selectedDate.weekday - 1));
+                        final isCurrentWeek = currentMon.year == selectedMon.year &&
+                            currentMon.month == selectedMon.month &&
+                            currentMon.day == selectedMon.day;
+                        final bool isCurrentScope = period == VitalsTimePeriod.week ? isCurrentWeek : isTodayDate;
+
+                        final statusText = isCurrentScope
+                            ? 'Live Telemetry'
+                            : (period == VitalsTimePeriod.week
+                                ? 'Week of ${DateFormat('d MMM').format(selectedMon)}'
+                                : DateFormat('d MMM yyyy').format(selectedDate));
+
+                        return DetailScreenAppBar(
+                          statusText: statusText,
+                          statusColor: isCurrentScope ? AppColors.primary : AppColors.textSecondary,
+                        );
+                      },
+                    );
+                  },
                 ),
 
                 // Main Scrollable Body
@@ -314,152 +456,247 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
                     builder: (context, wellnessState) {
                       return BlocBuilder<BandBloc, BandState>(
                         builder: (context, bandState) {
-                          final vitals = bandState.lastSyncedVitals;
-                          final wellness = wellnessState.data;
+                          return ValueListenableBuilder<VitalsTimePeriod>(
+                            valueListenable: _selectedPeriodNotifier,
+                            builder: (context, period, _) {
+                              return ValueListenableBuilder<DateTime>(
+                                valueListenable: _selectedDateNotifier,
+                                builder: (context, selectedDate, _) {
+                                  final now = DateTime.now();
+                                  final isTodayDate = selectedDate.year == now.year &&
+                                      selectedDate.month == now.month &&
+                                      selectedDate.day == now.day;
+                                  final currentMon = now.subtract(Duration(days: now.weekday - 1));
+                                  final selectedMon = selectedDate.subtract(Duration(days: selectedDate.weekday - 1));
+                                  final isCurrentWeek = currentMon.year == selectedMon.year &&
+                                      currentMon.month == selectedMon.month &&
+                                      currentMon.day == selectedMon.day;
+                                  final bool isToday = period == VitalsTimePeriod.week ? isCurrentWeek : isTodayDate;
 
-                          final int liveHr = bandState.liveHeartRate;
-                          final bool isLive = bandState.isConnected && liveHr > 0;
+                                  return ValueListenableBuilder<VitalsModel?>(
+                                    valueListenable: _historicalVitalsNotifier,
+                                    builder: (context, historicalVitals, _) {
+                                      return ValueListenableBuilder<VitalsPeriodStats?>(
+                                        valueListenable: _periodStatsNotifier,
+                                        builder: (context, periodStats, _) {
+                                          final BandSyncedVitals? bandSynced = bandState.lastSyncedVitals;
+                                          final wellness = wellnessState.data;
 
-                          // Prioritize the latest recorded reading (matching HomeScreen logic):
-                          // 1. Actively streaming real-time heart rate (if measuring)
-                          // 2. BandState latestHeartRate (recorded from spot checks or stream)
-                          // 3. Synced vitals latestHeartRate
-                          // 4. Most recent non-zero sample in heartRateHistory
-                          // 5. WellnessBloc currentHeartRate
-                          int latestHr = 0;
-                          if (isLive) {
-                            latestHr = liveHr;
-                          } else if (bandState.latestHeartRate > 0) {
-                            latestHr = bandState.latestHeartRate;
-                          } else if (vitals != null && vitals.latestHeartRate > 0) {
-                            latestHr = vitals.latestHeartRate;
-                          } else {
-                            final hrList = vitals?.heartRateHistory;
-                            if (hrList != null && hrList.isNotEmpty) {
-                              for (int i = hrList.length - 1; i >= 0; i--) {
-                                if (hrList[i].bpm > 0) {
-                                  latestHr = hrList[i].bpm;
-                                  break;
-                                }
-                              }
-                            }
-                          }
+                                          final int liveHr = isToday ? bandState.liveHeartRate : 0;
+                                          final bool isLive = isToday && bandState.isConnected && liveHr > 0;
 
-                          if (latestHr <= 0 && (wellness?.currentHeartRate ?? 0) > 0) {
-                            latestHr = wellness!.currentHeartRate;
-                          }
+                                          int latestHr = 0;
+                                          if (isLive) {
+                                            latestHr = liveHr;
+                                          } else if (isToday && bandState.latestHeartRate > 0) {
+                                            latestHr = bandState.latestHeartRate;
+                                          } else if (bandSynced != null && bandSynced.latestHeartRate > 0) {
+                                            latestHr = bandSynced.latestHeartRate;
+                                          } else {
+                                            final hrList = bandSynced?.heartRateHistory;
+                                            if (hrList != null && hrList.isNotEmpty) {
+                                              for (int i = hrList.length - 1; i >= 0; i--) {
+                                                if (hrList[i].bpm > 0) {
+                                                  latestHr = hrList[i].bpm;
+                                                  break;
+                                                }
+                                              }
+                                            }
+                                          }
 
-                          final int currentHr = latestHr > 0 ? latestHr : 72;
+                                          if (latestHr <= 0 && isToday && (wellness?.currentHeartRate ?? 0) > 0) {
+                                            latestHr = wellness!.currentHeartRate;
+                                          }
 
-                          final int restingHr = (wellness?.restHr ?? 0) > 0
-                              ? wellness!.restHr
-                              : ((vitals?.restingHeartRate ?? 0) > 0
-                                  ? vitals!.restingHeartRate
-                                  : 58);
+                                          final int currentHr;
+                                          final int restingHr;
+                                          final int minHr;
+                                          final int maxHr;
 
-                          final List<double> weeklyHr = (vitals?.weeklyHeartRate.isNotEmpty == true &&
-                                  vitals!.weeklyHeartRate.any((v) => v > 0))
-                              ? vitals.weeklyHeartRate
-                              : ((wellness?.weeklyHeartRate.length == 7)
-                                  ? wellness!.weeklyHeartRate
-                                  : const [68.0, 71.0, 65.0, 74.0, 69.0, 66.0, 72.0]);
+                                          if (!isToday && historicalVitals != null) {
+                                            currentHr = historicalVitals.currentHeartRate;
+                                            restingHr = historicalVitals.restingHr;
+                                            minHr = restingHr > 0
+                                                ? restingHr - 4
+                                                : (currentHr > 0 ? currentHr - 12 : 0);
+                                            maxHr = currentHr > 0
+                                                ? (currentHr * 1.55).round().clamp(120, 185)
+                                                : 0;
+                                          } else {
+                                            currentHr = latestHr > 0 ? latestHr : (isToday ? 72 : 0);
 
-                          int minRecorded = 0;
-                          int maxRecorded = 0;
-                          if (vitals?.heartRateHistory.isNotEmpty == true) {
-                            final positiveBpm = vitals!.heartRateHistory
-                                .map((e) => e.bpm)
-                                .where((b) => b > 35 && b < 220)
-                                .toList();
-                            if (positiveBpm.isNotEmpty) {
-                              minRecorded = positiveBpm.reduce((a, b) => a < b ? a : b);
-                              maxRecorded = positiveBpm.reduce((a, b) => a > b ? a : b);
-                            }
-                          }
+                                            restingHr = (wellness?.restHr ?? 0) > 0
+                                                ? wellness!.restHr
+                                                : ((bandSynced?.restingHeartRate ?? 0) > 0
+                                                    ? bandSynced!.restingHeartRate
+                                                    : 58);
 
-                          final int minHr = minRecorded > 0
-                              ? minRecorded
-                              : (restingHr > 0 ? restingHr - 4 : 48);
-                          final int maxHr = maxRecorded > 0
-                              ? maxRecorded
-                              : (currentHr * 1.55).round().clamp(120, 185);
+                                            int minRecorded = 0;
+                                            int maxRecorded = 0;
+                                            if (bandSynced?.heartRateHistory.isNotEmpty == true) {
+                                              final positiveBpm = bandSynced!.heartRateHistory
+                                                  .map((e) => e.bpm)
+                                                  .where((b) => b > 35 && b < 220)
+                                                  .toList();
+                                              if (positiveBpm.isNotEmpty) {
+                                                minRecorded = positiveBpm.reduce((a, b) => a < b ? a : b);
+                                                maxRecorded = positiveBpm.reduce((a, b) => a > b ? a : b);
+                                              }
+                                            }
 
-                          return SingleChildScrollView(
-                            physics: const BouncingScrollPhysics(),
-                            padding: EdgeInsets.fromLTRB(
-                              r.horizontalPadding,
-                              8.0,
-                              r.horizontalPadding,
-                              r.hp(0.10),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Title Header
-                                Text(
-                                  'Heart Rate',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: r.font(26.0),
-                                    fontWeight: FontWeight.w700,
-                                    color: context.textPrimary,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 4.0),
-                                Text(
-                                  'Real-time pulse rate and 24-hour cardiovascular dynamics',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: r.font(13.0),
-                                    fontWeight: FontWeight.w400,
-                                    color: context.textSecondary,
-                                  ),
-                                ),
-                                SizedBox(height: itemSpacing),
+                                            minHr = minRecorded > 0
+                                                ? minRecorded
+                                                : (restingHr > 0 ? restingHr - 4 : (currentHr > 0 ? currentHr - 15 : 0));
+                                            maxHr = maxRecorded > 0
+                                                ? maxRecorded
+                                                : (currentHr > 0 ? (currentHr * 1.55).round().clamp(120, 185) : 0);
+                                          }
 
-                                // Hero Heart Rate Card
-                                _buildHeroCard(
-                                  context: context,
-                                  r: r,
-                                  currentHr: currentHr,
-                                  restingHr: restingHr,
-                                  minHr: minHr,
-                                  maxHr: maxHr,
-                                  isMeasuringNotifier: _isMeasuringNotifier,
-                                  measuringStatusNotifier: _measuringStatusNotifier,
-                                  measuringProgressNotifier: _measuringProgressNotifier,
-                                  secondsRemainingNotifier: _secondsRemainingNotifier,
-                                  latestSampledHrNotifier: _latestSampledHrNotifier,
-                                  pulseScale: _pulseScale,
-                                  onMeasureTap: _toggleHeartRateMeasurement,
-                                ),
-                                SizedBox(height: itemSpacing),
+                                          // Reconcile and merge weekly heart rate across all sources to guarantee consistent weekly trend
+                                          final List<double> weeklyHr = List<double>.filled(7, 0.0);
+                                          if (historicalVitals != null && historicalVitals.weeklyHeartRate.length == 7) {
+                                            for (int i = 0; i < 7; i++) {
+                                              if (historicalVitals.weeklyHeartRate[i] > 0) {
+                                                weeklyHr[i] = historicalVitals.weeklyHeartRate[i];
+                                              }
+                                            }
+                                          }
+                                          if (wellness != null && wellness.weeklyHeartRate.length == 7) {
+                                            for (int i = 0; i < 7; i++) {
+                                              if (wellness.weeklyHeartRate[i] > 0) {
+                                                weeklyHr[i] = wellness.weeklyHeartRate[i];
+                                              }
+                                            }
+                                          }
+                                          if (bandSynced != null && bandSynced.weeklyHeartRate.length == 7) {
+                                            for (int i = 0; i < 7; i++) {
+                                              if (bandSynced.weeklyHeartRate[i] > 0) {
+                                                weeklyHr[i] = bandSynced.weeklyHeartRate[i];
+                                              }
+                                            }
+                                          }
+                                          final selectedWeekdayIdx = (selectedDate.weekday - 1).clamp(0, 6);
+                                          if (currentHr > 0 && weeklyHr[selectedWeekdayIdx] <= 0) {
+                                            weeklyHr[selectedWeekdayIdx] = currentHr.toDouble();
+                                          }
+                                          final nowDt = DateTime.now();
+                                          final curMonDt = nowDt.subtract(Duration(days: nowDt.weekday - 1));
+                                          final selMonDt = selectedDate.subtract(Duration(days: selectedDate.weekday - 1));
+                                          final bool isSameWeek = curMonDt.year == selMonDt.year &&
+                                              curMonDt.month == selMonDt.month &&
+                                              curMonDt.day == selMonDt.day;
+                                          if (isSameWeek && latestHr > 0) {
+                                            final todayIdx = (nowDt.weekday - 1).clamp(0, 6);
+                                            weeklyHr[todayIdx] = latestHr.toDouble();
+                                          }
 
-                                // 24h Interactive Scrubbable Chart Card
-                                _buildInteractiveChartCard(
-                                  context: context,
-                                  r: r,
-                                  weeklyHr: weeklyHr,
-                                  currentHr: currentHr,
-                                ),
-                                SizedBox(height: itemSpacing),
+                                          return SingleChildScrollView(
+                                            physics: const BouncingScrollPhysics(),
+                                            padding: EdgeInsets.fromLTRB(
+                                              r.horizontalPadding,
+                                              8.0,
+                                              r.horizontalPadding,
+                                              r.hp(0.10),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                // Title Header
+                                                Text(
+                                                  'Heart Rate',
+                                                  style: GoogleFonts.plusJakartaSans(
+                                                    fontSize: r.font(26.0),
+                                                    fontWeight: FontWeight.w700,
+                                                    color: context.textPrimary,
+                                                    letterSpacing: -0.5,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 4.0),
+                                                Text(
+                                                  'Real-time pulse rate and 24-hour cardiovascular dynamics',
+                                                  style: GoogleFonts.plusJakartaSans(
+                                                    fontSize: r.font(13.0),
+                                                    fontWeight: FontWeight.w400,
+                                                    color: context.textSecondary,
+                                                  ),
+                                                ),
+                                                SizedBox(height: itemSpacing * 0.75),
 
-                                // Heart Rate Training Zones
-                                _buildHeartRateZonesCard(
-                                  context: context,
-                                  r: r,
-                                  restingHr: restingHr,
-                                  maxHr: maxHr,
-                                ),
-                                SizedBox(height: itemSpacing),
+                                                // Period Segmented Bar (Day / Week toggle)
+                                                VitalsPeriodSegmentedBar(
+                                                  periodNotifier: _selectedPeriodNotifier,
+                                                  periods: const [
+                                                    VitalsTimePeriod.day,
+                                                    VitalsTimePeriod.week,
+                                                  ],
+                                                  onPeriodChanged: _onPeriodChanged,
+                                                ),
+                                                const SizedBox(height: 12.0),
 
-                                // Physiological Insight Card
-                                _buildPhysiologicalInsightCard(
-                                  context: context,
-                                  r: r,
-                                  restingHr: restingHr,
-                                ),
-                              ],
-                            ),
+                                                // Date Navigator
+                                                VitalsDateNavigator(
+                                                  dateNotifier: _selectedDateNotifier,
+                                                  periodNotifier: _selectedPeriodNotifier,
+                                                  onPrevious: _onPreviousDate,
+                                                  onNext: _onNextDate,
+                                                  onDateSelected: _onDateSelected,
+                                                ),
+                                                SizedBox(height: itemSpacing),
+
+                                                // Hero Heart Rate Card
+                                                _buildHeroCard(
+                                                  context: context,
+                                                  r: r,
+                                                  isToday: isToday,
+                                                  currentHr: currentHr,
+                                                  restingHr: restingHr,
+                                                  minHr: minHr,
+                                                  maxHr: maxHr,
+                                                  isMeasuringNotifier: _isMeasuringNotifier,
+                                                  measuringStatusNotifier: _measuringStatusNotifier,
+                                                  measuringProgressNotifier: _measuringProgressNotifier,
+                                                  secondsRemainingNotifier: _secondsRemainingNotifier,
+                                                  latestSampledHrNotifier: _latestSampledHrNotifier,
+                                                  pulseScale: _pulseScale,
+                                                  onMeasureTap: _toggleHeartRateMeasurement,
+                                                ),
+                                                SizedBox(height: itemSpacing),
+
+                                                // 24h Interactive Scrubbable Chart Card
+                                                _buildInteractiveChartCard(
+                                                  context: context,
+                                                  r: r,
+                                                  weeklyHr: weeklyHr,
+                                                  currentHr: currentHr,
+                                                  selectedDate: selectedDate,
+                                                ),
+                                                SizedBox(height: itemSpacing),
+
+                                                // Heart Rate Training Zones
+                                                _buildHeartRateZonesCard(
+                                                  context: context,
+                                                  r: r,
+                                                  restingHr: restingHr,
+                                                  maxHr: maxHr,
+                                                ),
+                                                SizedBox(height: itemSpacing),
+
+                                                // Physiological Insight Card
+                                                _buildPhysiologicalInsightCard(
+                                                  context: context,
+                                                  r: r,
+                                                  restingHr: restingHr,
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    },
+                                  );
+                                },
+                              );
+                            },
                           );
                         },
                       );
@@ -477,6 +714,7 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
   Widget _buildHeroCard({
     required BuildContext context,
     required Responsive r,
+    required bool isToday,
     required int currentHr,
     required int restingHr,
     required int minHr,
@@ -539,7 +777,7 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
                   ),
                   const SizedBox(width: 12.0),
                   Text(
-                    'Current Pulse',
+                    isToday ? 'Current Pulse' : 'Recorded Pulse',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: r.font(15.0),
                       fontWeight: FontWeight.w600,
@@ -587,6 +825,27 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
                             ),
                           ),
                         ],
+                      ),
+                    );
+                  }
+                  if (!isToday) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10.0,
+                        vertical: 4.0,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.background,
+                        borderRadius: BorderRadius.circular(8.0),
+                        border: Border.all(color: AppColors.borderLight, width: 0.6),
+                      ),
+                      child: Text(
+                        'Archived',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: r.font(11.0),
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     );
                   }
@@ -706,8 +965,9 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
             ],
           ),
 
-          // Real-time PPG Sampling Window Gauge (Shown while measuring)
-          ValueListenableBuilder<bool>(
+          if (isToday) ...[
+            // Real-time PPG Sampling Window Gauge (Shown while measuring)
+            ValueListenableBuilder<bool>(
             valueListenable: isMeasuringNotifier,
             builder: (context, isMeasuring, _) {
               if (!isMeasuring) return const SizedBox.shrink();
@@ -900,10 +1160,41 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
               );
             },
           ),
+        ] else ...[
+          const SizedBox(height: 16.0),
+          Container(height: 0.5, color: AppColors.divider),
+          const SizedBox(height: 14.0),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+            decoration: BoxDecoration(
+              color: AppColors.background,
+              borderRadius: BorderRadius.circular(14.0),
+              border: Border.all(color: AppColors.borderLight, width: 0.8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.history_rounded, size: 16.0, color: AppColors.textSecondary),
+                const SizedBox(width: 8.0),
+                Expanded(
+                  child: Text(
+                    'Recorded cardiovascular telemetry from local archive',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: r.font(12.0),
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
-      ),
-    );
-  }
+      ],
+    ),
+  );
+}
 
   Widget _buildMetricMiniPill({
     required String label,
@@ -951,8 +1242,10 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
     required Responsive r,
     required List<double> weeklyHr,
     required int currentHr,
+    required DateTime selectedDate,
   }) {
     final chartHeight = (r.height * 0.12).clamp(90.0, 120.0);
+    final selectedDayIdx = (selectedDate.weekday - 1).clamp(0, 6);
 
     return AppCard(
       padding: EdgeInsets.all(r.isSmall ? 14.0 : 18.0),
@@ -977,7 +1270,9 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
                 builder: (context, scrubIdx, _) {
                   final dayVal = scrubIdx < weeklyHr.length && weeklyHr[scrubIdx] > 0
                       ? '${weeklyHr[scrubIdx].round()} bpm'
-                      : '$currentHr bpm';
+                      : (scrubIdx == selectedDayIdx && currentHr > 0
+                          ? '$currentHr bpm'
+                          : '--');
                   return Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8.0,
@@ -1002,7 +1297,7 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
           ),
           const SizedBox(height: 16.0),
 
-          // Interactive Custom Spline Chart
+          // Interactive Custom Spline Chart with Tap & Drag Scrubber
           SizedBox(
             height: chartHeight,
             width: double.infinity,
@@ -1012,6 +1307,21 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
                 return LayoutBuilder(
                   builder: (context, constraints) {
                     return GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTapDown: (details) {
+                        final localX = details.localPosition.dx.clamp(
+                          0.0,
+                          constraints.maxWidth,
+                        );
+                        final newIdx = VitalsCardCalculator.computeScrubIndex(
+                          localX: localX,
+                          totalWidth: constraints.maxWidth,
+                          itemCount: weeklyHr.length,
+                        );
+                        if (newIdx != _scrubIndexNotifier.value) {
+                          _scrubIndexNotifier.value = newIdx;
+                        }
+                      },
                       onHorizontalDragUpdate: (details) {
                         final localX = details.localPosition.dx.clamp(
                           0.0,
@@ -1041,25 +1351,35 @@ class _HeartRateDetailScreenState extends State<HeartRateDetailScreen>
           ),
           const SizedBox(height: 10.0),
 
-          // Weekday Labels
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(7, (i) {
-              final int todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
-              final isToday = i == todayIdx;
-              return Expanded(
-                child: Center(
-                  child: Text(
-                    _weekdays[i],
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: r.font(11.0),
-                      fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
-                      color: isToday ? AppColors.primary : context.textSecondary,
+          // Weekday Labels with active selection highlight
+          ValueListenableBuilder<int>(
+            valueListenable: _scrubIndexNotifier,
+            builder: (context, activeIdx, _) {
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: List.generate(7, (i) {
+                  final isSelected = i == activeIdx;
+                  return Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () {
+                        _scrubIndexNotifier.value = i;
+                      },
+                      child: Center(
+                        child: Text(
+                          _weekdays[i],
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: r.font(11.0),
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected ? AppColors.primary : context.textSecondary,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                }),
               );
-            }),
+            },
           ),
         ],
       ),

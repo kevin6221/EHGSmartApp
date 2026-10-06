@@ -42,40 +42,24 @@ class WellnessRecommendationEngine {
     final int effectiveScore = wellnessScore > 0 ? wellnessScore : (readinessScore ?? 65);
 
     if (effectiveScore >= 75) {
-      final String extraSignal = (hrvMs != null && hrvMs > 55)
-          ? ' Elevated HRV indicates high autonomic reserve.'
-          : (sleepHours != null && sleepHours >= 7.5)
-              ? ' Solid restorative sleep has restored your neuromuscular capacity.'
-              : '';
-
-      return WellnessRecommendation(
+      return const WellnessRecommendation(
         mode: WellnessMode.push,
         modeLabel: 'Push',
-        explanation: "Your recovery signals are strong today, so you're ready for a higher-intensity day.$extraSignal",
+        explanation: 'Your recovery signals are strong today. You are fully primed for higher-intensity training.',
         tag: 'Push day',
       );
     } else if (effectiveScore >= 50) {
-      final String extraSignal = (restHr != null && restHr > 0 && restHr <= 68)
-          ? ' Resting heart rate is stable near your baseline.'
-          : '';
-
-      return WellnessRecommendation(
+      return const WellnessRecommendation(
         mode: WellnessMode.steady,
         modeLabel: 'Steady',
-        explanation: "Your vitals are balanced and steady. Maintain consistency with moderate aerobic and movement effort.$extraSignal",
+        explanation: 'Your vitals are balanced and steady. Maintain consistency with moderate aerobic movement.',
         tag: 'Steady day',
       );
     } else {
-      final String extraSignal = (sleepHours != null && sleepHours < 6.0)
-          ? ' Sleep debt is elevated.'
-          : (hrvMs != null && hrvMs < 35)
-              ? ' Sympathetic activation indicates residual fatigue.'
-              : '';
-
-      return WellnessRecommendation(
+      return const WellnessRecommendation(
         mode: WellnessMode.recover,
         modeLabel: 'Recover',
-        explanation: "Your body may benefit from a lighter day focused on recovery, restorative walks, and soft-tissue release.$extraSignal",
+        explanation: 'Your body will benefit from a lighter recovery day with gentle walks, mobility, and rest.',
         tag: 'Recover day',
       );
     }

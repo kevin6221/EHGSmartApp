@@ -520,7 +520,7 @@ class $DailyHealthSummariesTableTable extends DailyHealthSummariesTable
   }
 
   @override
-  Set<GeneratedColumn> get $primaryKey => {userId, date};
+  Set<GeneratedColumn> get $primaryKey => {userId, date, deviceId};
   @override
   DailyHealthSummary map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
@@ -3464,6 +3464,21 @@ class $BandDevicesTableTable extends BandDevicesTable
     ),
     defaultValue: const Constant(false),
   );
+  static const VerificationMeta _isActiveMeta = const VerificationMeta(
+    'isActive',
+  );
+  @override
+  late final GeneratedColumn<bool> isActive = GeneratedColumn<bool>(
+    'is_active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _lastConnectedAtMeta = const VerificationMeta(
     'lastConnectedAt',
   );
@@ -3508,6 +3523,7 @@ class $BandDevicesTableTable extends BandDevicesTable
     batteryLevel,
     isCharging,
     isBonded,
+    isActive,
     lastConnectedAt,
     lastSyncAt,
     createdAt,
@@ -3579,6 +3595,12 @@ class $BandDevicesTableTable extends BandDevicesTable
         isBonded.isAcceptableOrUnknown(data['is_bonded']!, _isBondedMeta),
       );
     }
+    if (data.containsKey('is_active')) {
+      context.handle(
+        _isActiveMeta,
+        isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
+      );
+    }
     if (data.containsKey('last_connected_at')) {
       context.handle(
         _lastConnectedAtMeta,
@@ -3640,6 +3662,10 @@ class $BandDevicesTableTable extends BandDevicesTable
         DriftSqlType.bool,
         data['${effectivePrefix}is_bonded'],
       )!,
+      isActive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_active'],
+      )!,
       lastConnectedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}last_connected_at'],
@@ -3669,6 +3695,7 @@ class BandDeviceEntry extends DataClass implements Insertable<BandDeviceEntry> {
   final int batteryLevel;
   final bool isCharging;
   final bool isBonded;
+  final bool isActive;
   final DateTime? lastConnectedAt;
   final DateTime? lastSyncAt;
   final DateTime createdAt;
@@ -3680,6 +3707,7 @@ class BandDeviceEntry extends DataClass implements Insertable<BandDeviceEntry> {
     required this.batteryLevel,
     required this.isCharging,
     required this.isBonded,
+    required this.isActive,
     this.lastConnectedAt,
     this.lastSyncAt,
     required this.createdAt,
@@ -3698,6 +3726,7 @@ class BandDeviceEntry extends DataClass implements Insertable<BandDeviceEntry> {
     map['battery_level'] = Variable<int>(batteryLevel);
     map['is_charging'] = Variable<bool>(isCharging);
     map['is_bonded'] = Variable<bool>(isBonded);
+    map['is_active'] = Variable<bool>(isActive);
     if (!nullToAbsent || lastConnectedAt != null) {
       map['last_connected_at'] = Variable<DateTime>(lastConnectedAt);
     }
@@ -3721,6 +3750,7 @@ class BandDeviceEntry extends DataClass implements Insertable<BandDeviceEntry> {
       batteryLevel: Value(batteryLevel),
       isCharging: Value(isCharging),
       isBonded: Value(isBonded),
+      isActive: Value(isActive),
       lastConnectedAt: lastConnectedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(lastConnectedAt),
@@ -3744,6 +3774,7 @@ class BandDeviceEntry extends DataClass implements Insertable<BandDeviceEntry> {
       batteryLevel: serializer.fromJson<int>(json['batteryLevel']),
       isCharging: serializer.fromJson<bool>(json['isCharging']),
       isBonded: serializer.fromJson<bool>(json['isBonded']),
+      isActive: serializer.fromJson<bool>(json['isActive']),
       lastConnectedAt: serializer.fromJson<DateTime?>(json['lastConnectedAt']),
       lastSyncAt: serializer.fromJson<DateTime?>(json['lastSyncAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -3760,6 +3791,7 @@ class BandDeviceEntry extends DataClass implements Insertable<BandDeviceEntry> {
       'batteryLevel': serializer.toJson<int>(batteryLevel),
       'isCharging': serializer.toJson<bool>(isCharging),
       'isBonded': serializer.toJson<bool>(isBonded),
+      'isActive': serializer.toJson<bool>(isActive),
       'lastConnectedAt': serializer.toJson<DateTime?>(lastConnectedAt),
       'lastSyncAt': serializer.toJson<DateTime?>(lastSyncAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -3774,6 +3806,7 @@ class BandDeviceEntry extends DataClass implements Insertable<BandDeviceEntry> {
     int? batteryLevel,
     bool? isCharging,
     bool? isBonded,
+    bool? isActive,
     Value<DateTime?> lastConnectedAt = const Value.absent(),
     Value<DateTime?> lastSyncAt = const Value.absent(),
     DateTime? createdAt,
@@ -3787,6 +3820,7 @@ class BandDeviceEntry extends DataClass implements Insertable<BandDeviceEntry> {
     batteryLevel: batteryLevel ?? this.batteryLevel,
     isCharging: isCharging ?? this.isCharging,
     isBonded: isBonded ?? this.isBonded,
+    isActive: isActive ?? this.isActive,
     lastConnectedAt: lastConnectedAt.present
         ? lastConnectedAt.value
         : this.lastConnectedAt,
@@ -3814,6 +3848,7 @@ class BandDeviceEntry extends DataClass implements Insertable<BandDeviceEntry> {
           ? data.isCharging.value
           : this.isCharging,
       isBonded: data.isBonded.present ? data.isBonded.value : this.isBonded,
+      isActive: data.isActive.present ? data.isActive.value : this.isActive,
       lastConnectedAt: data.lastConnectedAt.present
           ? data.lastConnectedAt.value
           : this.lastConnectedAt,
@@ -3834,6 +3869,7 @@ class BandDeviceEntry extends DataClass implements Insertable<BandDeviceEntry> {
           ..write('batteryLevel: $batteryLevel, ')
           ..write('isCharging: $isCharging, ')
           ..write('isBonded: $isBonded, ')
+          ..write('isActive: $isActive, ')
           ..write('lastConnectedAt: $lastConnectedAt, ')
           ..write('lastSyncAt: $lastSyncAt, ')
           ..write('createdAt: $createdAt')
@@ -3850,6 +3886,7 @@ class BandDeviceEntry extends DataClass implements Insertable<BandDeviceEntry> {
     batteryLevel,
     isCharging,
     isBonded,
+    isActive,
     lastConnectedAt,
     lastSyncAt,
     createdAt,
@@ -3865,6 +3902,7 @@ class BandDeviceEntry extends DataClass implements Insertable<BandDeviceEntry> {
           other.batteryLevel == this.batteryLevel &&
           other.isCharging == this.isCharging &&
           other.isBonded == this.isBonded &&
+          other.isActive == this.isActive &&
           other.lastConnectedAt == this.lastConnectedAt &&
           other.lastSyncAt == this.lastSyncAt &&
           other.createdAt == this.createdAt);
@@ -3878,6 +3916,7 @@ class BandDevicesTableCompanion extends UpdateCompanion<BandDeviceEntry> {
   final Value<int> batteryLevel;
   final Value<bool> isCharging;
   final Value<bool> isBonded;
+  final Value<bool> isActive;
   final Value<DateTime?> lastConnectedAt;
   final Value<DateTime?> lastSyncAt;
   final Value<DateTime> createdAt;
@@ -3890,6 +3929,7 @@ class BandDevicesTableCompanion extends UpdateCompanion<BandDeviceEntry> {
     this.batteryLevel = const Value.absent(),
     this.isCharging = const Value.absent(),
     this.isBonded = const Value.absent(),
+    this.isActive = const Value.absent(),
     this.lastConnectedAt = const Value.absent(),
     this.lastSyncAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -3903,6 +3943,7 @@ class BandDevicesTableCompanion extends UpdateCompanion<BandDeviceEntry> {
     this.batteryLevel = const Value.absent(),
     this.isCharging = const Value.absent(),
     this.isBonded = const Value.absent(),
+    this.isActive = const Value.absent(),
     this.lastConnectedAt = const Value.absent(),
     this.lastSyncAt = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -3917,6 +3958,7 @@ class BandDevicesTableCompanion extends UpdateCompanion<BandDeviceEntry> {
     Expression<int>? batteryLevel,
     Expression<bool>? isCharging,
     Expression<bool>? isBonded,
+    Expression<bool>? isActive,
     Expression<DateTime>? lastConnectedAt,
     Expression<DateTime>? lastSyncAt,
     Expression<DateTime>? createdAt,
@@ -3930,6 +3972,7 @@ class BandDevicesTableCompanion extends UpdateCompanion<BandDeviceEntry> {
       if (batteryLevel != null) 'battery_level': batteryLevel,
       if (isCharging != null) 'is_charging': isCharging,
       if (isBonded != null) 'is_bonded': isBonded,
+      if (isActive != null) 'is_active': isActive,
       if (lastConnectedAt != null) 'last_connected_at': lastConnectedAt,
       if (lastSyncAt != null) 'last_sync_at': lastSyncAt,
       if (createdAt != null) 'created_at': createdAt,
@@ -3945,6 +3988,7 @@ class BandDevicesTableCompanion extends UpdateCompanion<BandDeviceEntry> {
     Value<int>? batteryLevel,
     Value<bool>? isCharging,
     Value<bool>? isBonded,
+    Value<bool>? isActive,
     Value<DateTime?>? lastConnectedAt,
     Value<DateTime?>? lastSyncAt,
     Value<DateTime>? createdAt,
@@ -3958,6 +4002,7 @@ class BandDevicesTableCompanion extends UpdateCompanion<BandDeviceEntry> {
       batteryLevel: batteryLevel ?? this.batteryLevel,
       isCharging: isCharging ?? this.isCharging,
       isBonded: isBonded ?? this.isBonded,
+      isActive: isActive ?? this.isActive,
       lastConnectedAt: lastConnectedAt ?? this.lastConnectedAt,
       lastSyncAt: lastSyncAt ?? this.lastSyncAt,
       createdAt: createdAt ?? this.createdAt,
@@ -3989,6 +4034,9 @@ class BandDevicesTableCompanion extends UpdateCompanion<BandDeviceEntry> {
     if (isBonded.present) {
       map['is_bonded'] = Variable<bool>(isBonded.value);
     }
+    if (isActive.present) {
+      map['is_active'] = Variable<bool>(isActive.value);
+    }
     if (lastConnectedAt.present) {
       map['last_connected_at'] = Variable<DateTime>(lastConnectedAt.value);
     }
@@ -4014,6 +4062,7 @@ class BandDevicesTableCompanion extends UpdateCompanion<BandDeviceEntry> {
           ..write('batteryLevel: $batteryLevel, ')
           ..write('isCharging: $isCharging, ')
           ..write('isBonded: $isBonded, ')
+          ..write('isActive: $isActive, ')
           ..write('lastConnectedAt: $lastConnectedAt, ')
           ..write('lastSyncAt: $lastSyncAt, ')
           ..write('createdAt: $createdAt, ')
@@ -4509,6 +4558,18 @@ class $WorkoutSessionsTableTable extends WorkoutSessionsTable
     requiredDuringInsert: false,
     defaultValue: const Constant(''),
   );
+  static const VerificationMeta _deviceIdMeta = const VerificationMeta(
+    'deviceId',
+  );
+  @override
+  late final GeneratedColumn<String> deviceId = GeneratedColumn<String>(
+    'device_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
   static const VerificationMeta _titleMeta = const VerificationMeta('title');
   @override
   late final GeneratedColumn<String> title = GeneratedColumn<String>(
@@ -4614,6 +4675,7 @@ class $WorkoutSessionsTableTable extends WorkoutSessionsTable
   List<GeneratedColumn> get $columns => [
     id,
     userId,
+    deviceId,
     title,
     category,
     durationSeconds,
@@ -4643,6 +4705,12 @@ class $WorkoutSessionsTableTable extends WorkoutSessionsTable
       context.handle(
         _userIdMeta,
         userId.isAcceptableOrUnknown(data['user_id']!, _userIdMeta),
+      );
+    }
+    if (data.containsKey('device_id')) {
+      context.handle(
+        _deviceIdMeta,
+        deviceId.isAcceptableOrUnknown(data['device_id']!, _deviceIdMeta),
       );
     }
     if (data.containsKey('title')) {
@@ -4738,6 +4806,10 @@ class $WorkoutSessionsTableTable extends WorkoutSessionsTable
         DriftSqlType.string,
         data['${effectivePrefix}user_id'],
       )!,
+      deviceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}device_id'],
+      )!,
       title: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}title'],
@@ -4786,6 +4858,7 @@ class $WorkoutSessionsTableTable extends WorkoutSessionsTable
 class WorkoutSession extends DataClass implements Insertable<WorkoutSession> {
   final int id;
   final String userId;
+  final String deviceId;
   final String title;
   final String category;
   final int durationSeconds;
@@ -4798,6 +4871,7 @@ class WorkoutSession extends DataClass implements Insertable<WorkoutSession> {
   const WorkoutSession({
     required this.id,
     required this.userId,
+    required this.deviceId,
     required this.title,
     required this.category,
     required this.durationSeconds,
@@ -4813,6 +4887,7 @@ class WorkoutSession extends DataClass implements Insertable<WorkoutSession> {
     final map = <String, Expression>{};
     map['id'] = Variable<int>(id);
     map['user_id'] = Variable<String>(userId);
+    map['device_id'] = Variable<String>(deviceId);
     map['title'] = Variable<String>(title);
     map['category'] = Variable<String>(category);
     map['duration_seconds'] = Variable<int>(durationSeconds);
@@ -4829,6 +4904,7 @@ class WorkoutSession extends DataClass implements Insertable<WorkoutSession> {
     return WorkoutSessionsTableCompanion(
       id: Value(id),
       userId: Value(userId),
+      deviceId: Value(deviceId),
       title: Value(title),
       category: Value(category),
       durationSeconds: Value(durationSeconds),
@@ -4849,6 +4925,7 @@ class WorkoutSession extends DataClass implements Insertable<WorkoutSession> {
     return WorkoutSession(
       id: serializer.fromJson<int>(json['id']),
       userId: serializer.fromJson<String>(json['userId']),
+      deviceId: serializer.fromJson<String>(json['deviceId']),
       title: serializer.fromJson<String>(json['title']),
       category: serializer.fromJson<String>(json['category']),
       durationSeconds: serializer.fromJson<int>(json['durationSeconds']),
@@ -4866,6 +4943,7 @@ class WorkoutSession extends DataClass implements Insertable<WorkoutSession> {
     return <String, dynamic>{
       'id': serializer.toJson<int>(id),
       'userId': serializer.toJson<String>(userId),
+      'deviceId': serializer.toJson<String>(deviceId),
       'title': serializer.toJson<String>(title),
       'category': serializer.toJson<String>(category),
       'durationSeconds': serializer.toJson<int>(durationSeconds),
@@ -4881,6 +4959,7 @@ class WorkoutSession extends DataClass implements Insertable<WorkoutSession> {
   WorkoutSession copyWith({
     int? id,
     String? userId,
+    String? deviceId,
     String? title,
     String? category,
     int? durationSeconds,
@@ -4893,6 +4972,7 @@ class WorkoutSession extends DataClass implements Insertable<WorkoutSession> {
   }) => WorkoutSession(
     id: id ?? this.id,
     userId: userId ?? this.userId,
+    deviceId: deviceId ?? this.deviceId,
     title: title ?? this.title,
     category: category ?? this.category,
     durationSeconds: durationSeconds ?? this.durationSeconds,
@@ -4907,6 +4987,7 @@ class WorkoutSession extends DataClass implements Insertable<WorkoutSession> {
     return WorkoutSession(
       id: data.id.present ? data.id.value : this.id,
       userId: data.userId.present ? data.userId.value : this.userId,
+      deviceId: data.deviceId.present ? data.deviceId.value : this.deviceId,
       title: data.title.present ? data.title.value : this.title,
       category: data.category.present ? data.category.value : this.category,
       durationSeconds: data.durationSeconds.present
@@ -4932,6 +5013,7 @@ class WorkoutSession extends DataClass implements Insertable<WorkoutSession> {
     return (StringBuffer('WorkoutSession(')
           ..write('id: $id, ')
           ..write('userId: $userId, ')
+          ..write('deviceId: $deviceId, ')
           ..write('title: $title, ')
           ..write('category: $category, ')
           ..write('durationSeconds: $durationSeconds, ')
@@ -4949,6 +5031,7 @@ class WorkoutSession extends DataClass implements Insertable<WorkoutSession> {
   int get hashCode => Object.hash(
     id,
     userId,
+    deviceId,
     title,
     category,
     durationSeconds,
@@ -4965,6 +5048,7 @@ class WorkoutSession extends DataClass implements Insertable<WorkoutSession> {
       (other is WorkoutSession &&
           other.id == this.id &&
           other.userId == this.userId &&
+          other.deviceId == this.deviceId &&
           other.title == this.title &&
           other.category == this.category &&
           other.durationSeconds == this.durationSeconds &&
@@ -4979,6 +5063,7 @@ class WorkoutSession extends DataClass implements Insertable<WorkoutSession> {
 class WorkoutSessionsTableCompanion extends UpdateCompanion<WorkoutSession> {
   final Value<int> id;
   final Value<String> userId;
+  final Value<String> deviceId;
   final Value<String> title;
   final Value<String> category;
   final Value<int> durationSeconds;
@@ -4991,6 +5076,7 @@ class WorkoutSessionsTableCompanion extends UpdateCompanion<WorkoutSession> {
   const WorkoutSessionsTableCompanion({
     this.id = const Value.absent(),
     this.userId = const Value.absent(),
+    this.deviceId = const Value.absent(),
     this.title = const Value.absent(),
     this.category = const Value.absent(),
     this.durationSeconds = const Value.absent(),
@@ -5004,6 +5090,7 @@ class WorkoutSessionsTableCompanion extends UpdateCompanion<WorkoutSession> {
   WorkoutSessionsTableCompanion.insert({
     this.id = const Value.absent(),
     this.userId = const Value.absent(),
+    this.deviceId = const Value.absent(),
     required String title,
     required String category,
     required int durationSeconds,
@@ -5021,6 +5108,7 @@ class WorkoutSessionsTableCompanion extends UpdateCompanion<WorkoutSession> {
   static Insertable<WorkoutSession> custom({
     Expression<int>? id,
     Expression<String>? userId,
+    Expression<String>? deviceId,
     Expression<String>? title,
     Expression<String>? category,
     Expression<int>? durationSeconds,
@@ -5034,6 +5122,7 @@ class WorkoutSessionsTableCompanion extends UpdateCompanion<WorkoutSession> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (userId != null) 'user_id': userId,
+      if (deviceId != null) 'device_id': deviceId,
       if (title != null) 'title': title,
       if (category != null) 'category': category,
       if (durationSeconds != null) 'duration_seconds': durationSeconds,
@@ -5049,6 +5138,7 @@ class WorkoutSessionsTableCompanion extends UpdateCompanion<WorkoutSession> {
   WorkoutSessionsTableCompanion copyWith({
     Value<int>? id,
     Value<String>? userId,
+    Value<String>? deviceId,
     Value<String>? title,
     Value<String>? category,
     Value<int>? durationSeconds,
@@ -5062,6 +5152,7 @@ class WorkoutSessionsTableCompanion extends UpdateCompanion<WorkoutSession> {
     return WorkoutSessionsTableCompanion(
       id: id ?? this.id,
       userId: userId ?? this.userId,
+      deviceId: deviceId ?? this.deviceId,
       title: title ?? this.title,
       category: category ?? this.category,
       durationSeconds: durationSeconds ?? this.durationSeconds,
@@ -5082,6 +5173,9 @@ class WorkoutSessionsTableCompanion extends UpdateCompanion<WorkoutSession> {
     }
     if (userId.present) {
       map['user_id'] = Variable<String>(userId.value);
+    }
+    if (deviceId.present) {
+      map['device_id'] = Variable<String>(deviceId.value);
     }
     if (title.present) {
       map['title'] = Variable<String>(title.value);
@@ -5118,6 +5212,7 @@ class WorkoutSessionsTableCompanion extends UpdateCompanion<WorkoutSession> {
     return (StringBuffer('WorkoutSessionsTableCompanion(')
           ..write('id: $id, ')
           ..write('userId: $userId, ')
+          ..write('deviceId: $deviceId, ')
           ..write('title: $title, ')
           ..write('category: $category, ')
           ..write('durationSeconds: $durationSeconds, ')
@@ -7724,6 +7819,7 @@ typedef $$BandDevicesTableTableCreateCompanionBuilder =
       Value<int> batteryLevel,
       Value<bool> isCharging,
       Value<bool> isBonded,
+      Value<bool> isActive,
       Value<DateTime?> lastConnectedAt,
       Value<DateTime?> lastSyncAt,
       Value<DateTime> createdAt,
@@ -7738,6 +7834,7 @@ typedef $$BandDevicesTableTableUpdateCompanionBuilder =
       Value<int> batteryLevel,
       Value<bool> isCharging,
       Value<bool> isBonded,
+      Value<bool> isActive,
       Value<DateTime?> lastConnectedAt,
       Value<DateTime?> lastSyncAt,
       Value<DateTime> createdAt,
@@ -7785,6 +7882,11 @@ class $$BandDevicesTableTableFilterComposer
 
   ColumnFilters<bool> get isBonded => $composableBuilder(
     column: $table.isBonded,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -7848,6 +7950,11 @@ class $$BandDevicesTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get lastConnectedAt => $composableBuilder(
     column: $table.lastConnectedAt,
     builder: (column) => ColumnOrderings(column),
@@ -7905,6 +8012,9 @@ class $$BandDevicesTableTableAnnotationComposer
 
   GeneratedColumn<bool> get isBonded =>
       $composableBuilder(column: $table.isBonded, builder: (column) => column);
+
+  GeneratedColumn<bool> get isActive =>
+      $composableBuilder(column: $table.isActive, builder: (column) => column);
 
   GeneratedColumn<DateTime> get lastConnectedAt => $composableBuilder(
     column: $table.lastConnectedAt,
@@ -7964,6 +8074,7 @@ class $$BandDevicesTableTableTableManager
                 Value<int> batteryLevel = const Value.absent(),
                 Value<bool> isCharging = const Value.absent(),
                 Value<bool> isBonded = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
                 Value<DateTime?> lastConnectedAt = const Value.absent(),
                 Value<DateTime?> lastSyncAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -7976,6 +8087,7 @@ class $$BandDevicesTableTableTableManager
                 batteryLevel: batteryLevel,
                 isCharging: isCharging,
                 isBonded: isBonded,
+                isActive: isActive,
                 lastConnectedAt: lastConnectedAt,
                 lastSyncAt: lastSyncAt,
                 createdAt: createdAt,
@@ -7990,6 +8102,7 @@ class $$BandDevicesTableTableTableManager
                 Value<int> batteryLevel = const Value.absent(),
                 Value<bool> isCharging = const Value.absent(),
                 Value<bool> isBonded = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
                 Value<DateTime?> lastConnectedAt = const Value.absent(),
                 Value<DateTime?> lastSyncAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -8002,6 +8115,7 @@ class $$BandDevicesTableTableTableManager
                 batteryLevel: batteryLevel,
                 isCharging: isCharging,
                 isBonded: isBonded,
+                isActive: isActive,
                 lastConnectedAt: lastConnectedAt,
                 lastSyncAt: lastSyncAt,
                 createdAt: createdAt,
@@ -8292,6 +8406,7 @@ typedef $$WorkoutSessionsTableTableCreateCompanionBuilder =
     WorkoutSessionsTableCompanion Function({
       Value<int> id,
       Value<String> userId,
+      Value<String> deviceId,
       required String title,
       required String category,
       required int durationSeconds,
@@ -8306,6 +8421,7 @@ typedef $$WorkoutSessionsTableTableUpdateCompanionBuilder =
     WorkoutSessionsTableCompanion Function({
       Value<int> id,
       Value<String> userId,
+      Value<String> deviceId,
       Value<String> title,
       Value<String> category,
       Value<int> durationSeconds,
@@ -8333,6 +8449,11 @@ class $$WorkoutSessionsTableTableFilterComposer
 
   ColumnFilters<String> get userId => $composableBuilder(
     column: $table.userId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8401,6 +8522,11 @@ class $$WorkoutSessionsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get deviceId => $composableBuilder(
+    column: $table.deviceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get title => $composableBuilder(
     column: $table.title,
     builder: (column) => ColumnOrderings(column),
@@ -8461,6 +8587,9 @@ class $$WorkoutSessionsTableTableAnnotationComposer
 
   GeneratedColumn<String> get userId =>
       $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<String> get deviceId =>
+      $composableBuilder(column: $table.deviceId, builder: (column) => column);
 
   GeneratedColumn<String> get title =>
       $composableBuilder(column: $table.title, builder: (column) => column);
@@ -8543,6 +8672,7 @@ class $$WorkoutSessionsTableTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> userId = const Value.absent(),
+                Value<String> deviceId = const Value.absent(),
                 Value<String> title = const Value.absent(),
                 Value<String> category = const Value.absent(),
                 Value<int> durationSeconds = const Value.absent(),
@@ -8555,6 +8685,7 @@ class $$WorkoutSessionsTableTableTableManager
               }) => WorkoutSessionsTableCompanion(
                 id: id,
                 userId: userId,
+                deviceId: deviceId,
                 title: title,
                 category: category,
                 durationSeconds: durationSeconds,
@@ -8569,6 +8700,7 @@ class $$WorkoutSessionsTableTableTableManager
               ({
                 Value<int> id = const Value.absent(),
                 Value<String> userId = const Value.absent(),
+                Value<String> deviceId = const Value.absent(),
                 required String title,
                 required String category,
                 required int durationSeconds,
@@ -8581,6 +8713,7 @@ class $$WorkoutSessionsTableTableTableManager
               }) => WorkoutSessionsTableCompanion.insert(
                 id: id,
                 userId: userId,
+                deviceId: deviceId,
                 title: title,
                 category: category,
                 durationSeconds: durationSeconds,

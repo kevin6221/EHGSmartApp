@@ -281,29 +281,19 @@ class HealthSyncManager {
 
         final vitals = await bandRepo.syncFullHealthData();
 
-        // ── Phase 3: Historical Backfill (Yesterday / Day 1) ─────────────
+        // ── Phase 3: Historical Backfill (Days 1 to 6) ─────────────
         _updateSnapshot(
           phase: HealthSyncPhase.backfillingHistory,
           statusMessage: 'Syncing weekly trends...',
         );
 
-        // Fetch yesterday's finalized records (dayIndex: 1) ONLY if band was paired before today.
-        // For a brand new band out of the box, yesterday's flash memory contains factory QA test data.
-        final devMac = await _secureStorage.getBondedDeviceMac() ?? 'default_band';
-        final pairingDate = await _secureStorage.getDevicePairingDate(devMac);
-        final todayStr = DateTime.now().toIso8601String().substring(0, 10);
-
-        if (pairingDate != null && pairingDate.compareTo(todayStr) < 0) {
-          try {
-            await bandRepo.syncHistoricalDay(1).timeout(
-              const Duration(seconds: 8),
-              onTimeout: () => vitals,
-            );
-          } catch (e) {
-            debugPrint('ℹ️ [SYNC MGR] Historical day 1 backfill skipped: $e');
-          }
-        } else {
-          debugPrint('🛡️ [SYNC MGR] Fresh pairing detected ($pairingDate). Suppressing day 1 backfill to prevent factory test data ingestion.');
+        try {
+          await bandRepo.syncAllHistoricalDays().timeout(
+            const Duration(seconds: 15),
+            onTimeout: () => {},
+          );
+        } catch (e) {
+          debugPrint('ℹ️ [SYNC MGR] Historical backfill notice: $e');
         }
 
         // ── Phase 4: Compute Wellness & Reload DB ───────────────────────

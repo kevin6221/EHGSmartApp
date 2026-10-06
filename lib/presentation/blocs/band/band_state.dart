@@ -14,6 +14,7 @@ class BandState extends Equatable {
   final String? errorMessage;
   final BandBluetoothState bluetoothState;
   final BandPermissionDetails? permissionDetails;
+  final String? activeDeviceId;
 
   const BandState({
     this.status = BandConnectionStatus.disconnected,
@@ -28,6 +29,7 @@ class BandState extends Equatable {
     this.errorMessage,
     this.bluetoothState = BandBluetoothState.unknown,
     this.permissionDetails,
+    this.activeDeviceId,
   });
 
   bool get isConnected => status == BandConnectionStatus.connected;
@@ -73,6 +75,8 @@ class BandState extends Equatable {
     bool clearError = false,
     BandBluetoothState? bluetoothState,
     BandPermissionDetails? permissionDetails,
+    String? activeDeviceId,
+    bool clearActiveDevice = false,
   }) {
     return BandState(
       status: status ?? this.status,
@@ -87,6 +91,7 @@ class BandState extends Equatable {
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       bluetoothState: bluetoothState ?? this.bluetoothState,
       permissionDetails: permissionDetails ?? this.permissionDetails,
+      activeDeviceId: clearActiveDevice ? null : (activeDeviceId ?? this.activeDeviceId),
     );
   }
 
@@ -104,5 +109,6 @@ class BandState extends Equatable {
         errorMessage,
         bluetoothState,
         permissionDetails,
+        activeDeviceId,
       ];
 }

@@ -37,6 +37,8 @@ class SystemsJourneysSection extends StatelessWidget {
         _buildLockedJourneyCard(
           context: context,
           title: 'Morning Energy',
+          progressText: '0/21 days',
+          progressFraction: 0.0,
           gearText: 'Tank Top · Resistance Band · Smart Band',
           requiredCondition: 'Complete 3 more daily missions to unlock this morning activation journey.',
           rewardDescription: 'Unlocks morning protocol, daylight exposure sync, and +150 Wardrobe Reward points.',
@@ -46,6 +48,8 @@ class SystemsJourneysSection extends StatelessWidget {
         _buildLockedJourneyCard(
           context: context,
           title: 'Better Sleep',
+          progressText: '0/14 days',
+          progressFraction: 0.0,
           gearText: 'Boxy Piping Tee · Eye Mask · Smart Band',
           requiredCondition: 'Complete 4 consecutive nights of sleep tracking to unlock this wind-down journey.',
           rewardDescription: 'Unlocks parasympathetic breathwork flow, circadian lighting guidance, and +200 Reward points.',
@@ -58,6 +62,8 @@ class SystemsJourneysSection extends StatelessWidget {
   Widget _buildLockedJourneyCard({
     required BuildContext context,
     required String title,
+    required String progressText,
+    required double progressFraction,
     required String gearText,
     required String requiredCondition,
     required String rewardDescription,
@@ -73,88 +79,116 @@ class SystemsJourneysSection extends StatelessWidget {
       ),
       behavior: HitTestBehavior.opaque,
       child: Container(
-      padding: const EdgeInsets.all(14.0),
-      decoration: BoxDecoration(
-        color: context.cardBackground,
-        borderRadius: BorderRadius.circular(16.0),
-        border: Border.all(color: context.cardBorder, width: 1.0),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: r.font(12.0),
-                    fontWeight: FontWeight.w600,
-                    color: context.textPrimary,
+        padding: const EdgeInsets.all(14.0),
+        decoration: BoxDecoration(
+          color: context.cardBackground,
+          borderRadius: BorderRadius.circular(16.0),
+          border: Border.all(color: context.cardBorder, width: 1.0),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    title,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: r.font(12.5),
+                      fontWeight: FontWeight.w600,
+                      color: context.textPrimary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
+                ),
+                const SizedBox(width: 8.0),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7.0, vertical: 3.0),
+                  decoration: BoxDecoration(
+                    color: context.isDark
+                        ? AppColors.midnightSurface
+                        : AppColors.background,
+                    borderRadius: BorderRadius.circular(6.0),
+                    border: Border.all(
+                      color: context.isDark ? AppColors.midnightBorder : AppColors.divider,
+                      width: 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppSvgIcon(
+                        AppIcons.lock,
+                        size: 10.0,
+                        color: context.textSecondary,
+                      ),
+                      const SizedBox(width: 4.0),
+                      Text(
+                        progressText,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: r.font(10.5),
+                          fontWeight: FontWeight.w600,
+                          color: context.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10.0),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(3.0),
+              child: LinearProgressIndicator(
+                value: progressFraction,
+                minHeight: 3.0,
+                backgroundColor: context.isDark ? AppColors.midnightBorder : AppColors.divider,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  progressFraction > 0 ? AppColors.cyanLight : context.textSecondary.withValues(alpha: 0.25),
                 ),
               ),
-              const SizedBox(width: 8.0),
-              AppSvgIcon(
-                AppIcons.lock,
-                size: 14.0,
-                color: context.textSecondary,
-              ),
-            ],
-          ),
-          const SizedBox(height: 10.0),
-          _buildLockedProgressBar(context, r),
-          const SizedBox(height: 10.0),
-          Text(
-            gearText,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: r.font(10.0),
-              fontWeight: FontWeight.w400,
-              color: context.textSecondary,
             ),
-          ),
-        ],
-      ),
-    ),
-    );
-  }
-
-  Widget _buildLockedProgressBar(BuildContext context, Responsive r) {
-    return Container(
-      height: 14.0,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: context.isDark
-            ? AppColors.midnightBackground
-            : AppColors.background,
-        borderRadius: BorderRadius.circular(7.0),
-        border: Border.all(
-          color: context.isDark ? AppColors.midnightBorder : AppColors.divider,
-          width: 0.8,
+            const SizedBox(height: 10.0),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    gearText,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: r.font(10.0),
+                      fontWeight: FontWeight.w400,
+                      color: context.textSecondary,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8.0),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Tap to unlock',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: r.font(10.0),
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 2.0),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      size: 14.0,
+                      color: AppColors.primary,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
         ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          AppSvgIcon(
-            AppIcons.lock,
-            size: 9.0,
-            color: context.textSecondary.withValues(alpha: 0.7),
-          ),
-          const SizedBox(width: 5.0),
-          Text(
-            'LOCKED',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: r.font(8.0),
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.9,
-              color: context.textSecondary.withValues(alpha: 0.7),
-            ),
-          ),
-        ],
       ),
     );
   }

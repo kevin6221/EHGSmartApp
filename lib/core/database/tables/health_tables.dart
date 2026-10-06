@@ -28,7 +28,7 @@ class DailyHealthSummariesTable extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
-  Set<Column> get primaryKey => {userId, date};
+  Set<Column> get primaryKey => {userId, date, deviceId};
 }
 
 @DataClassName('HeartRateSample')
@@ -95,6 +95,7 @@ class BandDevicesTable extends Table {
   IntColumn get batteryLevel => integer().withDefault(const Constant(0))();
   BoolColumn get isCharging => boolean().withDefault(const Constant(false))();
   BoolColumn get isBonded => boolean().withDefault(const Constant(false))();
+  BoolColumn get isActive => boolean().withDefault(const Constant(false))();
   DateTimeColumn get lastConnectedAt => dateTime().nullable()();
   DateTimeColumn get lastSyncAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
@@ -118,6 +119,7 @@ class SyncQueueTable extends Table {
 class WorkoutSessionsTable extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get userId => text().withDefault(const Constant(''))();
+  TextColumn get deviceId => text().withDefault(const Constant(''))();
   TextColumn get title => text()();
   TextColumn get category => text()(); // run, walk, cycling, strength, hit
   IntColumn get durationSeconds => integer()();

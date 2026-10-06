@@ -267,12 +267,18 @@ class _HomeScreenState extends State<HomeScreen>
                               ? bandState.lastSyncedVitals!.weeklyHeartRate
                               : data.weeklyHeartRate;
 
+                          final effectiveSleep = (bandState.lastSyncedVitals != null)
+                              ? (bandState.lastSyncedVitals!.sleepMinutes > 0
+                                  ? double.parse((bandState.lastSyncedVitals!.sleepMinutes / 60.0).toStringAsFixed(1))
+                                  : 0.0)
+                              : data.sleepHours;
+
                           return HomeVitalsSummaryRow(
                             heartRate: latestHr,
                             isLive: false,
                             restingRate: data.restHr,
                             weeklyHeartRate: effectiveWeeklyHr,
-                            sleepHours: data.sleepHours,
+                            sleepHours: effectiveSleep,
                             weeklySleep: data.weeklySleep,
                             onHeartRateTap: () {
                               Navigator.of(context).push(
@@ -294,20 +300,31 @@ class _HomeScreenState extends State<HomeScreen>
                       SizedBox(height: itemSpacing),
 
                       // Readiness Detail Section Card
-                      HomeReadinessCard(
-                        data: data,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => SystemsScreen(
-                                initialMode: data.activeMode,
-                                initialExpandedSection: switch (data.activeMode) {
-                                  WellnessMode.recover => 'recover',
-                                  WellnessMode.steady => 'move',
-                                  WellnessMode.push => 'move',
-                                },
-                              ),
-                            ),
+                      BlocBuilder<BandBloc, BandState>(
+                        builder: (context, bandState) {
+                          final String? liveSleepText = (bandState.lastSyncedVitals != null)
+                              ? (bandState.lastSyncedVitals!.sleepMinutes > 0
+                                  ? '${bandState.lastSyncedVitals!.sleepMinutes ~/ 60}hr ${bandState.lastSyncedVitals!.sleepMinutes % 60} min'
+                                  : '--')
+                              : null;
+
+                          return HomeReadinessCard(
+                            data: data,
+                            sleepTextOverride: liveSleepText,
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => SystemsScreen(
+                                    initialMode: data.activeMode,
+                                    initialExpandedSection: switch (data.activeMode) {
+                                      WellnessMode.recover => 'recover',
+                                      WellnessMode.steady => 'move',
+                                      WellnessMode.push => 'move',
+                                    },
+                                  ),
+                                ),
+                              );
+                            },
                           );
                         },
                       ),
@@ -340,7 +357,7 @@ class _HomeScreenState extends State<HomeScreen>
                       // Step Counting Card
                       BlocBuilder<BandBloc, BandState>(
                         builder: (context, bandState) {
-                          final steps = (bandState.lastSyncedVitals?.steps ?? 0) > 0
+                          final steps = bandState.lastSyncedVitals != null
                               ? bandState.lastSyncedVitals!.steps
                               : data.steps;
                           final distance = bandState.lastSyncedVitals?.distance.toDouble();
@@ -366,7 +383,7 @@ class _HomeScreenState extends State<HomeScreen>
                       // Energy Burned Card
                       BlocBuilder<BandBloc, BandState>(
                         builder: (context, bandState) {
-                          final steps = (bandState.lastSyncedVitals?.steps ?? 0) > 0
+                          final steps = bandState.lastSyncedVitals != null
                               ? bandState.lastSyncedVitals!.steps
                               : data.steps;
                           final rawBandCal = bandState.lastSyncedVitals?.calories ?? 0;

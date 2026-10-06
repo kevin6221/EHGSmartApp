@@ -9,11 +9,17 @@ import '../../../helpers/vitals_history_calculator.dart';
 class VitalsPeriodSegmentedBar extends StatelessWidget {
   final ValueNotifier<VitalsTimePeriod> periodNotifier;
   final ValueChanged<VitalsTimePeriod>? onPeriodChanged;
+  final List<VitalsTimePeriod> periods;
 
   const VitalsPeriodSegmentedBar({
     super.key,
     required this.periodNotifier,
     this.onPeriodChanged,
+    this.periods = const [
+      VitalsTimePeriod.day,
+      VitalsTimePeriod.week,
+      VitalsTimePeriod.month,
+    ],
   });
 
   @override
@@ -37,29 +43,27 @@ class VitalsPeriodSegmentedBar extends StatelessWidget {
             ),
           ),
           child: Row(
-            children: [
-              _buildSegment(
+            children: periods.map((period) {
+              final String label;
+              switch (period) {
+                case VitalsTimePeriod.day:
+                  label = 'Day';
+                  break;
+                case VitalsTimePeriod.week:
+                  label = 'Week';
+                  break;
+                case VitalsTimePeriod.month:
+                  label = 'Month';
+                  break;
+              }
+              return _buildSegment(
                 context,
-                period: VitalsTimePeriod.day,
-                label: 'Day',
-                isSelected: currentPeriod == VitalsTimePeriod.day,
+                period: period,
+                label: label,
+                isSelected: currentPeriod == period,
                 r: r,
-              ),
-              _buildSegment(
-                context,
-                period: VitalsTimePeriod.week,
-                label: 'Week',
-                isSelected: currentPeriod == VitalsTimePeriod.week,
-                r: r,
-              ),
-              _buildSegment(
-                context,
-                period: VitalsTimePeriod.month,
-                label: 'Month',
-                isSelected: currentPeriod == VitalsTimePeriod.month,
-                r: r,
-              ),
-            ],
+              );
+            }).toList(),
           ),
         );
       },

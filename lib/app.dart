@@ -44,6 +44,17 @@ class _EHGWellnessAppState extends State<EHGWellnessApp> {
   late final BandBloc _bandBloc;
   late final AppLifecycleListener _lifecycleListener;
   StreamSubscription<BandState>? _bandStateSubscription;
+  Timer? _midnightRolloverTimer;
+
+  void _checkMidnightRollover() {
+    final bandRolledOver = _dependencies.bandRepository.checkMidnightRollover();
+    final wellnessRolledOver = _dependencies.wellnessRepository.checkMidnightRollover();
+    if (bandRolledOver || wellnessRolledOver) {
+      debugPrint('🌙 [APP LIFECYCLE] Midnight rollover detected! Emitting fresh Day 0 states to Blocs.');
+      _bandBloc.add(CheckMidnightRolloverBandEvent());
+      _wellnessBloc.add(const CheckMidnightRolloverEvent());
+    }
+  }
 
   @override
   void initState() {
@@ -79,14 +90,21 @@ class _EHGWellnessAppState extends State<EHGWellnessApp> {
     // 3. Defer heavy background sync service initialization until after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_dependencies.backgroundSyncService.initialize());
+      _checkMidnightRollover();
     });
 
-    // 4. Handle app lifecycle events
+    // 4. Periodic foreground midnight heartbeat (every 60s)
+    _midnightRolloverTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      _checkMidnightRollover();
+    });
+
+    // 5. Handle app lifecycle events (QWatch Pro / WHOOP / Garmin resumption standard)
     _lifecycleListener = AppLifecycleListener(
       onResume: () {
         debugPrint(
-          '📱 [APP LIFECYCLE] App resumed - checking band connection & freshness...',
+          '📱 [APP LIFECYCLE] App resumed - checking midnight rollover & freshness...',
         );
+        _checkMidnightRollover();
         if (_bandBloc.state.status != BandConnectionStatus.connected) {
           _bandBloc.add(AutoReconnectBandEvent());
         } else {
@@ -112,6 +130,7 @@ class _EHGWellnessAppState extends State<EHGWellnessApp> {
 
   @override
   void dispose() {
+    _midnightRolloverTimer?.cancel();
     _bandStateSubscription?.cancel();
     _lifecycleListener.dispose();
     _bandBloc.close();

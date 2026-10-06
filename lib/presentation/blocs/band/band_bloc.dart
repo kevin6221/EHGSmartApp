@@ -41,6 +41,7 @@ class BandBloc extends Bloc<BandEvent, BandState> {
     on<ConnectBandEvent>(_onConnect);
     on<DisconnectBandEvent>(_onDisconnect);
     on<UnbindBandEvent>(_onUnbindBand);
+    on<SwitchActiveDeviceEvent>(_onSwitchActiveDevice);
     on<ReconnectBandEvent>(_onReconnectBand);
     on<ConnectionStatusChangedEvent>(_onConnectionStatusChanged);
     on<BandConnectionFailedEvent>(_onConnectionFailed);
@@ -60,6 +61,7 @@ class BandBloc extends Bloc<BandEvent, BandState> {
     on<OpenLocationSettingsEvent>(_onOpenLocationSettings);
     on<BluetoothStateChangedEvent>(_onBluetoothStateChanged);
     on<PermissionDetailsUpdatedEvent>(_onPermissionDetailsUpdated);
+    on<CheckMidnightRolloverBandEvent>(_onCheckMidnightRollover);
 
     // Wait for cached vitals to be restored from SQLite before propagating to state & wellnessBloc
     repository.ensureInitialized().then((_) {
@@ -371,6 +373,8 @@ class BandBloc extends Bloc<BandEvent, BandState> {
         connectedDevice: info,
         boundDevice: event.device,
         battery: repository.currentBattery,
+        activeDeviceId: event.device.mac.isNotEmpty ? event.device.mac : event.device.id,
+        lastSyncedVitals: repository.lastSyncedVitals,
       ));
       // Auto-trigger full sync on successful bind/connect, matching QWatch Pro!
       add(SyncVitalsEvent());
@@ -409,6 +413,7 @@ class BandBloc extends Bloc<BandEvent, BandState> {
         connectedDevice: info,
         boundDevice: bound,
         battery: repository.currentBattery,
+        activeDeviceId: bound?.mac ?? info?.macAddress,
         clearError: true,
       ));
       // Trigger full sync on reconnect
@@ -437,18 +442,32 @@ class BandBloc extends Bloc<BandEvent, BandState> {
   }
 
   Future<void> _onUnbindBand(UnbindBandEvent event, Emitter<BandState> emit) async {
-    debugPrint('🗑️ [BAND BLOC] Unbinding band and purging local cache...');
-    await repository.unbindBand();
+    debugPrint('🗑️ [BAND BLOC] Unbinding band ${event.macAddress ?? ""} (preserving historical data)...');
+    await repository.unbindBand(event.macAddress);
     emit(state.copyWith(
       status: BandConnectionStatus.disconnected,
       clearConnectedDevice: true,
       clearBoundDevice: true,
       clearLastSyncedVitals: true,
+      clearActiveDevice: true,
       battery: const BandBatteryInfo(percentage: 0),
       liveHeartRate: 0,
       clearError: true,
     ));
     wellnessBloc?.add(const SyncBandFullVitalsEvent(BandSyncedVitals()));
+  }
+
+  Future<void> _onSwitchActiveDevice(SwitchActiveDeviceEvent event, Emitter<BandState> emit) async {
+    debugPrint('🔄 [BAND BLOC] Switching active device to ${event.macAddress}...');
+    await repository.switchActiveDevice(event.macAddress);
+    emit(state.copyWith(
+      connectedDevice: repository.currentConnectedDevice,
+      boundDevice: repository.boundDevice,
+      battery: repository.currentBattery,
+      lastSyncedVitals: repository.lastSyncedVitals,
+      activeDeviceId: event.macAddress,
+    ));
+    wellnessBloc?.add(SyncBandFullVitalsEvent(repository.lastSyncedVitals));
   }
 
   void _onReconnectBand(ReconnectBandEvent event, Emitter<BandState> emit) {
@@ -471,6 +490,8 @@ class BandBloc extends Bloc<BandEvent, BandState> {
         connectedDevice: info,
         boundDevice: bound,
         battery: repository.currentBattery,
+        activeDeviceId: bound?.mac ?? info?.macAddress,
+        lastSyncedVitals: repository.lastSyncedVitals,
         clearError: true,
       ));
       // Automatically pull offline backlog and merge into timeline upon reconnect
@@ -611,6 +632,15 @@ class BandBloc extends Bloc<BandEvent, BandState> {
       latestHeartRate: latestHr > 0 ? latestHr : state.latestHeartRate,
     ));
     wellnessBloc?.add(SyncBandFullVitalsEvent(event.vitals));
+  }
+
+  void _onCheckMidnightRollover(CheckMidnightRolloverBandEvent event, Emitter<BandState> emit) {
+    final rolledOver = repository.checkMidnightRollover();
+    if (rolledOver) {
+      emit(state.copyWith(
+        lastSyncedVitals: repository.lastSyncedVitals,
+      ));
+    }
   }
 
   @override

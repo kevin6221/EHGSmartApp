@@ -37,7 +37,7 @@ class ProfileBandCard extends StatelessWidget {
           ),
         ),
         content: Text(
-          'Are you sure you want to unbind your smart band? This will disconnect the device, remove Bluetooth pairing, and clear locally cached vitals.',
+          'Are you sure you want to unbind your smart band? This will disconnect the device and remove Bluetooth pairing. Your historical health records remain safely saved under this device.',
           style: GoogleFonts.plusJakartaSans(
             fontSize: 14.0,
             color: context.textSecondary,
@@ -60,12 +60,16 @@ class ProfileBandCard extends StatelessWidget {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
             ),
             onPressed: () {
-              context.read<BandBloc>().add(UnbindBandEvent());
+              final bandState = context.read<BandBloc>().state;
+              final targetMac = bandState.connectedDevice?.macAddress ??
+                  bandState.boundDevice?.mac ??
+                  bandState.activeDeviceId;
+              context.read<BandBloc>().add(UnbindBandEvent(macAddress: targetMac));
               onForgetBand?.call();
               Navigator.of(ctx).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Device unbound successfully.'),
+                  content: Text('Device unbound. Historical records preserved.'),
                   duration: Duration(seconds: 2),
                 ),
               );

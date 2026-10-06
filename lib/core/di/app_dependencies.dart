@@ -1,5 +1,6 @@
 import '../database/app_database.dart';
 import '../security/secure_storage_service.dart';
+import '../services/active_device_service.dart';
 import '../sync/background_sync_service.dart';
 import '../sync/health_sync_manager.dart';
 import '../../data/repositories/band_repository.dart';
@@ -12,6 +13,7 @@ import '../../data/repositories/wellness_repository.dart';
 class AppDependencies {
   AppDatabase? _database;
   SecureStorageService? _secureStorage;
+  ActiveDeviceService? _activeDeviceService;
   HealthSyncManager? _healthSyncManager;
   WellnessRepository? _wellnessRepository;
   BandRepository? _bandRepository;
@@ -24,6 +26,13 @@ class AppDependencies {
   SecureStorageService get secureStorage =>
       _secureStorage ??= SecureStorageService();
 
+  /// Lazy active device management service (multi-band identity)
+  ActiveDeviceService get activeDeviceService =>
+      _activeDeviceService ??= ActiveDeviceService(
+        deviceDao: database.deviceDao,
+        secureStorage: secureStorage,
+      );
+
   /// Lazy health synchronization manager
   HealthSyncManager get healthSyncManager =>
       _healthSyncManager ??= HealthSyncManager(secureStorage: secureStorage);
@@ -33,6 +42,7 @@ class AppDependencies {
       _wellnessRepository ??= WellnessRepository(
         database: database,
         secureStorage: secureStorage,
+        activeDeviceService: activeDeviceService,
       );
 
   /// Lazy band repository
@@ -40,6 +50,7 @@ class AppDependencies {
       _bandRepository ??= BandRepository(
         database: database,
         secureStorage: secureStorage,
+        activeDeviceService: activeDeviceService,
       );
 
   /// Lazy background sync service

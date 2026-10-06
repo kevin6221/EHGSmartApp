@@ -151,49 +151,84 @@ class HomeModeSelector extends StatelessWidget {
           },
         ),
         if (recommendationExplanation != null && recommendationExplanation!.isNotEmpty) ...[
-          const SizedBox(height: 10.0),
+          const SizedBox(height: 12.0),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
+            padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 11.0),
             decoration: BoxDecoration(
               color: context.isDark
                   ? AppColors.midnightSurface
-                  : AppColors.primaryLight.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(12.0),
+                  : AppColors.cardBackground,
+              borderRadius: BorderRadius.circular(16.0),
               border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.15),
-                width: 0.8,
+                color: AppColors.primary.withValues(alpha: 0.16),
+                width: 1.0,
               ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
-                  margin: const EdgeInsets.only(top: 1.0),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(4.0),
-                  ),
-                  child: Text(
-                    'RECOMMENDED',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: r.font(9.0),
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.white,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.04),
+                  blurRadius: 10.0,
+                  offset: const Offset(0, 3),
                 ),
-                const SizedBox(width: 8.0),
-                Expanded(
-                  child: Text(
-                    recommendationExplanation!,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: r.font(11.5),
-                      fontWeight: FontWeight.w500,
-                      color: context.textSecondary,
-                      height: 1.35,
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7.5, vertical: 3.5),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6.0),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.22),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 11.0,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 4.0),
+                          Text(
+                            'RECOMMENDED',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: r.font(9.5),
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8.0),
+                    Text(
+                      '${recommendedMode.name[0].toUpperCase()}${recommendedMode.name.substring(1)} Guidance',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: r.font(12.5),
+                        fontWeight: FontWeight.w600,
+                        color: context.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 7.0),
+                Text(
+                  recommendationExplanation!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: r.font(12.0),
+                    fontWeight: FontWeight.w400,
+                    color: context.textSecondary,
+                    height: 1.38,
                   ),
                 ),
               ],

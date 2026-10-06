@@ -17,167 +17,302 @@ import '../../widgets/common/app_card.dart';
 import '../../widgets/common/detail_screen_app_bar.dart';
 import '../../widgets/common/screen_header.dart';
 
+import '../vitals/widgets/vitals_date_navigator.dart';
+import '../../helpers/vitals_history_calculator.dart';
+import '../../../data/repositories/wellness_repository.dart';
+import 'package:intl/intl.dart';
+
 /// Full-screen Sleep Detail screen adhering to the EHG design system.
 ///
 /// Features sleep architecture hypnogram, deep/REM/light/awake phase metrics,
 /// personal sleep need fulfillment, and clinical restorative insights.
-class SleepDetailScreen extends StatelessWidget {
+class SleepDetailScreen extends StatefulWidget {
   const SleepDetailScreen({super.key});
 
+  @override
+  State<SleepDetailScreen> createState() => _SleepDetailScreenState();
+}
+
+class _SleepDetailScreenState extends State<SleepDetailScreen> {
+  late final ValueNotifier<DateTime> _selectedDateNotifier;
+  late final ValueNotifier<VitalsTimePeriod> _selectedPeriodNotifier;
+  late final ValueNotifier<VitalsModel?> _historicalVitalsNotifier;
+
   static const List<String> _weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _selectedDateNotifier = ValueNotifier<DateTime>(DateTime(now.year, now.month, now.day));
+    _selectedPeriodNotifier = ValueNotifier<VitalsTimePeriod>(VitalsTimePeriod.day);
+    _historicalVitalsNotifier = ValueNotifier<VitalsModel?>(null);
+  }
+
+  @override
+  void dispose() {
+    _selectedDateNotifier.dispose();
+    _selectedPeriodNotifier.dispose();
+    _historicalVitalsNotifier.dispose();
+    super.dispose();
+  }
+
+  void _onPreviousDate() {
+    final cur = _selectedDateNotifier.value;
+    final curDate = DateTime(cur.year, cur.month, cur.day);
+    _selectedDateNotifier.value = curDate.subtract(const Duration(days: 1));
+    _loadHistoricalDate();
+  }
+
+  void _onNextDate() {
+    final cur = _selectedDateNotifier.value;
+    final curDate = DateTime(cur.year, cur.month, cur.day);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final next = curDate.add(const Duration(days: 1));
+    if (!next.isAfter(today)) {
+      _selectedDateNotifier.value = next;
+      _loadHistoricalDate();
+    }
+  }
+
+  void _onDateSelected(DateTime picked) {
+    _selectedDateNotifier.value = DateTime(picked.year, picked.month, picked.day);
+    _loadHistoricalDate();
+  }
+
+  Future<void> _loadHistoricalDate() async {
+    final date = _selectedDateNotifier.value;
+    final now = DateTime.now();
+    final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+    if (isToday) {
+      _historicalVitalsNotifier.value = null;
+      return;
+    }
+    final wellnessRepo = context.read<WellnessRepository>();
+    final data = await wellnessRepo.getHistoricalVitalsForDate(date);
+    if (mounted) {
+      _historicalVitalsNotifier.value = data;
+    }
+  }
+
+  int _parseSleepMinutes(String totalSleep) {
+    if (totalSleep.isEmpty || totalSleep == '--') return 0;
+    final hrsMatch = RegExp(r'(\d+)\s*hrs?').firstMatch(totalSleep);
+    final minsMatch = RegExp(r'(\d+)\s*mins?').firstMatch(totalSleep);
+    final hrs = hrsMatch != null ? int.tryParse(hrsMatch.group(1) ?? '') ?? 0 : 0;
+    final mins = minsMatch != null ? int.tryParse(minsMatch.group(1) ?? '') ?? 0 : 0;
+    return (hrs * 60) + mins;
+  }
 
   @override
   Widget build(BuildContext context) {
     final r = context.responsive;
     final itemSpacing = (r.height * 0.016).clamp(12.0, 18.0);
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Stack(
-        children: [
-          SkyHeaderBackground(height: r.hp(0.30), stops: const [0.0, 0.85]),
-          SafeArea(
-            bottom: false,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Top Custom Navigation Bar
-                const DetailScreenAppBar(
-                  statusText: 'Last Night',
-                  statusColor: AppColors.readinessSleep,
-                ),
+    return ValueListenableBuilder<DateTime>(
+      valueListenable: _selectedDateNotifier,
+      builder: (context, selectedDate, _) {
+        final now = DateTime.now();
+        final isToday = selectedDate.year == now.year &&
+            selectedDate.month == now.month &&
+            selectedDate.day == now.day;
+        final statusLabel = isToday
+            ? 'Last Night'
+            : DateFormat('d MMM yyyy').format(selectedDate);
 
-                // Main Scrollable Body
-                Expanded(
-                  child: BlocBuilder<WellnessBloc, WellnessState>(
-                    builder: (context, wellnessState) {
-                      return BlocBuilder<VitalsBloc, VitalsState>(
-                        builder: (context, vitalsState) {
-                          return BlocBuilder<BandBloc, BandState>(
-                            builder: (context, bandState) {
-                              final bandVitals = bandState.lastSyncedVitals;
-                              final vitalsData = vitalsState.data;
-                              final wellness = wellnessState.data;
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: Stack(
+            children: [
+              SkyHeaderBackground(height: r.hp(0.30), stops: const [0.0, 0.85]),
+              SafeArea(
+                bottom: false,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Top Custom Navigation Bar
+                    DetailScreenAppBar(
+                      statusText: statusLabel,
+                      statusColor: AppColors.readinessSleep,
+                    ),
 
-                              final int totalMinutes = (bandVitals?.sleepMinutes ?? 0) > 0
-                                  ? bandVitals!.sleepMinutes
-                                  : ((wellness?.sleepHours ?? 0) > 0
-                                      ? (wellness!.sleepHours * 60).round()
-                                      : 487);
+                    // Main Scrollable Body
+                    Expanded(
+                      child: BlocBuilder<WellnessBloc, WellnessState>(
+                        builder: (context, wellnessState) {
+                          return BlocBuilder<VitalsBloc, VitalsState>(
+                            builder: (context, vitalsState) {
+                              return BlocBuilder<BandBloc, BandState>(
+                                builder: (context, bandState) {
+                                  return ValueListenableBuilder<VitalsModel?>(
+                                    valueListenable: _historicalVitalsNotifier,
+                                    builder: (context, historicalData, _) {
+                                      final bandVitals = bandState.lastSyncedVitals;
+                                      final vitalsData = historicalData ?? vitalsState.data;
+                                      final wellness = wellnessState.data;
 
-                              final int deepMinutes = (bandVitals?.deepSleepMinutes ?? 0) > 0
-                                  ? bandVitals!.deepSleepMinutes
-                                  : (totalMinutes * 0.21).round();
+                                      final int totalMinutes;
+                                      if (historicalData != null) {
+                                        final parsed = _parseSleepMinutes(historicalData.totalSleep);
+                                        totalMinutes = parsed > 0 ? parsed : 0;
+                                      } else {
+                                        totalMinutes = (bandVitals?.sleepMinutes ?? 0) > 0
+                                            ? bandVitals!.sleepMinutes
+                                            : ((wellness?.sleepHours ?? 0) > 0
+                                                ? (wellness!.sleepHours * 60).round()
+                                                : 0);
+                                      }
 
-                              final int remMinutes = (totalMinutes * 0.23).round();
-                              final int awakeMinutes = 36;
-                              final int lightMinutes = (totalMinutes - deepMinutes - remMinutes).clamp(120, 360);
+                                      final int deepMinutes;
+                                      if (historicalData != null) {
+                                        final deepFrac = historicalData.sleepIntervals
+                                            .where((i) => i.phase == SleepPhase.deep)
+                                            .fold(0.0, (s, i) => s + i.widthFraction);
+                                        deepMinutes = deepFrac > 0
+                                            ? (deepFrac * totalMinutes).round()
+                                            : (totalMinutes > 0 ? (totalMinutes * 0.21).round() : 0);
+                                      } else {
+                                        deepMinutes = (bandVitals?.deepSleepMinutes ?? 0) > 0
+                                            ? bandVitals!.deepSleepMinutes
+                                            : (totalMinutes * 0.21).round();
+                                      }
 
-                              final String sleepWindow = vitalsData?.sleepWindow ?? '10:45 PM – 6:52 AM';
-                              final double sleepHours = totalMinutes / 60.0;
-                              final double efficiency = ((totalMinutes / (totalMinutes + awakeMinutes)) * 100).clamp(70.0, 98.0);
+                                      final int remMinutes = (totalMinutes * 0.23).round();
+                                      final int awakeMinutes = totalMinutes > 0 ? 36 : 0;
+                                      final int lightMinutes = (totalMinutes - deepMinutes - remMinutes).clamp(0, 360);
 
-                              final List<double> weeklySleep = (wellness?.weeklySleep.length == 7)
-                                  ? wellness!.weeklySleep
-                                  : const [7.2, 6.8, 7.5, 8.0, 6.5, 8.1, 7.4];
+                                      final String sleepWindow = (totalMinutes > 0)
+                                          ? (vitalsData?.sleepWindow ?? '10:45 PM – 6:52 AM')
+                                          : 'No sleep recorded';
+                                      final double sleepHours = totalMinutes / 60.0;
+                                      final double efficiency = totalMinutes > 0
+                                          ? ((totalMinutes / (totalMinutes + awakeMinutes)) * 100).clamp(70.0, 98.0)
+                                          : 0.0;
 
-                              final List<SleepInterval> intervals = vitalsData?.sleepIntervals ?? const [
-                                SleepInterval(startOffset: 0.00, widthFraction: 0.12, phase: SleepPhase.light),
-                                SleepInterval(startOffset: 0.12, widthFraction: 0.20, phase: SleepPhase.deep),
-                                SleepInterval(startOffset: 0.32, widthFraction: 0.12, phase: SleepPhase.light),
-                                SleepInterval(startOffset: 0.44, widthFraction: 0.18, phase: SleepPhase.rem),
-                                SleepInterval(startOffset: 0.62, widthFraction: 0.20, phase: SleepPhase.deep),
-                                SleepInterval(startOffset: 0.82, widthFraction: 0.12, phase: SleepPhase.light),
-                                SleepInterval(startOffset: 0.94, widthFraction: 0.06, phase: SleepPhase.awake),
-                              ];
+                                      final int todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
+                                      final List<double> baseWeekly = (wellness?.weeklySleep.length == 7)
+                                          ? List<double>.from(wellness!.weeklySleep)
+                                          : [7.2, 0.0, 7.5, 8.0, 6.5, 8.1, 7.4];
+                                      if (todayIdx < baseWeekly.length && sleepHours <= 0) {
+                                        baseWeekly[todayIdx] = 0.0;
+                                      }
+                                      final List<double> weeklySleep = baseWeekly;
 
-                              return SingleChildScrollView(
-                                physics: const BouncingScrollPhysics(),
-                                padding: EdgeInsets.fromLTRB(
-                                  r.horizontalPadding,
-                                  8.0,
-                                  r.horizontalPadding,
-                                  r.hp(0.10),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Title Header
-                                    Text(
-                                      'Sleep Performance',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontSize: r.font(26.0),
-                                        fontWeight: FontWeight.w700,
-                                        color: context.textPrimary,
-                                        letterSpacing: -0.5,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4.0),
-                                    Text(
-                                      'Sleep stages, autonomic recovery, and restorative efficiency',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontSize: r.font(13.0),
-                                        fontWeight: FontWeight.w400,
-                                        color: context.textSecondary,
-                                      ),
-                                    ),
-                                    SizedBox(height: itemSpacing),
+                                      final List<SleepInterval> intervals = vitalsData?.sleepIntervals ??
+                                          (totalMinutes > 0
+                                              ? const [
+                                                  SleepInterval(startOffset: 0.00, widthFraction: 0.12, phase: SleepPhase.light),
+                                                  SleepInterval(startOffset: 0.12, widthFraction: 0.20, phase: SleepPhase.deep),
+                                                  SleepInterval(startOffset: 0.32, widthFraction: 0.12, phase: SleepPhase.light),
+                                                  SleepInterval(startOffset: 0.44, widthFraction: 0.18, phase: SleepPhase.rem),
+                                                  SleepInterval(startOffset: 0.62, widthFraction: 0.20, phase: SleepPhase.deep),
+                                                  SleepInterval(startOffset: 0.82, widthFraction: 0.12, phase: SleepPhase.light),
+                                                  SleepInterval(startOffset: 0.94, widthFraction: 0.06, phase: SleepPhase.awake),
+                                                ]
+                                              : const []);
 
-                                    // Hero Sleep Summary Card
-                                    _buildHeroCard(
-                                      context: context,
-                                      r: r,
-                                      sleepHours: sleepHours,
-                                      totalMinutes: totalMinutes,
-                                      efficiency: efficiency,
-                                      sleepWindow: sleepWindow,
-                                      deepMinutes: deepMinutes,
-                                    ),
-                                    SizedBox(height: itemSpacing),
+                                      return SingleChildScrollView(
+                                        physics: const BouncingScrollPhysics(),
+                                        padding: EdgeInsets.fromLTRB(
+                                          r.horizontalPadding,
+                                          8.0,
+                                          r.horizontalPadding,
+                                          r.hp(0.10),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            // Title Header
+                                            Text(
+                                              'Sleep Performance',
+                                              style: GoogleFonts.plusJakartaSans(
+                                                fontSize: r.font(26.0),
+                                                fontWeight: FontWeight.w700,
+                                                color: context.textPrimary,
+                                                letterSpacing: -0.5,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4.0),
+                                            Text(
+                                              'Sleep stages, autonomic recovery, and restorative efficiency',
+                                              style: GoogleFonts.plusJakartaSans(
+                                                fontSize: r.font(13.0),
+                                                fontWeight: FontWeight.w400,
+                                                color: context.textSecondary,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 12.0),
 
-                                    // Hypnogram Stage Intervals Chart
-                                    _buildHypnogramCard(
-                                      context: context,
-                                      r: r,
-                                      intervals: intervals,
-                                      totalMinutes: totalMinutes,
-                                      deepMinutes: deepMinutes,
-                                      remMinutes: remMinutes,
-                                      lightMinutes: lightMinutes,
-                                      awakeMinutes: awakeMinutes,
-                                    ),
-                                    SizedBox(height: itemSpacing),
+                                            // Date Navigator (QWatch Pro / Garmin / WHOOP standard)
+                                            VitalsDateNavigator(
+                                              dateNotifier: _selectedDateNotifier,
+                                              periodNotifier: _selectedPeriodNotifier,
+                                              onPrevious: _onPreviousDate,
+                                              onNext: _onNextDate,
+                                              onDateSelected: _onDateSelected,
+                                            ),
+                                            SizedBox(height: itemSpacing),
 
-                                    // Weekly Sleep Consistency Card
-                                    _buildWeeklySleepConsistencyCard(
-                                      context: context,
-                                      r: r,
-                                      weeklySleep: weeklySleep,
-                                    ),
-                                    SizedBox(height: itemSpacing),
+                                            // Hero Sleep Summary Card
+                                            _buildHeroCard(
+                                              context: context,
+                                              r: r,
+                                              sleepHours: sleepHours,
+                                              totalMinutes: totalMinutes,
+                                              efficiency: efficiency,
+                                              sleepWindow: sleepWindow,
+                                              deepMinutes: deepMinutes,
+                                            ),
+                                            SizedBox(height: itemSpacing),
 
-                                    // Sleep Coaching Insights Card
-                                    _buildSleepInsightsCard(
-                                      context: context,
-                                      r: r,
-                                      deepMinutes: deepMinutes,
-                                      totalMinutes: totalMinutes,
-                                    ),
-                                  ],
-                                ),
+                                            // Hypnogram Stage Intervals Chart
+                                            _buildHypnogramCard(
+                                              context: context,
+                                              r: r,
+                                              intervals: intervals,
+                                              totalMinutes: totalMinutes,
+                                              deepMinutes: deepMinutes,
+                                              remMinutes: remMinutes,
+                                              lightMinutes: lightMinutes,
+                                              awakeMinutes: awakeMinutes,
+                                            ),
+                                            SizedBox(height: itemSpacing),
+
+                                            // Weekly Sleep Consistency Card
+                                            _buildWeeklySleepConsistencyCard(
+                                              context: context,
+                                              r: r,
+                                              weeklySleep: weeklySleep,
+                                            ),
+                                            SizedBox(height: itemSpacing),
+
+                                            // Sleep Coaching Insights Card
+                                            _buildSleepInsightsCard(
+                                              context: context,
+                                              r: r,
+                                              deepMinutes: deepMinutes,
+                                              totalMinutes: totalMinutes,
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
                               );
                             },
                           );
                         },
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -254,7 +389,9 @@ class SleepDetailScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8.0),
                 ),
                 child: Text(
-                  sleepHours >= 7.5 ? 'Restorative' : 'Good',
+                  totalMinutes > 0
+                      ? (sleepHours >= 7.5 ? 'Restorative' : 'Good')
+                      : 'No Record',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: r.font(11.0),
                     fontWeight: FontWeight.w600,
@@ -269,25 +406,38 @@ class SleepDetailScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text(
-                '${hours}h ${mins}m',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: r.font(40.0),
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.readinessSleep,
-                  height: 1.0,
-                  letterSpacing: -1.0,
+              if (totalMinutes > 0) ...[
+                Text(
+                  '${hours}h ${mins}m',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: r.font(40.0),
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.readinessSleep,
+                    height: 1.0,
+                    letterSpacing: -1.0,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8.0),
-              Text(
-                '(${sleepHours.toStringAsFixed(1)} hrs)',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: r.font(14.0),
-                  fontWeight: FontWeight.w500,
-                  color: context.textSecondary,
+                const SizedBox(width: 8.0),
+                Text(
+                  '(${sleepHours.toStringAsFixed(1)} hrs)',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: r.font(14.0),
+                    fontWeight: FontWeight.w500,
+                    color: context.textSecondary,
+                  ),
                 ),
-              ),
+              ] else ...[
+                Text(
+                  '-- min',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: r.font(40.0),
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.readinessSleep,
+                    height: 1.0,
+                    letterSpacing: -1.0,
+                  ),
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 18.0),
@@ -300,7 +450,7 @@ class SleepDetailScreen extends StatelessWidget {
               Expanded(
                 child: _buildMetricMiniPill(
                   label: 'Efficiency',
-                  value: '${efficiency.round()}%',
+                  value: totalMinutes > 0 ? '${efficiency.round()}%' : '--',
                   accentColor: AppColors.greenMetric,
                   r: r,
                 ),
@@ -309,7 +459,7 @@ class SleepDetailScreen extends StatelessWidget {
               Expanded(
                 child: _buildMetricMiniPill(
                   label: 'Deep Sleep',
-                  value: '${deepMinutes}m',
+                  value: totalMinutes > 0 ? '${deepMinutes}m' : '--',
                   accentColor: AppColors.primary,
                   r: r,
                 ),
@@ -318,7 +468,7 @@ class SleepDetailScreen extends StatelessWidget {
               Expanded(
                 child: _buildMetricMiniPill(
                   label: 'Bedtime',
-                  value: sleepWindow.split('–').first.trim(),
+                  value: totalMinutes > 0 ? sleepWindow.split('–').first.trim() : '--',
                   accentColor: AppColors.purpleMetric,
                   r: r,
                 ),
@@ -382,10 +532,10 @@ class SleepDetailScreen extends StatelessWidget {
     required int awakeMinutes,
   }) {
     final stages = [
-      {'name': 'Deep Sleep', 'time': '${deepMinutes}m', 'pct': (deepMinutes / totalMinutes * 100).round(), 'color': AppColors.primary, 'desc': 'Physical recovery & tissue repair'},
-      {'name': 'REM Sleep', 'time': '${remMinutes}m', 'pct': (remMinutes / totalMinutes * 100).round(), 'color': AppColors.readinessSleep, 'desc': 'Memory consolidation & mental focus'},
-      {'name': 'Light Sleep', 'time': '${lightMinutes}m', 'pct': (lightMinutes / totalMinutes * 100).round(), 'color': AppColors.cyanAccent, 'desc': 'Foundational restorative state'},
-      {'name': 'Awake', 'time': '${awakeMinutes}m', 'pct': (awakeMinutes / totalMinutes * 100).round(), 'color': AppColors.textSecondary, 'desc': 'Normal nighttime micro-arousals'},
+      {'name': 'Deep Sleep', 'time': totalMinutes > 0 ? '${deepMinutes}m' : '-', 'pct': totalMinutes > 0 ? (deepMinutes / totalMinutes * 100).round() : 0, 'color': AppColors.primary, 'desc': 'Physical recovery & tissue repair'},
+      {'name': 'REM Sleep', 'time': totalMinutes > 0 ? '${remMinutes}m' : '-', 'pct': totalMinutes > 0 ? (remMinutes / totalMinutes * 100).round() : 0, 'color': AppColors.readinessSleep, 'desc': 'Memory consolidation & mental focus'},
+      {'name': 'Light Sleep', 'time': totalMinutes > 0 ? '${lightMinutes}m' : '-', 'pct': totalMinutes > 0 ? (lightMinutes / totalMinutes * 100).round() : 0, 'color': AppColors.cyanAccent, 'desc': 'Foundational restorative state'},
+      {'name': 'Awake', 'time': totalMinutes > 0 ? '${awakeMinutes}m' : '-', 'pct': totalMinutes > 0 ? (awakeMinutes / totalMinutes * 100).round() : 0, 'color': AppColors.textSecondary, 'desc': 'Normal nighttime micro-arousals'},
     ];
 
     return AppCard(
@@ -522,13 +672,23 @@ class SleepDetailScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: List.generate(7, (i) {
                 final double hrs = (i < weeklySleep.length) ? weeklySleep[i] : 0.0;
-                final double ratio = (hrs / 8.5).clamp(0.08, 1.0);
                 final bool isToday = i == todayIdx;
                 final bool isFuture = i > todayIdx;
 
-                final Color barColor = isToday
-                    ? AppColors.readinessSleep
-                    : (isFuture ? AppColors.readinessSleep.withValues(alpha: 0.12) : AppColors.readinessSleep.withValues(alpha: 0.55));
+                final double barHeight;
+                final Color barColor;
+                if (hrs > 0) {
+                  final double ratio = (hrs / 8.5).clamp(0.15, 1.0);
+                  barHeight = (56.0 * ratio).clamp(8.0, 56.0);
+                  barColor = isToday
+                      ? AppColors.readinessSleep
+                      : (isFuture ? AppColors.readinessSleep.withValues(alpha: 0.12) : AppColors.readinessSleep.withValues(alpha: 0.55));
+                } else {
+                  barHeight = 4.0;
+                  barColor = isToday
+                      ? AppColors.readinessSleep.withValues(alpha: 0.25)
+                      : (isFuture ? AppColors.readinessSleep.withValues(alpha: 0.12) : AppColors.readinessSleep.withValues(alpha: 0.18));
+                }
 
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -547,10 +707,10 @@ class SleepDetailScreen extends StatelessWidget {
                     const SizedBox(height: 4.0),
                     Container(
                       width: 14.0,
-                      height: 56.0 * ratio,
+                      height: barHeight,
                       decoration: BoxDecoration(
                         color: barColor,
-                        borderRadius: BorderRadius.circular(7.0),
+                        borderRadius: BorderRadius.circular(4.0),
                       ),
                     ),
                     const SizedBox(height: 6.0),

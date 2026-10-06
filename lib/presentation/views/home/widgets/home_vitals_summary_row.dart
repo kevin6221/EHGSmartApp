@@ -371,9 +371,7 @@ class HomeVitalsSummaryRow extends StatelessWidget {
 
                     final double dayHours;
                     if (isToday) {
-                      dayHours = sleepHours > 0
-                          ? sleepHours
-                          : (i < weeklySleep.length ? weeklySleep[i] : 0.0);
+                      dayHours = sleepHours > 0 ? sleepHours : 0.0;
                     } else if (i < weeklySleep.length && weeklySleep[i] > 0) {
                       dayHours = weeklySleep[i];
                     } else {
@@ -381,28 +379,22 @@ class HomeVitalsSummaryRow extends StatelessWidget {
                     }
 
                     final double barHeight;
+                    final Color barColor;
                     if (dayHours > 0) {
                       final double ratio = (dayHours / 8.0).clamp(0.20, 1.25);
                       barHeight = (ratio * maxChartHeight).clamp(8.0, maxChartHeight);
-                    } else if (isToday) {
-                      barHeight = sleepHours > 0
-                          ? ((sleepHours / 8.0).clamp(0.20, 1.25) * maxChartHeight).clamp(8.0, maxChartHeight)
-                          : 10.0;
-                    } else if (isPast) {
-                      barHeight = 10.0;
+                      barColor = isToday
+                          ? AppColors.purpleMetric
+                          : (isPast
+                              ? AppColors.purpleMetric.withValues(alpha: 0.55)
+                              : AppColors.purpleMetric.withValues(alpha: 0.12));
                     } else {
-                      barHeight = 6.0;
-                    }
-
-                    final Color barColor;
-                    if (isToday) {
-                      barColor = AppColors.purpleMetric;
-                    } else if (isPast) {
-                      barColor = dayHours > 0
-                          ? AppColors.purpleMetric.withValues(alpha: 0.55)
-                          : AppColors.purpleMetric.withValues(alpha: 0.22);
-                    } else {
-                      barColor = AppColors.purpleMetric.withValues(alpha: 0.12);
+                      barHeight = 4.0;
+                      barColor = isToday
+                          ? AppColors.purpleMetric.withValues(alpha: 0.22)
+                          : (isPast
+                              ? AppColors.purpleMetric.withValues(alpha: 0.16)
+                              : AppColors.purpleMetric.withValues(alpha: 0.08));
                     }
 
                     final Color textColor = isToday

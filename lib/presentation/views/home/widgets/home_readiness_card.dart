@@ -90,9 +90,15 @@ const List<List<ReadinessBarSegmentDef>> _timelineColumns = [
 /// Dynamic responsive layout adhering to senior developer architecture.
 class HomeReadinessCard extends StatelessWidget {
   final WellnessDataModel data;
+  final String? sleepTextOverride;
   final VoidCallback? onTap;
 
-  const HomeReadinessCard({super.key, required this.data, this.onTap});
+  const HomeReadinessCard({
+    super.key,
+    required this.data,
+    this.sleepTextOverride,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -260,7 +266,7 @@ class HomeReadinessCard extends StatelessWidget {
                 child: _buildTile(
                   context: context,
                   title: 'Sleep',
-                  value: data.sleepHours > 0 ? data.sleepDetail : '--',
+                  value: sleepTextOverride ?? (data.sleepHours > 0 ? data.sleepDetail : '--'),
                   accentColor: AppColors.readinessSleep,
                   tileBg: AppColors.tileSleepBg,
                   r: r,

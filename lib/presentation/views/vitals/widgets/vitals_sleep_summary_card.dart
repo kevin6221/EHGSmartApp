@@ -143,6 +143,17 @@ class _VitalsSleepSummaryCardState extends State<VitalsSleepSummaryCard>
       effectiveSleepWindow = 'Retrieving sleep data...';
     }
 
+    if (effectiveTotalSleep == '--' ||
+        effectiveTotalSleep.trim().isEmpty ||
+        effectiveTotalSleep == '0 mins.' ||
+        effectiveTotalSleep == '0 min' ||
+        effectiveTotalSleep == '0 hrs. 0 mins.') {
+      effectiveTotalSleep = '--';
+      if (effectiveIntervals.isEmpty) {
+        effectiveSleepWindow = 'No sleep recorded';
+      }
+    }
+
     // 1. If totalSleep is missing or '--', but intervals exist, compute from intervals
     if ((effectiveTotalSleep == '--' || effectiveTotalSleep.trim().isEmpty) &&
         effectiveIntervals.isNotEmpty) {

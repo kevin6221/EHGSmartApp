@@ -42,7 +42,21 @@ class DisconnectBandEvent extends BandEvent {
   List<Object?> get props => [unpair];
 }
 
-class UnbindBandEvent extends BandEvent {}
+class UnbindBandEvent extends BandEvent {
+  final String? macAddress;
+  const UnbindBandEvent({this.macAddress});
+
+  @override
+  List<Object?> get props => [macAddress];
+}
+
+class SwitchActiveDeviceEvent extends BandEvent {
+  final String macAddress;
+  const SwitchActiveDeviceEvent(this.macAddress);
+
+  @override
+  List<Object?> get props => [macAddress];
+}
 
 class ReconnectBandEvent extends BandEvent {}
 
@@ -129,3 +143,5 @@ class PermissionDetailsUpdatedEvent extends BandEvent {
   @override
   List<Object?> get props => [details];
 }
+
+class CheckMidnightRolloverBandEvent extends BandEvent {}

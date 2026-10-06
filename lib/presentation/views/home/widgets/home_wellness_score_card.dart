@@ -199,7 +199,7 @@ class _HomeWellnessScoreCardState extends State<HomeWellnessScoreCard> {
                         fontWeight: FontWeight.w600,
                         color: widget.isNegativeChange
                             ? AppColors.scoreDownRed
-                            : AppColors.primary,
+                            : (widget.isNeutralChange ? context.textSecondary : AppColors.primary),
                       ),
                     ),
                     const SizedBox(width: 3.5),

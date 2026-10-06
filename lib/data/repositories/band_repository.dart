@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/database/app_database.dart';
 import '../../core/security/secure_storage_service.dart';
+import '../../core/services/active_device_service.dart';
 import '../models/band_device_model.dart';
 import '../services/band_service.dart';
 import '../services/mock_band_service.dart';
@@ -19,6 +20,7 @@ class BandRepository {
   final BandService _service;
   final AppDatabase _db;
   final SecureStorageService _secureStorage;
+  final ActiveDeviceService? activeDeviceService;
   final StreamController<BandSyncedVitals> _syncedVitalsController =
       StreamController<BandSyncedVitals>.broadcast();
 
@@ -40,10 +42,14 @@ class BandRepository {
   BandConnectionStatus _currentStatus = BandConnectionStatus.disconnected;
   final Completer<void> _initCompleter = Completer<void>();
 
+  ActiveDeviceService? get _activeDeviceService => activeDeviceService;
+  String? get activeDeviceId => activeDeviceService?.activeDeviceId;
+
   BandRepository({
     BandService? service,
     AppDatabase? database,
     SecureStorageService? secureStorage,
+    this.activeDeviceService,
   })  : _service = service ??
             ((Platform.isIOS || Platform.isAndroid)
                 ? NativeBandService()
@@ -95,14 +101,15 @@ class BandRepository {
     });
 
     _pedometerSubscription = _service.pedometerStream.listen((info) {
-      if ((info.steps > 0 || info.calories > 0) &&
-          (info.steps != _lastSyncedVitals.steps ||
-           info.calories != _lastSyncedVitals.calories ||
-           info.distance != _lastSyncedVitals.distance)) {
+      checkMidnightRollover();
+      if (info.steps != _lastSyncedVitals.steps ||
+          info.calories != _lastSyncedVitals.calories ||
+          info.distance != _lastSyncedVitals.distance) {
         _lastSyncedVitals = _lastSyncedVitals.copyWith(
           steps: info.steps,
           calories: info.calories,
           distance: info.distance,
+          date: DateTime.now().toIso8601String().substring(0, 10),
         );
         _persistVitals(_lastSyncedVitals);
         _syncedVitalsController.add(_lastSyncedVitals);
@@ -203,26 +210,36 @@ class BandRepository {
 
   Future<void> _loadCachedData() async {
     try {
-      // 1. Check Drift DB for bonded device or secure storage
-      final bonded = await _db.deviceDao.getBondedDevice();
-      if (bonded != null) {
+      await _activeDeviceService?.initialize();
+      final activeMac = _activeDeviceService?.activeDeviceId;
+
+      // 1. Check Drift DB for active or bonded device
+      BandDeviceEntry? targetDev;
+      if (activeMac != null && activeMac.isNotEmpty) {
+        targetDev = await _db.deviceDao.getDeviceByMac(activeMac);
+      }
+      targetDev ??= await _db.deviceDao.getActiveDevice();
+      targetDev ??= await _db.deviceDao.getBondedDevice();
+
+      if (targetDev != null) {
         _lastPairedDevice = DiscoveredBandDevice(
-          id: bonded.macAddress,
-          name: bonded.deviceName,
-          mac: bonded.macAddress,
+          id: targetDev.macAddress,
+          name: targetDev.deviceName,
+          mac: targetDev.macAddress,
           rssi: -60,
         );
         _connectedDevice = BandDeviceInfo(
-          name: bonded.deviceName,
-          id: bonded.macAddress,
-          macAddress: bonded.macAddress,
-          firmwareVersion: bonded.firmwareVersion ?? '1.0.4',
-          hardwareVersion: bonded.modelNumber ?? '1.0.0',
+          name: targetDev.deviceName,
+          id: targetDev.macAddress,
+          macAddress: targetDev.macAddress,
+          firmwareVersion: targetDev.firmwareVersion ?? '1.0.4',
+          hardwareVersion: targetDev.modelNumber ?? '1.0.0',
         );
         _battery = BandBatteryInfo(
-          percentage: bonded.batteryLevel,
-          isCharging: bonded.isCharging,
+          percentage: targetDev.batteryLevel,
+          isCharging: targetDev.isCharging,
         );
+        await _activeDeviceService?.setActiveDevice(targetDev.macAddress);
       } else {
         final mac = await _secureStorage.getBondedDeviceMac();
         if (mac != null && mac.isNotEmpty) {
@@ -234,25 +251,50 @@ class BandRepository {
               mac: dev.macAddress,
               rssi: -60,
             );
+            await _activeDeviceService?.setActiveDevice(dev.macAddress);
           }
         }
       }
 
-      // 1. Instant check from secure storage cache
-      final cachedJson = await _secureStorage.read('cached_band_synced_vitals_v1');
+      final devId = _connectedDevice?.macAddress ??
+          _lastPairedDevice?.mac ??
+          _activeDeviceService?.activeDeviceId ??
+          'default_band';
+
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      _lastRecordedDate = today;
+
+      // 1. Instant check from per-device secure storage cache
+      final cachedJson = await _secureStorage.read('cached_band_synced_vitals_$devId') ??
+          await _secureStorage.read('cached_band_synced_vitals_v1');
       if (cachedJson != null && cachedJson.isNotEmpty) {
         try {
           final decoded = jsonDecode(cachedJson) as Map<String, dynamic>;
-          _lastSyncedVitals = BandSyncedVitals.fromJson(decoded);
+          final parsed = BandSyncedVitals.fromJson(decoded);
+          if (parsed.date.isNotEmpty && parsed.date != today) {
+            // Snapshot belongs to a past date (e.g. Oct 5) - reset today's counters to 0
+            _lastSyncedVitals = parsed.copyWith(
+              steps: 0,
+              calories: 0,
+              distance: 0,
+              sleepMinutes: 0,
+              deepSleepMinutes: 0,
+              sleepPhases: const [],
+              hourlySteps: List.filled(24, 0),
+              date: today,
+              dayIndex: 0,
+            );
+          } else {
+            _lastSyncedVitals = parsed.copyWith(date: today);
+          }
           _syncedVitalsController.add(_lastSyncedVitals);
         } catch (_) {}
       }
 
-      // 2. Load today's summary and discrete vitals from Drift SQLite
-      final today = DateTime.now().toIso8601String().substring(0, 10);
+      // 2. Load today's summary and discrete vitals from Drift SQLite for this device
       final userId = await _secureStorage.getActiveUserId();
-      final summary = await _db.healthDataDao.getDailySummary(userId, today);
-      final devId = _connectedDevice?.macAddress ?? _lastPairedDevice?.mac ?? 'default_band';
+      final summary = await _db.healthDataDao.getDailySummary(userId, today, deviceId: devId);
+      final sleepData = await _db.healthDataDao.getSleepSessionWithPhasesByDate(devId, today);
       final latestStress = await _db.healthDataDao.getLatestVital(devId, 'stress');
       final latestHrv = await _db.healthDataDao.getLatestVital(devId, 'hrv');
       final latestBp = await _db.healthDataDao.getLatestVital(devId, 'blood_pressure');
@@ -260,13 +302,30 @@ class BandRepository {
       final latestHr = await _db.healthDataDao.getLatestVital(devId, 'heart_rate');
       final int dbLatestHr = latestHr?.valueNumeric?.round() ?? 0;
 
-      if (summary != null || latestStress != null || latestHrv != null || dbLatestHr > 0) {
+      int loadedSleepMinutes = summary?.sleepDurationMinutes ?? 0;
+      List<BandSleepPhase> loadedSleepPhases = const [];
+      if (sleepData != null && sleepData.phases.isNotEmpty) {
+        if (loadedSleepMinutes == 0) {
+          loadedSleepMinutes = sleepData.session.totalDurationMinutes > 0
+              ? sleepData.session.totalDurationMinutes
+              : sleepData.phases.fold<int>(0, (sum, p) => sum + (p.durationMinutes > 0 ? p.durationMinutes : 1));
+        }
+        loadedSleepPhases = sleepData.phases.map((p) => BandSleepPhase(
+          type: p.phaseType,
+          startTime: p.startTime.toIso8601String(),
+          endTime: p.endTime.toIso8601String(),
+          durationMinutes: p.durationMinutes,
+        )).toList();
+      }
+
+      if (summary != null || loadedSleepMinutes > 0 || latestStress != null || latestHrv != null || dbLatestHr > 0) {
         _lastSyncedVitals = BandSyncedVitals(
           steps: summary?.steps ?? 0,
           calories: summary?.caloriesBurned.round() ?? 0,
           distance: summary?.distanceMeters.round() ?? 0,
-          sleepMinutes: summary?.sleepDurationMinutes ?? 0,
+          sleepMinutes: loadedSleepMinutes,
           deepSleepMinutes: summary?.deepSleepMinutes ?? 0,
+          sleepPhases: loadedSleepPhases,
           bloodOxygen: summary?.avgSpo2 ?? 0.0,
           restingHeartRate: summary?.restingHeartRate ?? 0,
           latestHeartRate: dbLatestHr > 0 ? dbLatestHr : _lastSyncedVitals.latestHeartRate,
@@ -275,9 +334,24 @@ class BandRepository {
           systolicBP: latestBp?.valueNumeric?.round() ?? 0,
           diastolicBP: latestBp?.secondaryNumeric?.round() ?? 0,
           skinTemperature: latestTemp?.valueNumeric ?? 0.0,
+          date: today,
+        );
+        _syncedVitalsController.add(_lastSyncedVitals);
+      } else if (_lastSyncedVitals.date != today) {
+        _lastSyncedVitals = _lastSyncedVitals.copyWith(
+          steps: 0,
+          calories: 0,
+          distance: 0,
+          sleepMinutes: 0,
+          deepSleepMinutes: 0,
+          sleepPhases: const [],
+          hourlySteps: List.filled(24, 0),
+          date: today,
+          dayIndex: 0,
         );
         _syncedVitalsController.add(_lastSyncedVitals);
       }
+      _lastRecordedDate = today;
     } catch (e) {
       debugPrint('⚠️ [BAND REPO] _loadCachedData error: $e');
     }
@@ -290,12 +364,10 @@ class BandRepository {
       final now = DateTime.now();
       final today = now.toIso8601String().substring(0, 10);
       final effectiveDate = targetDate ?? (vitals.date.isNotEmpty ? vitals.date : today);
-      final devId = _connectedDevice?.macAddress ?? _lastPairedDevice?.mac ?? 'default_band';
-      final pairingDate = await _secureStorage.getDevicePairingDate(devId);
-      if (pairingDate != null && effectiveDate.compareTo(pairingDate) < 0) {
-        debugPrint('🛡️ [BAND REPO] Discarding pre-pairing vitals record for $effectiveDate (paired on $pairingDate)');
-        return;
-      }
+      final devId = _connectedDevice?.macAddress ??
+          _lastPairedDevice?.mac ??
+          _activeDeviceService?.activeDeviceId ??
+          'default_band';
       final userId = await _secureStorage.getActiveUserId();
 
       final parsedEffectiveDate = DateTime.tryParse(effectiveDate) ?? now;
@@ -331,9 +403,36 @@ class BandRepository {
         calculatedRestingHr = vitals.restingHeartRate;
       }
 
-      // 0. Persist JSON to Secure Storage for instant hydration on restart (for today)
+      // 0. Persist JSON to Secure Storage for instant hydration on restart (per-device and legacy key)
+      final vitalsWithDate = vitals.copyWith(date: effectiveDate);
       if (effectiveDate == today) {
-        _secureStorage.write('cached_band_synced_vitals_v1', jsonEncode(vitals.toJson())).catchError((_) {});
+        _secureStorage.write('cached_band_synced_vitals_$devId', jsonEncode(vitalsWithDate.toJson())).catchError((_) {});
+        _secureStorage.write('cached_band_synced_vitals_v1', jsonEncode(vitalsWithDate.toJson())).catchError((_) {});
+      }
+
+      // Compute scores for daily summary if vitals data is present
+      int? calculatedWellnessScore;
+      int? calculatedMoveScore;
+      int? calculatedRecoverScore;
+      final double calBurned = BandSyncedVitals.sanitizeCalories(vitals.calories, steps: vitals.steps).toDouble();
+      if (vitals.steps > 0 || vitals.sleepMinutes > 0 || calBurned > 0 || calculatedRestingHr != null) {
+        calculatedMoveScore = (calBurned > 0
+            ? (calBurned / 600 * 100).clamp(15, 98).round()
+            : (vitals.steps > 0 ? (vitals.steps / 8000 * 100).clamp(15, 98).round() : 0));
+        calculatedRecoverScore = (vitals.sleepMinutes > 0
+            ? ((vitals.sleepMinutes / 480.0 * 100).clamp(15, 98).round())
+            : (calculatedRestingHr != null && calculatedRestingHr > 0 ? 75 : 0));
+        final scores = <int>[];
+        if (calculatedMoveScore > 0) scores.add(calculatedMoveScore);
+        if (calculatedRecoverScore > 0) scores.add(calculatedRecoverScore);
+        scores.add(75);
+        scores.add(75);
+        calculatedWellnessScore = (scores.reduce((a, b) => a + b) / scores.length).round().clamp(1, 100);
+      }
+
+      final yesterdayStr = DateTime.now().subtract(const Duration(days: 1)).toIso8601String().substring(0, 10);
+      if (effectiveDate == yesterdayStr && calculatedWellnessScore != null && calculatedWellnessScore > 0) {
+        _secureStorage.write('cached_yesterday_wellness_score', '$calculatedWellnessScore').catchError((_) {});
       }
 
       // 1. Upsert daily summary to Drift DB
@@ -343,7 +442,7 @@ class BandRepository {
           deviceId: drift.Value(devId),
           date: drift.Value(effectiveDate),
           steps: drift.Value(vitals.steps),
-          caloriesBurned: drift.Value(BandSyncedVitals.sanitizeCalories(vitals.calories, steps: vitals.steps).toDouble()),
+          caloriesBurned: drift.Value(calBurned),
           distanceMeters: drift.Value(vitals.distance.toDouble()),
           restingHeartRate: drift.Value(calculatedRestingHr),
           avgHeartRate: drift.Value(calculatedAvgHr),
@@ -352,6 +451,9 @@ class BandRepository {
           avgSpo2: drift.Value(vitals.bloodOxygen > 0 ? vitals.bloodOxygen : null),
           sleepDurationMinutes: drift.Value(vitals.sleepMinutes),
           deepSleepMinutes: drift.Value(vitals.deepSleepMinutes),
+          wellnessScore: calculatedWellnessScore != null ? drift.Value(calculatedWellnessScore) : const drift.Value.absent(),
+          moveScore: calculatedMoveScore != null ? drift.Value(calculatedMoveScore) : const drift.Value.absent(),
+          recoverScore: calculatedRecoverScore != null ? drift.Value(calculatedRecoverScore) : const drift.Value.absent(),
           lastSyncTimestamp: drift.Value(now),
         ),
       );
@@ -470,6 +572,8 @@ class BandRepository {
           );
         }).toList();
         await _db.healthDataDao.insertSleepSessionWithPhases(sessionCompanion, phasesList);
+      } else if (effectiveDate == today) {
+        await _db.healthDataDao.deleteSleepSessionByDate(devId, effectiveDate);
       }
 
       // 5. Update sync timestamp on device
@@ -488,11 +592,143 @@ class BandRepository {
           macAddress: drift.Value(mac),
           deviceName: drift.Value(device.name),
           isBonded: const drift.Value(true),
+          isActive: const drift.Value(true),
           lastConnectedAt: drift.Value(DateTime.now()),
         ),
       );
+      await _activeDeviceService?.setActiveDevice(mac);
+      await _db.healthDataDao.migrateDefaultBandRecords(mac);
     } catch (e) {
       debugPrint('⚠️ [BAND REPO] _persistDevice error: $e');
+    }
+  }
+
+  /// Switches active band selection to another registered device (Band 1, Band 2, etc.)
+  /// and immediately loads that device's isolated historical health records and cached vitals.
+  Future<void> switchActiveDevice(String macAddress) async {
+    if (macAddress.isEmpty) return;
+    try {
+      final device = await _db.deviceDao.getDeviceByMac(macAddress);
+      if (device == null) return;
+
+      await _activeDeviceService?.setActiveDevice(macAddress);
+      _lastPairedDevice = DiscoveredBandDevice(
+        id: device.macAddress,
+        name: device.deviceName,
+        mac: device.macAddress,
+        rssi: -60,
+      );
+      _connectedDevice = BandDeviceInfo(
+        name: device.deviceName,
+        id: device.macAddress,
+        macAddress: device.macAddress,
+        firmwareVersion: device.firmwareVersion ?? '1.0.4',
+        hardwareVersion: device.modelNumber ?? '1.0.0',
+      );
+      _battery = BandBatteryInfo(
+        percentage: device.batteryLevel,
+        isCharging: device.isCharging,
+      );
+
+      await loadDeviceData(macAddress);
+      debugPrint('🔄 [BAND REPO] Switched active device to $macAddress (${device.deviceName})');
+    } catch (e) {
+      debugPrint('⚠️ [BAND REPO] switchActiveDevice error: $e');
+    }
+  }
+
+  /// Loads isolated vitals & health data for a specific device from secure storage and Drift DB.
+  Future<void> loadDeviceData(String macAddress) async {
+    try {
+      // 1. Instant hydration from per-device secure storage cache
+      final cachedJson = await _secureStorage.read('cached_band_synced_vitals_$macAddress');
+      if (cachedJson != null && cachedJson.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(cachedJson) as Map<String, dynamic>;
+          final parsed = BandSyncedVitals.fromJson(decoded);
+          final today = DateTime.now().toIso8601String().substring(0, 10);
+          if (parsed.date.isNotEmpty && parsed.date != today) {
+            _lastSyncedVitals = parsed.copyWith(
+              steps: 0,
+              calories: 0,
+              distance: 0,
+              sleepMinutes: 0,
+              deepSleepMinutes: 0,
+              sleepPhases: const [],
+              hourlySteps: List.filled(24, 0),
+              date: today,
+              dayIndex: 0,
+            );
+          } else {
+            _lastSyncedVitals = parsed.copyWith(date: today);
+          }
+          _syncedVitalsController.add(_lastSyncedVitals);
+        } catch (_) {}
+      }
+
+      // 2. Load today's summary and discrete vitals from Drift SQLite
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      final userId = await _secureStorage.getActiveUserId();
+      final summary = await _db.healthDataDao.getDailySummary(userId, today, deviceId: macAddress);
+      final sleepData = await _db.healthDataDao.getSleepSessionWithPhasesByDate(macAddress, today);
+      final latestStress = await _db.healthDataDao.getLatestVital(macAddress, 'stress');
+      final latestHrv = await _db.healthDataDao.getLatestVital(macAddress, 'hrv');
+      final latestBp = await _db.healthDataDao.getLatestVital(macAddress, 'blood_pressure');
+      final latestTemp = await _db.healthDataDao.getLatestVital(macAddress, 'temperature');
+      final latestHr = await _db.healthDataDao.getLatestVital(macAddress, 'heart_rate');
+      final int dbLatestHr = latestHr?.valueNumeric?.round() ?? 0;
+
+      int loadedSleepMinutes = summary?.sleepDurationMinutes ?? 0;
+      List<BandSleepPhase> loadedSleepPhases = const [];
+      if (sleepData != null && sleepData.phases.isNotEmpty) {
+        if (loadedSleepMinutes == 0) {
+          loadedSleepMinutes = sleepData.session.totalDurationMinutes > 0
+              ? sleepData.session.totalDurationMinutes
+              : sleepData.phases.fold<int>(0, (sum, p) => sum + (p.durationMinutes > 0 ? p.durationMinutes : 1));
+        }
+        loadedSleepPhases = sleepData.phases.map((p) => BandSleepPhase(
+          type: p.phaseType,
+          startTime: p.startTime.toIso8601String(),
+          endTime: p.endTime.toIso8601String(),
+          durationMinutes: p.durationMinutes,
+        )).toList();
+      }
+
+      if (summary != null || loadedSleepMinutes > 0 || latestStress != null || latestHrv != null || dbLatestHr > 0) {
+        _lastSyncedVitals = BandSyncedVitals(
+          steps: summary?.steps ?? 0,
+          calories: summary?.caloriesBurned.round() ?? 0,
+          distance: summary?.distanceMeters.round() ?? 0,
+          sleepMinutes: loadedSleepMinutes,
+          deepSleepMinutes: summary?.deepSleepMinutes ?? 0,
+          sleepPhases: loadedSleepPhases,
+          bloodOxygen: summary?.avgSpo2 ?? 0.0,
+          restingHeartRate: summary?.restingHeartRate ?? 0,
+          latestHeartRate: dbLatestHr > 0 ? dbLatestHr : _lastSyncedVitals.latestHeartRate,
+          stressLevel: latestStress?.valueNumeric?.round() ?? 0,
+          hrvMs: latestHrv?.valueNumeric?.round() ?? 0,
+          systolicBP: latestBp?.valueNumeric?.round() ?? 0,
+          diastolicBP: latestBp?.secondaryNumeric?.round() ?? 0,
+          skinTemperature: latestTemp?.valueNumeric ?? 0.0,
+          date: today,
+        );
+        _syncedVitalsController.add(_lastSyncedVitals);
+      } else {
+        _lastSyncedVitals = _lastSyncedVitals.copyWith(
+          steps: 0,
+          calories: 0,
+          distance: 0,
+          sleepMinutes: 0,
+          deepSleepMinutes: 0,
+          sleepPhases: const [],
+          hourlySteps: List.filled(24, 0),
+          date: today,
+          dayIndex: 0,
+        );
+        _syncedVitalsController.add(_lastSyncedVitals);
+      }
+    } catch (e) {
+      debugPrint('⚠️ [BAND REPO] loadDeviceData error: $e');
     }
   }
 
@@ -573,12 +809,15 @@ class BandRepository {
         rssi: device.rssi,
       );
       _lastPairedDevice = normalizedDevice;
-      _persistDevice(normalizedDevice);
+      await _persistDevice(normalizedDevice);
       _connectedDevice = BandDeviceInfo(
         name: normalizedDevice.name,
         id: normalizedDevice.id,
         macAddress: normalizedDevice.mac,
       );
+      final devMac = normalizedDevice.mac.isNotEmpty ? normalizedDevice.mac : normalizedDevice.id;
+      await loadDeviceData(devMac);
+
       // Run background post-connect handshake (time sync, vibration, battery, version)
       // without blocking connection resolution.
       _performPostConnectHandshake(device);
@@ -667,13 +906,19 @@ class BandRepository {
 
   /// Disconnects from the current device.
   /// If [unpair] is false, preserves paired band info for rapid reconnect / cold reconnect.
-  /// If [unpair] is true, removes paired band info from memory and persistent cache.
-  Future<void> disconnect({bool unpair = false}) async {
+  /// If [unpair] is true, unbonds device while PERMANENTLY preserving all historical data and cache.
+  Future<void> disconnect({bool unpair = false, String? targetMac}) async {
     _isExplicitDisconnect = true;
     _autoReconnectTimer?.cancel();
     _autoReconnectTimer = null;
     _isAutoReconnecting = false;
     await _service.disconnect(unpair: unpair);
+    
+    final currentMac = targetMac ??
+        _connectedDevice?.macAddress ??
+        _lastPairedDevice?.mac ??
+        _activeDeviceService?.activeDeviceId ??
+        '';
     _connectedDevice = null;
     if (unpair) {
       _lastPairedDevice = null;
@@ -681,15 +926,19 @@ class BandRepository {
       _battery = const BandBatteryInfo(percentage: 0);
       _syncedVitalsController.add(_lastSyncedVitals);
       await _secureStorage.clearBondedDevice();
-      await _secureStorage.delete('cached_band_synced_vitals_v1');
-      await _db.deviceDao.clearBonding();
+      // Unbind device in DB: preserves device row and all health records!
+      if (currentMac.isNotEmpty) {
+        await _db.deviceDao.unbindDevice(currentMac);
+      }
+      await _activeDeviceService?.clearActiveDevice();
     }
   }
 
   /// Explicitly unbinds the band matching QWatch Pro:
-  /// Disconnects GATT, removes OS bond, clears database & secure storage, and resets cached metrics.
-  Future<void> unbindBand() async {
-    await disconnect(unpair: true);
+  /// Disconnects GATT, removes OS bond, updates bonding flag in database,
+  /// and PRESERVES all historical health records associated with this band.
+  Future<void> unbindBand([String? macAddress]) async {
+    await disconnect(unpair: true, targetMac: macAddress);
   }
 
   /// Triggers find device vibration on the band.
@@ -833,14 +1082,18 @@ class BandRepository {
     return _ongoingSyncFuture!;
   }
 
+  final Set<String> _syncedDatesThisSession = <String>{};
+  bool _isBackfillingHistory = false;
+
+  bool isHistoricalDateSynced(String dateStr) => _syncedDatesThisSession.contains(dateStr);
+  void markDateSynced(String dateStr) => _syncedDatesThisSession.add(dateStr);
+
   /// Synchronizes complete health data for a specific historical day (dayIndex 0 to 6).
   /// Automatically stores it indexed by its exact date in Drift SQLite.
   Future<BandSyncedVitals> syncHistoricalDay(int dayIndex) async {
     final now = DateTime.now();
     final targetDate = now.subtract(Duration(days: dayIndex));
     final dateStr = "${targetDate.year.toString().padLeft(4, '0')}-${targetDate.month.toString().padLeft(2, '0')}-${targetDate.day.toString().padLeft(2, '0')}";
-
-
 
     final raw = await _service.syncHistoricalDay(dayIndex);
     int dayLatest = raw.latestHeartRate;
@@ -858,6 +1111,7 @@ class BandRepository {
       latestHeartRate: dayLatest > 0 ? dayLatest : (dayIndex == 0 ? _lastSyncedVitals.latestHeartRate : null),
     );
     await _persistVitals(vitals, targetDate: dateStr);
+    _syncedDatesThisSession.add(dateStr);
     if (dayIndex == 0) {
       _lastSyncedVitals = vitals;
       _syncedVitalsController.add(vitals);
@@ -865,13 +1119,42 @@ class BandRepository {
     return vitals;
   }
 
+  /// Batch syncs all 6 historical days (dayIndex 1 to 6) sequentially in the background.
+  /// Follows QWatch Pro's architecture: pre-caches the past 7-day ring buffer into Drift SQLite,
+  /// ensuring UI date browsing is instantaneous (0ms) and eliminates redundant BLE requests.
+  Future<void> syncAllHistoricalDays() async {
+    if (!isConnected || _isBackfillingHistory) return;
+    _isBackfillingHistory = true;
+    try {
+      final now = DateTime.now();
+      for (int dayIndex = 1; dayIndex <= 6; dayIndex++) {
+        if (!isConnected) break;
+        final targetDate = now.subtract(Duration(days: dayIndex));
+        final dateStr = "${targetDate.year.toString().padLeft(4, '0')}-${targetDate.month.toString().padLeft(2, '0')}-${targetDate.day.toString().padLeft(2, '0')}";
+        if (_syncedDatesThisSession.contains(dateStr)) continue;
+
+        try {
+          await syncHistoricalDay(dayIndex);
+        } catch (e) {
+          debugPrint('⚠️ [BAND REPO] Error backfilling dayIndex $dayIndex: $e');
+        }
+      }
+    } finally {
+      _isBackfillingHistory = false;
+    }
+  }
+
   /// Performs midnight rollover check:
   /// Resets daily live accumulator metrics when a new day starts (00:00:00)
   /// and automatically archives previous day's finalized counters.
-  void checkMidnightRollover() {
+  bool checkMidnightRollover() {
     final today = DateTime.now().toIso8601String().substring(0, 10);
-    if (_lastRecordedDate.isNotEmpty && _lastRecordedDate != today) {
-      debugPrint('🌙 [MIDNIGHT ROLLOVER] Date changed from $_lastRecordedDate to $today. Resetting active counters & archiving previous day.');
+    bool didRollover = false;
+    if ((_lastRecordedDate.isNotEmpty && _lastRecordedDate != today) ||
+        (_lastSyncedVitals.date.isNotEmpty && _lastSyncedVitals.date != today)) {
+      final oldDate = _lastRecordedDate.isNotEmpty ? _lastRecordedDate : _lastSyncedVitals.date;
+      debugPrint('🌙 [MIDNIGHT ROLLOVER] Date changed from $oldDate to $today. Resetting active counters & archiving previous day.');
+      didRollover = true;
       // 1. In background, sync yesterday (dayIndex: 1) to ensure yesterday's finalized records are frozen
       syncHistoricalDay(1).catchError((_) => const BandSyncedVitals());
       // 2. Reset active memory counters for the new day
@@ -879,30 +1162,50 @@ class BandRepository {
         steps: 0,
         calories: 0,
         distance: 0,
+        sleepMinutes: 0,
+        deepSleepMinutes: 0,
+        sleepPhases: const [],
         hourlySteps: List.filled(24, 0),
         date: today,
         dayIndex: 0,
       );
       _syncedVitalsController.add(_lastSyncedVitals);
+      // 3. In background, query the band for dayIndex 0 (today's clean counters)
+      if (isConnected) {
+        syncHistoricalDay(0).catchError((_) => const BandSyncedVitals());
+      }
     }
     _lastRecordedDate = today;
+    return didRollover;
   }
 
   /// Retrieves daily summary record for a specific date from Drift DB.
-  Future<DailyHealthSummary?> getDailySummaryForDate(String date) async {
+  Future<DailyHealthSummary?> getDailySummaryForDate(String date, {String? deviceId}) async {
     final userId = await _secureStorage.getActiveUserId();
-    return _db.healthDataDao.getDailySummary(userId, date);
+    final devId = deviceId ??
+        _connectedDevice?.macAddress ??
+        _lastPairedDevice?.mac ??
+        _activeDeviceService?.activeDeviceId;
+    return _db.healthDataDao.getDailySummary(userId, date, deviceId: devId);
   }
 
   /// Retrieves sleep session and individual sleep phases for a specific date.
-  Future<({SleepSession session, List<SleepPhase> phases})?> getSleepDataForDate(String date) async {
-    final devId = _connectedDevice?.macAddress ?? _lastPairedDevice?.mac ?? 'default_band';
+  Future<({SleepSession session, List<SleepPhase> phases})?> getSleepDataForDate(String date, {String? deviceId}) async {
+    final devId = deviceId ??
+        _connectedDevice?.macAddress ??
+        _lastPairedDevice?.mac ??
+        _activeDeviceService?.activeDeviceId ??
+        'default_band';
     return _db.healthDataDao.getSleepSessionWithPhasesByDate(devId, date);
   }
 
   /// Retrieves vitals records (e.g. 'spo2') for a specific date.
-  Future<List<VitalsRecord>> getVitalsForDate(String vitalType, String date) async {
-    final devId = _connectedDevice?.macAddress ?? _lastPairedDevice?.mac ?? 'default_band';
+  Future<List<VitalsRecord>> getVitalsForDate(String vitalType, String date, {String? deviceId}) async {
+    final devId = deviceId ??
+        _connectedDevice?.macAddress ??
+        _lastPairedDevice?.mac ??
+        _activeDeviceService?.activeDeviceId ??
+        'default_band';
     return _db.healthDataDao.getVitalsHistoryForDate(devId, vitalType, date);
   }
 

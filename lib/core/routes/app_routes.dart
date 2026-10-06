@@ -20,4 +20,5 @@ abstract class AppRoutes {
   static const String rewards = '/rewards';
   static const String profile = '/profile';
   static const String notifications = '/notifications';
+  static const String workoutSessionDetail = '/train/session-detail';
 }

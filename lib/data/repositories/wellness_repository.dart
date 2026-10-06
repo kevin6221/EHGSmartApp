@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/database/app_database.dart' hide SleepPhase;
+import '../../core/database/app_database.dart' as db show SleepPhase;
 import '../../core/security/secure_storage_service.dart';
 import '../../presentation/helpers/vitals_history_calculator.dart';
 import '../models/band_device_model.dart';
@@ -17,41 +18,53 @@ import '../models/workout_model.dart';
 import '../models/hydration_record_model.dart';
 import '../../core/engine/personalized_baseline_engine.dart';
 import '../../core/engine/wellness_recommendation_engine.dart';
+import '../../core/services/active_device_service.dart';
 import 'band_repository.dart';
 
 class WellnessRepository {
   final AppDatabase _db;
   final SecureStorageService _secureStorage;
+  final ActiveDeviceService? activeDeviceService;
+  ActiveDeviceService? get _activeDeviceService => activeDeviceService;
   final Completer<void> _initCompleter = Completer<void>();
   int _yesterdayWellnessScore = 0;
   int _todayMindBonus = 0;
   bool _hasUserSelectedMode = false;
   List<JournalEntryModel> _journalEntries = [];
   PersonalizedBaselineData _baselineData = const PersonalizedBaselineData();
+  String _lastRecordedDate = '';
 
-  // In-memory date-keyed caches for historical period stats and vitals models
+  // In-memory date- and device-keyed caches for historical period stats, vitals models, and rollups
   final Map<String, VitalsPeriodStats> _periodStatsCache = {};
   final Map<String, VitalsModel> _historicalVitalsCache = {};
+  final Map<String, VitalsModel> _weeklyRollupCache = {};
+  final Map<String, VitalsModel> _monthlyRollupCache = {};
 
-  bool hasCachedPeriodStats(VitalsTimePeriod period, DateTime date) {
-    final key = "${period.name}_${DateFormat('yyyy-MM-dd').format(date)}";
+  bool hasCachedPeriodStats(VitalsTimePeriod period, DateTime date, [String? deviceId]) {
+    final devId = deviceId ?? _activeDeviceService?.activeDeviceId ?? 'default_band';
+    final key = "${devId}_${period.name}_${DateFormat('yyyy-MM-dd').format(date)}";
     final cached = _periodStatsCache[key];
-    return cached != null && cached.average > 0;
+    return cached != null;
   }
 
-  bool hasCachedHistoricalVitals(DateTime date) {
-    final key = DateFormat('yyyy-MM-dd').format(date);
+  bool hasCachedHistoricalVitals(DateTime date, [String? deviceId]) {
+    final devId = deviceId ?? _activeDeviceService?.activeDeviceId ?? 'default_band';
+    final key = "${devId}_${DateFormat('yyyy-MM-dd').format(date)}";
     final cached = _historicalVitalsCache[key];
-    return cached != null && (cached.currentHeartRate > 0 || (cached.totalSleep != '--' && cached.totalSleep.isNotEmpty));
+    return cached != null;
   }
 
   void invalidateDateCache([String? dateStr]) {
     if (dateStr != null) {
-      _historicalVitalsCache.remove(dateStr);
+      _historicalVitalsCache.removeWhere((key, _) => key.contains(dateStr));
       _periodStatsCache.removeWhere((key, _) => key.contains(dateStr));
+      _weeklyRollupCache.clear();
+      _monthlyRollupCache.clear();
     } else {
       _historicalVitalsCache.clear();
       _periodStatsCache.clear();
+      _weeklyRollupCache.clear();
+      _monthlyRollupCache.clear();
     }
   }
 
@@ -70,7 +83,67 @@ class WellnessRepository {
       yesterdayScore: score,
       scoreDiff: newDiff,
     );
+    _persistWellnessData();
+  }
+
+  /// Computes a composite wellness score (1-100) from a historical daily health summary
+  /// stored in SQLite if wellnessScore is absent or 0.
+  int _computeScoreFromDailySummary(DailyHealthSummary summary) {
+    if (summary.wellnessScore != null && summary.wellnessScore! > 0) {
+      return summary.wellnessScore!;
+    }
+    final hasData = summary.steps > 0 ||
+        summary.caloriesBurned > 0 ||
+        summary.sleepDurationMinutes > 0 ||
+        (summary.restingHeartRate != null && summary.restingHeartRate! > 0) ||
+        (summary.avgHeartRate != null && summary.avgHeartRate! > 0);
+    if (!hasData) return 0;
+
+    final double cal = summary.caloriesBurned > 0
+        ? summary.caloriesBurned
+        : (summary.steps > 0 ? (summary.steps * 0.04) : 0);
+    final int move = (cal > 0)
+        ? (cal / 600 * 100).clamp(15, 98).round()
+        : (summary.steps > 0 ? (summary.steps / 8000 * 100).clamp(15, 98).round() : 0);
+
+    int recover = 0;
+    if (summary.sleepDurationMinutes > 0) {
+      final restHrScore = (summary.restingHeartRate != null && summary.restingHeartRate! > 0)
+          ? PersonalizedBaselineEngine.calculatePersonalizedRestHrScore(
+              currentRestHr: summary.restingHeartRate!,
+              baselineRestHr: _baselineData.restingHrBaseline,
+            )
+          : 75;
+      recover = PersonalizedBaselineEngine.calculatePersonalizedRecoverScore(
+        sleepMinutes: summary.sleepDurationMinutes,
+        deepSleepMinutes: summary.deepSleepMinutes,
+        personalizedSleepTargetMinutes: _baselineData.sleepTargetMinutes,
+        personalizedHrvScore: 75,
+        personalizedRestHrScore: restHrScore,
+      );
+    } else if (summary.restingHeartRate != null && summary.restingHeartRate! > 0) {
+      recover = PersonalizedBaselineEngine.calculatePersonalizedRestHrScore(
+        currentRestHr: summary.restingHeartRate!,
+        baselineRestHr: _baselineData.restingHrBaseline,
+      );
+    } else {
+      recover = 70;
+    }
+
+    const int mind = 75;
+    const int fuel = 75;
+    final scores = <int>[];
+    if (move > 0) scores.add(move);
+    if (recover > 0) scores.add(recover);
+    scores.add(mind);
+    scores.add(fuel);
+    return (scores.reduce((a, b) => a + b) / scores.length).round().clamp(1, 100);
+  }
+
+  void _persistWellnessData() {
+    final today = DateTime.now().toIso8601String().substring(0, 10);
     _secureStorage.write('cached_wellness_data_v1', jsonEncode(_wellnessData.toJson())).catchError((_) {});
+    _secureStorage.write('cached_wellness_date_v1', today).catchError((_) {});
   }
 
   /// Returns the most recent journal check-in entry recorded today, if any.
@@ -172,9 +245,23 @@ class WellnessRepository {
   WellnessRepository({
     AppDatabase? database,
     SecureStorageService? secureStorage,
+    this.activeDeviceService,
   })  : _db = database ?? AppDatabase(),
         _secureStorage = secureStorage ?? SecureStorageService() {
     _initData();
+  }
+
+  /// Resolves active device ID: checks ActiveDeviceService first, then bonded Mac, then fallback.
+  Future<String> _resolveActiveDeviceId([String? explicitMac]) async {
+    if (explicitMac != null && explicitMac.isNotEmpty && explicitMac != 'default_band') {
+      return explicitMac;
+    }
+    final activeId = _activeDeviceService?.activeDeviceId;
+    if (activeId != null && activeId.isNotEmpty) {
+      return activeId;
+    }
+    final bondedMac = await _secureStorage.getBondedDeviceMac();
+    return bondedMac ?? 'default_band';
   }
 
   /// Awaiting this ensures SQLite cached health records and user profile are loaded.
@@ -206,12 +293,28 @@ class WellnessRepository {
 
   Future<void> _loadCachedVitals() async {
     try {
+      final now = DateTime.now();
+      final today = now.toIso8601String().substring(0, 10);
+      final yesterday = now.subtract(const Duration(days: 1)).toIso8601String().substring(0, 10);
+
       // 0. Instant hydration from secure storage snapshot
       final cachedWellnessJson = await _secureStorage.read('cached_wellness_data_v1');
+      final cachedWellnessDate = await _secureStorage.read('cached_wellness_date_v1');
       if (cachedWellnessJson != null && cachedWellnessJson.isNotEmpty) {
         try {
           final decoded = jsonDecode(cachedWellnessJson) as Map<String, dynamic>;
           _wellnessData = WellnessDataModel.fromJson(decoded);
+
+          // If the cached snapshot was saved on a previous day (e.g. Oct 5), reset daily accumulators for today
+          if (cachedWellnessDate != null && cachedWellnessDate != today) {
+            _wellnessData = _wellnessData.copyWith(
+              steps: 0,
+              energyBurned: 0,
+              sleepHours: 0.0,
+              sleepDetail: '--',
+            );
+          }
+
           if (_wellnessData.moveScore > 0) _baseMoveScore = _wellnessData.moveScore;
           if (_wellnessData.recoverScore > 0) _baseRecoverScore = _wellnessData.recoverScore;
           if (_wellnessData.readinessScore > 0) _baseReadinessScore = _wellnessData.readinessScore;
@@ -229,10 +332,21 @@ class WellnessRepository {
       }
 
       final cachedVitalsJson = await _secureStorage.read('cached_vitals_data_v1');
+      final cachedVitalsDate = await _secureStorage.read('cached_vitals_date_v1');
       if (cachedVitalsJson != null && cachedVitalsJson.isNotEmpty) {
         try {
           final decoded = jsonDecode(cachedVitalsJson) as Map<String, dynamic>;
           _vitalsData = VitalsModel.fromJson(decoded);
+
+          final bool isVitalsDateStale = (cachedVitalsDate != null && cachedVitalsDate != today) ||
+              (cachedWellnessDate != null && cachedWellnessDate != today);
+          if (isVitalsDateStale) {
+            _vitalsData = _vitalsData.copyWith(
+              totalSleep: '--',
+              sleepWindow: 'No sleep recorded',
+              sleepIntervals: const [],
+            );
+          }
         } catch (_) {}
       }
 
@@ -244,37 +358,37 @@ class WellnessRepository {
         } catch (_) {}
       }
 
-      final now = DateTime.now();
-      final today = now.toIso8601String().substring(0, 10);
-      final yesterday = now.subtract(const Duration(days: 1)).toIso8601String().substring(0, 10);
       final userId = await _secureStorage.getActiveUserId();
-      final bondedMac = await _secureStorage.getBondedDeviceMac();
-      final devId = bondedMac ?? 'default_band';
-      final pairingDate = await _secureStorage.getDevicePairingDate(devId);
+      final devId = await _resolveActiveDeviceId();
 
-      // Suppress factory test records: if device was paired today (or yesterday is before pairing date),
-      // there is NO legitimate yesterday wearable data for the user.
-      if (pairingDate != null && yesterday.compareTo(pairingDate) < 0) {
-        _yesterdayWellnessScore = 0;
-        await _secureStorage.delete('cached_yesterday_wellness_score');
-      } else {
-        final yesterdaySummary = await _db.healthDataDao.getDailySummary(userId, yesterday);
-        if (yesterdaySummary?.wellnessScore != null && yesterdaySummary!.wellnessScore! > 0) {
-          _yesterdayWellnessScore = yesterdaySummary.wellnessScore!;
-        } else {
-          final prevSummary = await _db.healthDataDao.getPreviousDailySummary(userId, today);
-          if (prevSummary?.wellnessScore != null &&
-              prevSummary!.wellnessScore! > 0 &&
-              (pairingDate == null || prevSummary.date.compareTo(pairingDate) >= 0)) {
-            _yesterdayWellnessScore = prevSummary.wellnessScore!;
-          } else {
-            final cachedScoreStr = await _secureStorage.read('cached_yesterday_wellness_score');
-            if (cachedScoreStr != null && cachedScoreStr.isNotEmpty) {
-              _yesterdayWellnessScore = int.tryParse(cachedScoreStr) ?? 0;
-            } else {
-              _yesterdayWellnessScore = 0;
-            }
+      final yesterdaySummary = await _db.healthDataDao.getDailySummary(userId, yesterday, deviceId: devId);
+      DailyHealthSummary? effectiveYesterdaySummary = yesterdaySummary;
+      effectiveYesterdaySummary ??= await _db.healthDataDao.getPreviousDailySummary(userId, today, deviceId: devId);
+
+      if (effectiveYesterdaySummary != null) {
+        final score = _computeScoreFromDailySummary(effectiveYesterdaySummary);
+        if (score > 0) {
+          _yesterdayWellnessScore = score;
+          if (effectiveYesterdaySummary.wellnessScore == null || effectiveYesterdaySummary.wellnessScore == 0) {
+            _db.healthDataDao.upsertDailySummary(
+              DailyHealthSummariesTableCompanion(
+                userId: drift.Value(userId),
+                deviceId: drift.Value(devId),
+                date: drift.Value(effectiveYesterdaySummary.date),
+                wellnessScore: drift.Value(score),
+              ),
+            ).catchError((_) => -1);
           }
+          await _secureStorage.write('cached_yesterday_wellness_score', '$score');
+        }
+      }
+
+      if (_yesterdayWellnessScore <= 0) {
+        final cachedScoreStr = await _secureStorage.read('cached_yesterday_wellness_score');
+        if (cachedScoreStr != null && cachedScoreStr.isNotEmpty) {
+          _yesterdayWellnessScore = int.tryParse(cachedScoreStr) ?? 0;
+        } else {
+          _yesterdayWellnessScore = 0;
         }
       }
 
@@ -339,7 +453,7 @@ class WellnessRepository {
         );
       }
 
-      final summary = await _db.healthDataDao.getDailySummary(userId, today);
+      final summary = await _db.healthDataDao.getDailySummary(userId, today, deviceId: devId);
       final latestStress = await _db.healthDataDao.getLatestVital(devId, 'stress');
       final latestHrv = await _db.healthDataDao.getLatestVital(devId, 'hrv');
       final latestBp = await _db.healthDataDao.getLatestVital(devId, 'blood_pressure');
@@ -364,31 +478,30 @@ class WellnessRepository {
         )).toList();
       }
 
-      if (summary != null || latestStress != null || latestHrv != null || loadedSleepMinutes > 0 || dbLatestHr > 0) {
-        final vitals = BandSyncedVitals(
-          steps: summary?.steps ?? 0,
-          calories: summary?.caloriesBurned.round() ?? 0,
-          distance: summary?.distanceMeters.round() ?? 0,
-          sleepMinutes: loadedSleepMinutes,
-          deepSleepMinutes: summary?.deepSleepMinutes ?? 0,
-          sleepPhases: loadedSleepPhases,
-          bloodOxygen: summary?.avgSpo2 ?? 0.0,
-          restingHeartRate: summary?.restingHeartRate ?? 0,
-          latestHeartRate: dbLatestHr > 0 ? dbLatestHr : (summary?.restingHeartRate ?? 0),
-          stressLevel: latestStress?.valueNumeric?.round() ?? 0,
-          hrvMs: latestHrv?.valueNumeric?.round() ?? 0,
-          systolicBP: latestBp?.valueNumeric?.round() ?? 0,
-          diastolicBP: latestBp?.secondaryNumeric?.round() ?? 0,
-          skinTemperature: latestTemp?.valueNumeric ?? 0.0,
-        );
-        updateFromBandVitals(
-          vitals,
-          savedWellnessScore: summary?.wellnessScore,
-          savedReadinessScore: summary?.readinessScore,
-          savedMoveScore: summary?.moveScore,
-          savedRecoverScore: summary?.recoverScore,
-        );
-      }
+      final vitals = BandSyncedVitals(
+        steps: summary?.steps ?? 0,
+        calories: summary?.caloriesBurned.round() ?? 0,
+        distance: summary?.distanceMeters.round() ?? 0,
+        sleepMinutes: loadedSleepMinutes,
+        deepSleepMinutes: summary?.deepSleepMinutes ?? 0,
+        sleepPhases: loadedSleepPhases,
+        bloodOxygen: summary?.avgSpo2 ?? 0.0,
+        restingHeartRate: summary?.restingHeartRate ?? 0,
+        latestHeartRate: dbLatestHr > 0 ? dbLatestHr : (summary?.restingHeartRate ?? 0),
+        stressLevel: latestStress?.valueNumeric?.round() ?? 0,
+        hrvMs: latestHrv?.valueNumeric?.round() ?? 0,
+        systolicBP: latestBp?.valueNumeric?.round() ?? 0,
+        diastolicBP: latestBp?.secondaryNumeric?.round() ?? 0,
+        skinTemperature: latestTemp?.valueNumeric ?? 0.0,
+        date: today,
+      );
+      updateFromBandVitals(
+        vitals,
+        savedWellnessScore: summary?.wellnessScore,
+        savedReadinessScore: summary?.readinessScore,
+        savedMoveScore: summary?.moveScore,
+        savedRecoverScore: summary?.recoverScore,
+      );
 
       // Hydration persistence loading
       final todayHydrationStr = await _secureStorage.read('hydration_$today');
@@ -440,6 +553,7 @@ class WellnessRepository {
         fuelScore: fuelScore,
         wellnessScore: updatedWellnessScore,
       );
+      _lastRecordedDate = today;
     } catch (e) {
       debugPrint('⚠️ [WELLNESS REPO] _loadCachedVitals error: $e');
     }
@@ -568,7 +682,7 @@ class WellnessRepository {
       // Purge any accidental/test sessions (duration < 15s or 0 HR/cals)
       await _db.healthDataDao.deleteInvalidWorkoutSessions(userId);
 
-      final latest = await _db.healthDataDao.getLatestWorkoutSession(userId);
+      final latest = await _db.healthDataDao.getLatestWorkoutSession(userId: userId);
       if (latest != null) {
         final h = latest.durationSeconds ~/ 3600;
         final m = (latest.durationSeconds % 3600) ~/ 60;
@@ -750,15 +864,65 @@ class WellnessRepository {
           ? _wellnessData.weeklyEnergy
           : [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     );
-    if (safeCal > 0 && updatedWeeklyEnergy.length == 7) {
-      updatedWeeklyEnergy[_todayIndex] = (safeCal / 600.0).clamp(0.05, 1.0);
+    if (updatedWeeklyEnergy.length == 7) {
+      updatedWeeklyEnergy[_todayIndex] = safeCal > 0 ? (safeCal / 600.0).clamp(0.05, 1.0) : 0.0;
     }
     _wellnessData = _wellnessData.copyWith(
-      steps: steps > 0 ? steps : _wellnessData.steps,
-      energyBurned: safeCal > 0 ? safeCal : _wellnessData.energyBurned,
+      steps: steps,
+      energyBurned: safeCal,
       weeklyEnergy: updatedWeeklyEnergy,
     );
-    _secureStorage.write('cached_wellness_data_v1', jsonEncode(_wellnessData.toJson())).catchError((_) {});
+    _persistWellnessData();
+  }
+
+  /// Performs midnight rollover check:
+  /// Resets daily live accumulator metrics (steps, calories, hydration, sleep)
+  /// when a new day starts (00:00:00), updates yesterday's baseline score,
+  /// and clears today's chart and sleep intervals.
+  bool checkMidnightRollover() {
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    if (_lastRecordedDate.isNotEmpty && _lastRecordedDate != today) {
+      debugPrint('🌙 [WELLNESS REPO] Date changed from $_lastRecordedDate to $today. Resetting daily accumulators.');
+      if (_wellnessData.wellnessScore > 0) {
+        _yesterdayWellnessScore = _wellnessData.wellnessScore;
+        _secureStorage.write('cached_yesterday_wellness_score', '$_yesterdayWellnessScore').catchError((_) {});
+      }
+      _todayMindBonus = 0;
+
+      final int todayIdx = (DateTime.now().weekday - 1).clamp(0, 6);
+      List<double> updatedWeeklyEnergy = List<double>.from(_wellnessData.weeklyEnergy);
+      if (updatedWeeklyEnergy.length == 7) {
+        updatedWeeklyEnergy[todayIdx] = 0.0;
+      }
+      List<double> updatedWeeklySleep = List<double>.from(_wellnessData.weeklySleep);
+      if (updatedWeeklySleep.length == 7) {
+        updatedWeeklySleep[todayIdx] = 0.0;
+      }
+
+      _wellnessData = _wellnessData.copyWith(
+        steps: 0,
+        energyBurned: 0,
+        sleepHours: 0.0,
+        sleepDetail: '--',
+        hydrationCurrent: 0,
+        hydrationRecords: const [],
+        yesterdayScore: _yesterdayWellnessScore,
+        scoreDiff: 0,
+        weeklyEnergy: updatedWeeklyEnergy,
+        weeklySleep: updatedWeeklySleep,
+        dayChartPoints: const [],
+      );
+      _vitalsData = _vitalsData.copyWith(
+        totalSleep: '--',
+        sleepWindow: '--',
+        sleepIntervals: const [],
+      );
+      _persistWellnessData();
+      _lastRecordedDate = today;
+      return true;
+    }
+    _lastRecordedDate = today;
+    return false;
   }
 
   void updateFromBandVitals(
@@ -769,14 +933,13 @@ class WellnessRepository {
     int? savedMoveScore,
     int? savedRecoverScore,
     bool updateMode = false,
+    String? deviceMac,
   }) {
     final double hours = vitals.sleepMinutes > 0
         ? (vitals.sleepMinutes / 60.0)
-        : _wellnessData.sleepHours;
-    final int steps = vitals.steps > 0 ? vitals.steps : _wellnessData.steps;
-    final int energy = vitals.calories > 0
-        ? vitals.calories
-        : _wellnessData.energyBurned;
+        : 0.0;
+    final int steps = vitals.steps;
+    final int energy = vitals.calories;
 
     List<double> updatedWeeklyEnergy = List<double>.from(
       _wellnessData.weeklyEnergy.length == 7
@@ -794,8 +957,10 @@ class WellnessRepository {
               ? _wellnessData.weeklySleep
               : [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
     );
-    if (hours > 0 && updatedWeeklySleep.length == 7) {
-      updatedWeeklySleep[_todayIndex] = double.parse(hours.toStringAsFixed(1));
+    if (updatedWeeklySleep.length == 7) {
+      updatedWeeklySleep[_todayIndex] = hours > 0
+          ? double.parse(hours.toStringAsFixed(1))
+          : 0.0;
     }
 
     // 1. Dynamic Sleep Intervals Calculation from SDK Sleep Phases
@@ -807,92 +972,104 @@ class WellnessRepository {
       );
     }
 
-    List<SleepInterval> dynamicIntervals = _vitalsData.sleepIntervals;
-    final now = DateTime.now();
-    final DateTime wakeTime = now.hour < 11
-        ? now
-        : DateTime(now.year, now.month, now.day, 7, 0);
-    DateTime sleepStart = wakeTime.subtract(Duration(minutes: effectiveSleepMinutes > 0 ? effectiveSleepMinutes : 420));
+    final List<SleepInterval> dynamicIntervals;
+    final String totalSleep;
+    final String sleepWindow;
 
-    if (vitals.sleepPhases.isNotEmpty) {
-      final totalPhaseMins = vitals.sleepPhases.fold<int>(
-        0,
-        (sum, p) => sum + (p.durationMinutes > 0 ? p.durationMinutes : 1),
-      );
-      if (totalPhaseMins > 0) {
-        sleepStart = wakeTime.subtract(Duration(minutes: totalPhaseMins));
-        int elapsed = 0;
-        final List<SleepInterval> generated = [];
-        for (final phase in vitals.sleepPhases) {
-          final dur = phase.durationMinutes > 0 ? phase.durationMinutes : 1;
-          final offset = elapsed / totalPhaseMins;
-          final width = dur / totalPhaseMins;
-          final startT = sleepStart.add(Duration(minutes: elapsed));
-          final endT = sleepStart.add(Duration(minutes: elapsed + dur));
-
-          final startFormatted = '${(startT.hour % 12 == 0 ? 12 : startT.hour % 12).toString().padLeft(2, '0')}:${startT.minute.toString().padLeft(2, '0')} ${startT.hour >= 12 ? 'pm' : 'am'}';
-          final endFormatted = '${(endT.hour % 12 == 0 ? 12 : endT.hour % 12).toString().padLeft(2, '0')}:${endT.minute.toString().padLeft(2, '0')} ${endT.hour >= 12 ? 'pm' : 'am'}';
-          final durFormatted = '${dur ~/ 60}h ${dur % 60}m';
-          final rangeText = '$startFormatted → $endFormatted ($durFormatted)';
-
-          SleepPhase sp;
-          switch (phase.type) {
-            case 3:
-              sp = SleepPhase.deep;
-              break;
-            case 4:
-              sp = SleepPhase.rem;
-              break;
-            case 1:
-              sp = SleepPhase.awake;
-              break;
-            case 2:
-            default:
-              sp = SleepPhase.light;
-              break;
-          }
-          generated.add(SleepInterval(
-            startOffset: offset.clamp(0.0, 1.0),
-            widthFraction: width.clamp(0.01, 1.0),
-            phase: sp,
-            timeRangeText: rangeText,
-          ));
-          elapsed += dur;
-        }
-        dynamicIntervals = generated;
-      }
-    } else if (effectiveSleepMinutes > 0) {
-      dynamicIntervals = SleepIntervalGenerator.generate(
-        totalMinutes: effectiveSleepMinutes,
-        wakeTime: wakeTime,
-        deepMinutes: vitals.deepSleepMinutes > 0 ? vitals.deepSleepMinutes : null,
-      );
-    }
-
-    // 2. Build sleep window and total sleep string
-    String totalSleep = _vitalsData.totalSleep;
-    String sleepWindow = _vitalsData.sleepWindow;
     if (effectiveSleepMinutes > 0) {
+      final now = DateTime.now();
+      final DateTime wakeTime = now.hour < 11
+          ? now
+          : DateTime(now.year, now.month, now.day, 7, 0);
+      DateTime sleepStart = wakeTime.subtract(Duration(minutes: effectiveSleepMinutes));
+
+      if (vitals.sleepPhases.isNotEmpty) {
+        final totalPhaseMins = vitals.sleepPhases.fold<int>(
+          0,
+          (sum, p) => sum + (p.durationMinutes > 0 ? p.durationMinutes : 1),
+        );
+        if (totalPhaseMins > 0) {
+          sleepStart = wakeTime.subtract(Duration(minutes: totalPhaseMins));
+          int elapsed = 0;
+          final List<SleepInterval> generated = [];
+          for (final phase in vitals.sleepPhases) {
+            final dur = phase.durationMinutes > 0 ? phase.durationMinutes : 1;
+            final offset = elapsed / totalPhaseMins;
+            final width = dur / totalPhaseMins;
+            final startT = sleepStart.add(Duration(minutes: elapsed));
+            final endT = sleepStart.add(Duration(minutes: elapsed + dur));
+
+            final startFormatted = '${(startT.hour % 12 == 0 ? 12 : startT.hour % 12).toString().padLeft(2, '0')}:${startT.minute.toString().padLeft(2, '0')} ${startT.hour >= 12 ? 'pm' : 'am'}';
+            final endFormatted = '${(endT.hour % 12 == 0 ? 12 : endT.hour % 12).toString().padLeft(2, '0')}:${endT.minute.toString().padLeft(2, '0')} ${endT.hour >= 12 ? 'pm' : 'am'}';
+            final durFormatted = '${dur ~/ 60}h ${dur % 60}m';
+            final rangeText = '$startFormatted → $endFormatted ($durFormatted)';
+
+            SleepPhase sp;
+            switch (phase.type) {
+              case 3:
+                sp = SleepPhase.deep;
+                break;
+              case 4:
+                sp = SleepPhase.rem;
+                break;
+              case 1:
+                sp = SleepPhase.awake;
+                break;
+              case 2:
+              default:
+                sp = SleepPhase.light;
+                break;
+            }
+            generated.add(SleepInterval(
+              startOffset: offset.clamp(0.0, 1.0),
+              widthFraction: width.clamp(0.01, 1.0),
+              phase: sp,
+              timeRangeText: rangeText,
+            ));
+            elapsed += dur;
+          }
+          dynamicIntervals = generated;
+        } else {
+          dynamicIntervals = SleepIntervalGenerator.generate(
+            totalMinutes: effectiveSleepMinutes,
+            wakeTime: wakeTime,
+            deepMinutes: vitals.deepSleepMinutes > 0 ? vitals.deepSleepMinutes : null,
+          );
+        }
+      } else {
+        dynamicIntervals = SleepIntervalGenerator.generate(
+          totalMinutes: effectiveSleepMinutes,
+          wakeTime: wakeTime,
+          deepMinutes: vitals.deepSleepMinutes > 0 ? vitals.deepSleepMinutes : null,
+        );
+      }
+
       final h = effectiveSleepMinutes ~/ 60;
       final m = effectiveSleepMinutes % 60;
       totalSleep = h > 0 ? '$h hrs. $m mins.' : '$m mins.';
 
       final startFormatted = '${(sleepStart.hour % 12 == 0 ? 12 : sleepStart.hour % 12).toString().padLeft(2, '0')}:${sleepStart.minute.toString().padLeft(2, '0')} ${sleepStart.hour >= 12 ? 'pm' : 'am'}';
       final endFormatted = '${(wakeTime.hour % 12 == 0 ? 12 : wakeTime.hour % 12).toString().padLeft(2, '0')}:${wakeTime.minute.toString().padLeft(2, '0')} ${wakeTime.hour >= 12 ? 'pm' : 'am'}';
-      sleepWindow = '$startFormatted - $endFormatted';
-    }
-    if (vitals.sleepPhases.isNotEmpty) {
-      final first = vitals.sleepPhases.first.startTime;
-      final last = vitals.sleepPhases.last.endTime;
-      if (first.isNotEmpty && last.isNotEmpty) {
-        final dtFirst = DateTime.tryParse(first);
-        final dtLast = DateTime.tryParse(last);
-        if (dtFirst != null && dtLast != null) {
-          final startFormatted = '${(dtFirst.hour % 12 == 0 ? 12 : dtFirst.hour % 12).toString().padLeft(2, '0')}:${dtFirst.minute.toString().padLeft(2, '0')} ${dtFirst.hour >= 12 ? 'pm' : 'am'}';
-          final endFormatted = '${(dtLast.hour % 12 == 0 ? 12 : dtLast.hour % 12).toString().padLeft(2, '0')}:${dtLast.minute.toString().padLeft(2, '0')} ${dtLast.hour >= 12 ? 'pm' : 'am'}';
-          sleepWindow = '$startFormatted - $endFormatted';
+      String tempSleepWindow = '$startFormatted - $endFormatted';
+
+      if (vitals.sleepPhases.isNotEmpty) {
+        final first = vitals.sleepPhases.first.startTime;
+        final last = vitals.sleepPhases.last.endTime;
+        if (first.isNotEmpty && last.isNotEmpty) {
+          final dtFirst = DateTime.tryParse(first);
+          final dtLast = DateTime.tryParse(last);
+          if (dtFirst != null && dtLast != null) {
+            final sFmt = '${(dtFirst.hour % 12 == 0 ? 12 : dtFirst.hour % 12).toString().padLeft(2, '0')}:${dtFirst.minute.toString().padLeft(2, '0')} ${dtFirst.hour >= 12 ? 'pm' : 'am'}';
+            final eFmt = '${(dtLast.hour % 12 == 0 ? 12 : dtLast.hour % 12).toString().padLeft(2, '0')}:${dtLast.minute.toString().padLeft(2, '0')} ${dtLast.hour >= 12 ? 'pm' : 'am'}';
+            tempSleepWindow = '$sFmt - $eFmt';
+          }
         }
       }
+      sleepWindow = tempSleepWindow;
+    } else {
+      dynamicIntervals = const [];
+      totalSleep = '--';
+      sleepWindow = 'No sleep recorded';
     }
 
     // 3. Dynamic Pillar & Wellness Scores Calculation with Personalized Baselines
@@ -1058,23 +1235,33 @@ class WellnessRepository {
 
     // 6. Dynamic Weekly Heart Rate & Stress Timeline from Hardware Readings
     List<double> updatedWeeklyHr = List<double>.from(
-      vitals.weeklyHeartRate.length == 7
-          ? vitals.weeklyHeartRate
-          : (_wellnessData.weeklyHeartRate.length == 7
-              ? _wellnessData.weeklyHeartRate
-              : [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+      _wellnessData.weeklyHeartRate.length == 7
+          ? _wellnessData.weeklyHeartRate
+          : [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     );
+    if (vitals.weeklyHeartRate.length == 7) {
+      for (int i = 0; i < 7; i++) {
+        if (vitals.weeklyHeartRate[i] > 0) {
+          updatedWeeklyHr[i] = vitals.weeklyHeartRate[i];
+        }
+      }
+    }
     if (effectiveHr > 0 && updatedWeeklyHr.length == 7) {
       updatedWeeklyHr[_todayIndex] = effectiveHr.toDouble();
     }
 
     List<double> updatedStressTimeline = List<double>.from(
-      vitals.weeklyStress.length == 7
-          ? vitals.weeklyStress
-          : (_vitalsData.stressTimeline.length == 7
-              ? _vitalsData.stressTimeline
-              : [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
+      _vitalsData.stressTimeline.length == 7
+          ? _vitalsData.stressTimeline
+          : [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
     );
+    if (vitals.weeklyStress.length == 7) {
+      for (int i = 0; i < 7; i++) {
+        if (vitals.weeklyStress[i] > 0) {
+          updatedStressTimeline[i] = vitals.weeklyStress[i];
+        }
+      }
+    }
     if (vitals.stressLevel > 0 && updatedStressTimeline.length == 7) {
       updatedStressTimeline[_todayIndex] = vitals.stressLevel.toDouble();
     }
@@ -1194,14 +1381,14 @@ class WellnessRepository {
     );
 
     // Persist snapshot to SecureStorage for immediate offline/restart hydration
-    _secureStorage.write('cached_wellness_data_v1', jsonEncode(_wellnessData.toJson())).catchError((_) {});
+    _persistWellnessData();
+    final today = DateTime.now().toIso8601String().substring(0, 10);
     _secureStorage.write('cached_vitals_data_v1', jsonEncode(_vitalsData.toJson())).catchError((_) {});
+    _secureStorage.write('cached_vitals_date_v1', today).catchError((_) {});
 
     // Persist consolidated daily summary and computed scores to Drift SQLite DB
-    final today = DateTime.now().toIso8601String().substring(0, 10);
     _secureStorage.getActiveUserId().then((userId) {
-      _secureStorage.getBondedDeviceMac().then((mac) {
-        final devId = mac ?? 'default_band';
+      _resolveActiveDeviceId(deviceMac).then((devId) {
         _db.healthDataDao.upsertDailySummary(
           DailyHealthSummariesTableCompanion(
             userId: drift.Value(userId),
@@ -1265,7 +1452,7 @@ class WellnessRepository {
         currentHeartRate: bpm,
         weeklyHeartRate: updatedVitalsWeeklyHr,
       );
-      _secureStorage.write('cached_wellness_data_v1', jsonEncode(_wellnessData.toJson())).catchError((_) {});
+      _persistWellnessData();
       _secureStorage.write('cached_vitals_data_v1', jsonEncode(_vitalsData.toJson())).catchError((_) {});
     }
   }
@@ -1342,10 +1529,7 @@ class WellnessRepository {
         wellnessScore: updatedWellnessScore,
       );
 
-      await _secureStorage.write(
-        'cached_wellness_data_v1',
-        jsonEncode(_wellnessData.toJson()),
-      ).catchError((_) {});
+      _persistWellnessData();
     }
   }
 
@@ -1386,10 +1570,7 @@ class WellnessRepository {
         wellnessScore: updatedWellnessScore,
       );
 
-      await _secureStorage.write(
-        'cached_wellness_data_v1',
-        jsonEncode(_wellnessData.toJson()),
-      ).catchError((_) {});
+      _persistWellnessData();
     }
   }
 
@@ -1435,10 +1616,7 @@ class WellnessRepository {
         wellnessScore: updatedWellnessScore,
       );
 
-      await _secureStorage.write(
-        'cached_wellness_data_v1',
-        jsonEncode(_wellnessData.toJson()),
-      ).catchError((_) {});
+      _persistWellnessData();
     }
   }
 
@@ -1478,10 +1656,7 @@ class WellnessRepository {
       wellnessScore: updatedWellnessScore,
     );
 
-    await _secureStorage.write(
-      'cached_wellness_data_v1',
-      jsonEncode(_wellnessData.toJson()),
-    ).catchError((_) {});
+    _persistWellnessData();
   }
 
   /// Completes a Mind mission (countdown completed) and boosts mind score & overall wellness score.
@@ -1518,14 +1693,10 @@ class WellnessRepository {
       dayChartPoints: updatedDayPoints.isNotEmpty ? updatedDayPoints : _wellnessData.dayChartPoints,
     );
 
-    await _secureStorage.write(
-      'cached_wellness_data_v1',
-      jsonEncode(_wellnessData.toJson()),
-    ).catchError((_) {});
+    _persistWellnessData();
 
     final userId = await _secureStorage.getActiveUserId();
-    final mac = await _secureStorage.getBondedDeviceMac();
-    final devId = mac ?? 'default_band';
+    final devId = await _resolveActiveDeviceId();
     await _db.healthDataDao.upsertDailySummary(
       DailyHealthSummariesTableCompanion(
         userId: drift.Value(userId),
@@ -1642,10 +1813,7 @@ class WellnessRepository {
       dayChartPoints: updatedDayPoints.isNotEmpty ? updatedDayPoints : _wellnessData.dayChartPoints,
     );
 
-    await _secureStorage.write(
-      'cached_wellness_data_v1',
-      jsonEncode(_wellnessData.toJson()),
-    ).catchError((_) {});
+    _persistWellnessData();
   }
 
   Future<void> _loadJournalEntries() async {
@@ -1719,10 +1887,7 @@ class WellnessRepository {
       yesterdayScore: _yesterdayWellnessScore,
     );
 
-    await _secureStorage.write(
-      'cached_wellness_data_v1',
-      jsonEncode(_wellnessData.toJson()),
-    ).catchError((_) {});
+    _persistWellnessData();
 
     debugPrint('📝 [JOURNAL ENTRY SAVED TO LOCAL STORAGE] Energy: $energyLevel | Mood: "$moodWord" | Total entries stored: ${_journalEntries.length}');
     debugPrint('🧠 [MIND PILLAR RECALCULATED] Previous Mind: $oldMindScore -> New Mind: $newMindScore (Autonomic Stress: ${_wellnessData.stressScore})');
@@ -1843,7 +2008,7 @@ class WellnessRepository {
           }
         }
 
-        final devId = await _secureStorage.getBondedDeviceMac() ?? 'default_band';
+        final devId = await _resolveActiveDeviceId();
         final dayStress = await _db.healthDataDao.getLatestVital(devId, 'stress');
         if (dayStress?.valueNumeric != null && dayStress!.valueNumeric! > 0) {
           dbWeeklyStress[_todayIndex] = dayStress.valueNumeric!;
@@ -1853,10 +2018,40 @@ class WellnessRepository {
           dbWeeklyHrv[_todayIndex] = dayHrv.valueNumeric!;
         }
 
+        // Reload & refresh yesterday's wellness score baseline
+        final yesterday = now.subtract(const Duration(days: 1)).toIso8601String().substring(0, 10);
+        final today = now.toIso8601String().substring(0, 10);
+        var yesterdaySummary = await _db.healthDataDao.getDailySummary(userId, yesterday, deviceId: devId);
+        yesterdaySummary ??= await _db.healthDataDao.getPreviousDailySummary(userId, today, deviceId: devId);
+
+        if (yesterdaySummary != null) {
+          final computedScore = _computeScoreFromDailySummary(yesterdaySummary);
+          if (computedScore > 0) {
+            _yesterdayWellnessScore = computedScore;
+            if (yesterdaySummary.wellnessScore == null || yesterdaySummary.wellnessScore == 0) {
+              _db.healthDataDao.upsertDailySummary(
+                DailyHealthSummariesTableCompanion(
+                  userId: drift.Value(userId),
+                  deviceId: drift.Value(devId),
+                  date: drift.Value(yesterdaySummary.date),
+                  wellnessScore: drift.Value(computedScore),
+                ),
+              ).catchError((_) => -1);
+            }
+            _secureStorage.write('cached_yesterday_wellness_score', '$computedScore').catchError((_) {});
+          }
+        }
+
+        final int updatedDiff = (_wellnessData.wellnessScore > 0 && _yesterdayWellnessScore > 0)
+            ? (_wellnessData.wellnessScore - _yesterdayWellnessScore)
+            : 0;
+
         _wellnessData = _wellnessData.copyWith(
           weeklyHeartRate: dbWeeklyHr,
           weeklyEnergy: dbWeeklyEnergy,
           weeklySleep: dbWeeklySleep,
+          yesterdayScore: _yesterdayWellnessScore,
+          scoreDiff: updatedDiff,
         );
         _vitalsData = _vitalsData.copyWith(
           weeklyHeartRate: dbWeeklyHr,
@@ -1866,6 +2061,7 @@ class WellnessRepository {
           weeklyHrv: dbWeeklyHrv,
           weeklyBreathing: dbWeeklyBreathing,
         );
+        _persistWellnessData();
 
         // Recalibrate rolling personalized baseline from historical database records
         _baselineData = PersonalizedBaselineEngine.computeBaselineFromHistoricalRecords(
@@ -1896,6 +2092,8 @@ class WellnessRepository {
     _vitalsData = _vitalsData.copyWith(
       currentHeartRate: 0,
       totalSleep: '--',
+      sleepWindow: 'No sleep recorded',
+      sleepIntervals: const [],
       bloodPressure: '--',
       bloodOxygen: 0,
       restingHr: 0,
@@ -1910,35 +2108,48 @@ class WellnessRepository {
   Future<VitalsModel> getHistoricalVitalsForDate(
     DateTime targetDate, {
     BandRepository? bandRepo,
+    String? explicitDeviceId,
   }) async {
     final normalized = DateTime(targetDate.year, targetDate.month, targetDate.day);
     final dateStr = DateFormat('yyyy-MM-dd').format(normalized);
+    final devId = await _resolveActiveDeviceId(explicitDeviceId);
+    final cacheKey = "${devId}_$dateStr";
 
-    // Check in-memory cache first for instant retrieval
-    if (_historicalVitalsCache.containsKey(dateStr) &&
-        (_historicalVitalsCache[dateStr]!.currentHeartRate > 0 ||
-         (_historicalVitalsCache[dateStr]!.totalSleep != '--' && _historicalVitalsCache[dateStr]!.totalSleep.isNotEmpty))) {
-      return _historicalVitalsCache[dateStr]!;
+    // Check in-memory L1 cache first for instant 0ms retrieval
+    if (_historicalVitalsCache.containsKey(cacheKey)) {
+      return _historicalVitalsCache[cacheKey]!;
     }
 
     final userId = await _secureStorage.getActiveUserId();
-    final bondedMac = await _secureStorage.getBondedDeviceMac();
-    final devId = bondedMac ?? 'default_band';
+    final monday = normalized.subtract(Duration(days: normalized.weekday - 1));
+    final sunday = monday.add(const Duration(days: 6));
+    final mondayStr = DateFormat('yyyy-MM-dd').format(monday);
+    final sundayStr = DateFormat('yyyy-MM-dd').format(sunday);
 
-    // 1. Fetch local daily summary from SQLite
-    var summary = await _db.healthDataDao.getDailySummary(userId, dateStr);
+    // Parallel fetch from SQLite using Future.wait for high-speed responsiveness
+    final results = await Future.wait([
+      _db.healthDataDao.getDailySummary(userId, dateStr, deviceId: devId),
+      _db.healthDataDao.getSleepSessionWithPhasesByDate(devId, dateStr),
+      _db.healthDataDao.getVitalsHistoryForDate(devId, 'stress', dateStr),
+      _db.healthDataDao.getVitalsHistoryForDate(devId, 'hrv', dateStr),
+      _db.healthDataDao.getVitalsHistoryForDate(devId, 'blood_pressure', dateStr),
+      _db.healthDataDao.getVitalsHistoryForDate(devId, 'temperature', dateStr),
+      _db.healthDataDao.getHeartRateSamples(
+        devId,
+        DateTime(normalized.year, normalized.month, normalized.day, 0, 0, 0),
+        DateTime(normalized.year, normalized.month, normalized.day, 23, 59, 59),
+      ),
+      _db.healthDataDao.getWeeklySummaries(userId, mondayStr, sundayStr, deviceId: devId),
+    ]);
 
-    // 2. Fetch specific records for that day from Drift SQLite tables
-    final sleepData = await _db.healthDataDao.getSleepSessionWithPhasesByDate(devId, dateStr);
-    final stresses = await _db.healthDataDao.getVitalsHistoryForDate(devId, 'stress', dateStr);
-    final hrvs = await _db.healthDataDao.getVitalsHistoryForDate(devId, 'hrv', dateStr);
-    final bps = await _db.healthDataDao.getVitalsHistoryForDate(devId, 'blood_pressure', dateStr);
-    final temps = await _db.healthDataDao.getVitalsHistoryForDate(devId, 'temperature', dateStr);
-    final hrSamples = await _db.healthDataDao.getHeartRateSamples(
-      devId,
-      DateTime(normalized.year, normalized.month, normalized.day, 0, 0, 0),
-      DateTime(normalized.year, normalized.month, normalized.day, 23, 59, 59),
-    );
+    final summary = results[0] as DailyHealthSummary?;
+    final sleepData = results[1] as ({SleepSession session, List<db.SleepPhase> phases})?;
+    final stresses = results[2] as List<VitalsRecord>;
+    final hrvs = results[3] as List<VitalsRecord>;
+    final bps = results[4] as List<VitalsRecord>;
+    final temps = results[5] as List<VitalsRecord>;
+    final hrSamples = results[6] as List<HeartRateSample>;
+    final weekSummaries = results[7] as List<DailyHealthSummary>;
 
     // 3. Build Sleep intervals & total sleep
     String totalSleep = '--';
@@ -1949,7 +2160,11 @@ class WellnessRepository {
         ? sleepData.session.totalDurationMinutes
         : (summary?.sleepDurationMinutes ?? 0);
 
-    if (sleepData != null && sleepData.phases.isNotEmpty) {
+    final todayStr = DateTime.now().toIso8601String().substring(0, 10);
+    final bool isZeroSleepToday = (dateStr == todayStr &&
+        ((bandRepo?.lastSyncedVitals.sleepMinutes ?? 0) == 0 || (summary?.sleepDurationMinutes ?? 0) == 0));
+
+    if (!isZeroSleepToday && sleepData != null && sleepData.phases.isNotEmpty) {
       final totalMins = recordedSleepMins > 0
           ? recordedSleepMins
           : sleepData.phases.fold<int>(0, (sum, p) => sum + (p.durationMinutes > 0 ? p.durationMinutes : 1));
@@ -1994,7 +2209,7 @@ class WellnessRepository {
         ));
         elapsed += dur;
       }
-    } else if (recordedSleepMins > 0) {
+    } else if (!isZeroSleepToday && recordedSleepMins > 0) {
       final h = recordedSleepMins ~/ 60;
       final m = recordedSleepMins % 60;
       totalSleep = h > 0 ? '$h hrs. $m mins.' : '$m mins.';
@@ -2010,6 +2225,10 @@ class WellnessRepository {
         wakeTime: wakeTime,
         deepMinutes: summary?.deepSleepMinutes,
       );
+    } else {
+      totalSleep = '--';
+      sleepWindow = 'No sleep recorded';
+      sleepIntervals = const [];
     }
 
     // 4. Heart Rate Metrics with full fallback chain
@@ -2099,12 +2318,6 @@ class WellnessRepository {
     }
 
     // 7. Weekly Context for Sparklines surrounding this date
-    final monday = normalized.subtract(Duration(days: normalized.weekday - 1));
-    final sunday = monday.add(const Duration(days: 6));
-    final mondayStr = DateFormat('yyyy-MM-dd').format(monday);
-    final sundayStr = DateFormat('yyyy-MM-dd').format(sunday);
-    final weekSummaries = await _db.healthDataDao.getWeeklySummaries(userId, mondayStr, sundayStr);
-
     List<double> weeklyHr = List.filled(7, 0.0);
     List<double> weeklyResting = List.filled(7, 0.0);
     List<double> weeklyOxy = List.filled(7, 0.0);
@@ -2125,6 +2338,17 @@ class WellnessRepository {
         }
         if (item.avgSpo2 != null && item.avgSpo2! > 0) {
           weeklyOxy[idx] = item.avgSpo2!;
+        }
+      }
+    }
+
+    final now = DateTime.now();
+    final currentMonday = now.subtract(Duration(days: now.weekday - 1));
+    final currentMondayStr = currentMonday.toIso8601String().substring(0, 10);
+    if (mondayStr == currentMondayStr && _wellnessData.weeklyHeartRate.length == 7) {
+      for (int i = 0; i < 7; i++) {
+        if (weeklyHr[i] <= 0 && _wellnessData.weeklyHeartRate[i] > 0) {
+          weeklyHr[i] = _wellnessData.weeklyHeartRate[i];
         }
       }
     }
@@ -2169,22 +2393,32 @@ class WellnessRepository {
       isSkinTempDown: tempDown,
     );
 
-    if (currentHr > 0 || (totalSleep != '--' && totalSleep.isNotEmpty)) {
-      _historicalVitalsCache[dateStr] = model;
-    }
+    _historicalVitalsCache[cacheKey] = model;
 
     return model;
   }
 
   /// Generates aggregate vitals for a full week (Monday through Sunday) from SQLite.
-  Future<VitalsModel> getWeeklyVitalsRollup(DateTime anchorDate) async {
+  Future<VitalsModel> getWeeklyVitalsRollup(DateTime anchorDate, {String? explicitDeviceId}) async {
+    final devId = await _resolveActiveDeviceId(explicitDeviceId);
     final monday = anchorDate.subtract(Duration(days: anchorDate.weekday - 1));
     final sunday = monday.add(const Duration(days: 6));
     final mondayStr = DateFormat('yyyy-MM-dd').format(monday);
     final sundayStr = DateFormat('yyyy-MM-dd').format(sunday);
+    final cacheKey = "${devId}_$mondayStr";
+
+    if (_weeklyRollupCache.containsKey(cacheKey)) {
+      return _weeklyRollupCache[cacheKey]!;
+    }
+
     final userId = await _secureStorage.getActiveUserId();
 
-    final summaries = await _db.healthDataDao.getWeeklySummaries(userId, mondayStr, sundayStr);
+    final summaries = await _db.healthDataDao.getWeeklySummaries(
+      userId,
+      mondayStr,
+      sundayStr,
+      deviceId: devId,
+    );
 
     List<double> weeklyHr = List.filled(7, 0.0);
     List<double> weeklyResting = List.filled(7, 0.0);
@@ -2230,7 +2464,7 @@ class WellnessRepository {
     final avgRest = restCount > 0 ? (restSum ~/ restCount) : 0;
     final avgOxy = oxyCount > 0 ? (oxySum / oxyCount).round() : 0;
 
-    return VitalsModel(
+    final model = VitalsModel(
       totalSleep: totalSleep,
       sleepWindow: sleepDays > 0 ? '$sleepDays / 7 days recorded' : 'No sleep recorded',
       sleepIntervals: avgSleepMins > 0
@@ -2257,17 +2491,32 @@ class WellnessRepository {
       skinTempDiff: 0.0,
       isSkinTempDown: false,
     );
+
+    _weeklyRollupCache[cacheKey] = model;
+    return model;
   }
 
   /// Generates aggregate vitals for a calendar month from SQLite.
-  Future<VitalsModel> getMonthlyVitalsRollup(DateTime anchorDate) async {
+  Future<VitalsModel> getMonthlyVitalsRollup(DateTime anchorDate, {String? explicitDeviceId}) async {
+    final devId = await _resolveActiveDeviceId(explicitDeviceId);
     final firstDay = DateTime(anchorDate.year, anchorDate.month, 1);
     final lastDay = DateTime(anchorDate.year, anchorDate.month + 1, 0);
     final firstDayStr = DateFormat('yyyy-MM-dd').format(firstDay);
     final lastDayStr = DateFormat('yyyy-MM-dd').format(lastDay);
+    final cacheKey = "${devId}_$firstDayStr";
+
+    if (_monthlyRollupCache.containsKey(cacheKey)) {
+      return _monthlyRollupCache[cacheKey]!;
+    }
+
     final userId = await _secureStorage.getActiveUserId();
 
-    final summaries = await _db.healthDataDao.getWeeklySummaries(userId, firstDayStr, lastDayStr);
+    final summaries = await _db.healthDataDao.getWeeklySummaries(
+      userId,
+      firstDayStr,
+      lastDayStr,
+      deviceId: devId,
+    );
 
     int totalSleepMins = 0;
     int sleepDays = 0;
@@ -2332,7 +2581,7 @@ class WellnessRepository {
     final avgRest = restCount > 0 ? (restSum ~/ restCount) : 0;
     final avgOxy = oxyCount > 0 ? (oxySum / oxyCount).round() : 0;
 
-    return VitalsModel(
+    final model = VitalsModel(
       totalSleep: totalSleep,
       sleepWindow: sleepDays > 0 ? '$sleepDays days recorded in ${DateFormat('MMMM').format(anchorDate)}' : 'No sleep recorded',
       sleepIntervals: avgSleepMins > 0
@@ -2359,6 +2608,9 @@ class WellnessRepository {
       skinTempDiff: 0.0,
       isSkinTempDown: false,
     );
+
+    _monthlyRollupCache[cacheKey] = model;
+    return model;
   }
 
   /// Computes 100% dynamic Min / Avg / Max and 4-zone distribution from SQLite data.
@@ -2366,18 +2618,18 @@ class WellnessRepository {
     required VitalsTimePeriod period,
     required DateTime anchorDate,
     BandRepository? bandRepo,
+    String? explicitDeviceId,
   }) async {
     final normalized = DateTime(anchorDate.year, anchorDate.month, anchorDate.day);
     final dateStr = DateFormat('yyyy-MM-dd').format(normalized);
-    final cacheKey = "${period.name}_$dateStr";
+    final devId = await _resolveActiveDeviceId(explicitDeviceId);
+    final cacheKey = "${devId}_${period.name}_$dateStr";
 
     if (_periodStatsCache.containsKey(cacheKey) && _periodStatsCache[cacheKey]!.average > 0) {
       return _periodStatsCache[cacheKey]!;
     }
 
     final userId = await _secureStorage.getActiveUserId();
-    final bondedMac = await _secureStorage.getBondedDeviceMac();
-    final devId = bondedMac ?? 'default_band';
 
     switch (period) {
       case VitalsTimePeriod.day:
@@ -2407,7 +2659,7 @@ class WellnessRepository {
           }
         }
 
-        var summary = await _db.healthDataDao.getDailySummary(userId, dateStr);
+        var summary = await _db.healthDataDao.getDailySummary(userId, dateStr, deviceId: devId);
 
         final int effectiveHr;
         if (summary != null) {
@@ -2478,7 +2730,12 @@ class WellnessRepository {
         final mondayStr = DateFormat('yyyy-MM-dd').format(monday);
         final sundayStr = DateFormat('yyyy-MM-dd').format(sunday);
 
-        final summaries = await _db.healthDataDao.getWeeklySummaries(userId, mondayStr, sundayStr);
+        final summaries = await _db.healthDataDao.getWeeklySummaries(
+          userId,
+          mondayStr,
+          sundayStr,
+          deviceId: devId,
+        );
         final validDays = summaries.where((s) => (s.avgHeartRate != null && s.avgHeartRate! > 0) || (s.restingHeartRate != null && s.restingHeartRate! > 0)).toList();
 
         if (validDays.isNotEmpty) {
@@ -2491,7 +2748,7 @@ class WellnessRepository {
           final max = maxs.reduce(math.max);
           final dist = VitalsZoneDistribution.compute(avgs);
 
-          return VitalsPeriodStats.fromRealData(
+          final stats = VitalsPeriodStats.fromRealData(
             period: period,
             anchorDate: normalized,
             average: avg,
@@ -2499,9 +2756,11 @@ class WellnessRepository {
             maximum: max,
             distribution: dist,
           );
+          _periodStatsCache[cacheKey] = stats;
+          return stats;
         }
 
-        return VitalsPeriodStats.fromRealData(
+        final emptyWeek = VitalsPeriodStats.fromRealData(
           period: period,
           anchorDate: normalized,
           average: 0.0,
@@ -2509,6 +2768,8 @@ class WellnessRepository {
           maximum: 0.0,
           distribution: VitalsZoneDistribution.empty,
         );
+        _periodStatsCache[cacheKey] = emptyWeek;
+        return emptyWeek;
 
       case VitalsTimePeriod.month:
         final firstDay = DateTime(normalized.year, normalized.month, 1);
@@ -2516,7 +2777,12 @@ class WellnessRepository {
         final firstDayStr = DateFormat('yyyy-MM-dd').format(firstDay);
         final lastDayStr = DateFormat('yyyy-MM-dd').format(lastDay);
 
-        final summaries = await _db.healthDataDao.getWeeklySummaries(userId, firstDayStr, lastDayStr);
+        final summaries = await _db.healthDataDao.getWeeklySummaries(
+          userId,
+          firstDayStr,
+          lastDayStr,
+          deviceId: devId,
+        );
         final validDays = summaries.where((s) => (s.avgHeartRate != null && s.avgHeartRate! > 0) || (s.restingHeartRate != null && s.restingHeartRate! > 0)).toList();
 
         if (validDays.isNotEmpty) {
@@ -2529,7 +2795,7 @@ class WellnessRepository {
           final max = maxs.reduce(math.max);
           final dist = VitalsZoneDistribution.compute(avgs);
 
-          return VitalsPeriodStats.fromRealData(
+          final stats = VitalsPeriodStats.fromRealData(
             period: period,
             anchorDate: normalized,
             average: avg,
@@ -2537,9 +2803,11 @@ class WellnessRepository {
             maximum: max,
             distribution: dist,
           );
+          _periodStatsCache[cacheKey] = stats;
+          return stats;
         }
 
-        return VitalsPeriodStats.fromRealData(
+        final emptyMonth = VitalsPeriodStats.fromRealData(
           period: period,
           anchorDate: normalized,
           average: 0.0,
@@ -2547,6 +2815,8 @@ class WellnessRepository {
           maximum: 0.0,
           distribution: VitalsZoneDistribution.empty,
         );
+        _periodStatsCache[cacheKey] = emptyMonth;
+        return emptyMonth;
     }
   }
 }

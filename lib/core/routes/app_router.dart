@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../constants/app_animations.dart';
@@ -19,6 +20,8 @@ import '../../presentation/views/rewards/rewards_screen.dart';
 import '../../presentation/views/wardrobe/unlock_wardrobe_screen.dart';
 import '../../presentation/views/profile/profile_screen.dart';
 import '../../presentation/views/profile/profile_notifications_screen.dart';
+import '../../presentation/views/details/workout_session_detail_screen.dart';
+import '../database/app_database.dart';
 import 'app_routes.dart';
 
 /// Supported custom transition animations for route generation.
@@ -177,6 +180,15 @@ abstract class AppRouter {
           duration: AppDurations.pageTransition,
         );
 
+      case AppRoutes.workoutSessionDetail:
+        final session = settings.arguments as WorkoutSession?;
+        return _buildRoute(
+          page: WorkoutSessionDetailScreen(session: session),
+          settings: settings,
+          transitionType: TransitionType.slideRight,
+          duration: AppDurations.pageTransition,
+        );
+
       default:
         return _buildRoute(
           page: Scaffold(
@@ -189,12 +201,29 @@ abstract class AppRouter {
     }
   }
 
-  static PageRouteBuilder<dynamic> _buildRoute({
+  static Route<dynamic> _buildRoute({
     required Widget page,
     required RouteSettings settings,
     TransitionType transitionType = TransitionType.fade,
     Duration duration = AppDurations.cardExpand,
   }) {
+    // For slide transitions, CupertinoPageRoute provides native iOS interactive
+    // edge swipe-to-back ('CupertinoBackGestureController') with native spring physics.
+    if (transitionType == TransitionType.slideRight) {
+      return CupertinoPageRoute<dynamic>(
+        settings: settings,
+        builder: (context) => page,
+      );
+    }
+
+    if (transitionType == TransitionType.slideUp) {
+      return CupertinoPageRoute<dynamic>(
+        settings: settings,
+        fullscreenDialog: true,
+        builder: (context) => page,
+      );
+    }
+
     return PageRouteBuilder<dynamic>(
       settings: settings,
       pageBuilder: (context, animation, secondaryAnimation) => page,
@@ -206,35 +235,7 @@ abstract class AppRouter {
             return FadeTransition(opacity: animation, child: child);
 
           case TransitionType.slideRight:
-            return SlideTransition(
-              position:
-                  Tween<Offset>(
-                    begin: const Offset(1.0, 0.0),
-                    end: Offset.zero,
-                  ).animate(
-                    CurvedAnimation(
-                      parent: animation,
-                      curve: AppCurves.slideIn,
-                    ),
-                  ),
-              child: child,
-            );
-
           case TransitionType.slideUp:
-            return SlideTransition(
-              position:
-                  Tween<Offset>(
-                    begin: const Offset(0.0, 1.0),
-                    end: Offset.zero,
-                  ).animate(
-                    CurvedAnimation(
-                      parent: animation,
-                      curve: AppCurves.slideIn,
-                    ),
-                  ),
-              child: child,
-            );
-
           case TransitionType.none:
             return child;
         }
@@ -242,3 +243,4 @@ abstract class AppRouter {
     );
   }
 }
+
